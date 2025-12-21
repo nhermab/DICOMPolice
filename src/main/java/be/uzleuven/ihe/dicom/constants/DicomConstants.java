@@ -23,6 +23,9 @@ public final class DicomConstants {
     public static final String CODE_MANIFEST = "113030";       // DCM "Manifest"
     public static final String CODE_IMAGE_LIBRARY = "111028"; // DCM "Image Library"
     public static final String CODE_KEY_OBJECT_DESCRIPTION = "113012"; // DCM "Key Object Description"
+    public static final String CODE_DOCUMENT_TITLE_MODIFIER = "113011"; // DCM "Document Title Modifier"
+    public static final String CODE_QUALITY_ISSUE = "113010"; // DCM "Quality Issue"
+    public static final String CODE_BEST_IN_SET = "113013"; // DCM "Best In Set"
 
     // TID 1600 specific codes
     public static final String CODE_MODALITY = "121139";
@@ -39,10 +42,16 @@ public final class DicomConstants {
     public static final String VALUE_TYPE_CODE = "CODE";
     public static final String VALUE_TYPE_WAVEFORM = "WAVEFORM";
     public static final String VALUE_TYPE_TEXT = "TEXT";
+    public static final String VALUE_TYPE_PNAME = "PNAME";
     public static final String CONTINUITY_SEPARATE = "SEPARATE";
 
     // Relationship types used in SR trees
     public static final String RELATIONSHIP_CONTAINS = "CONTAINS";
+    public static final String RELATIONSHIP_HAS_CONCEPT_MOD = "HAS CONCEPT MOD";
+    public static final String RELATIONSHIP_HAS_OBS_CONTEXT = "HAS OBS CONTEXT";
+    public static final String RELATIONSHIP_HAS_ACQ_CONTEXT = "HAS ACQ CONTEXT";
+    public static final String RELATIONSHIP_INFERRED_FROM = "INFERRED FROM";
+    public static final String RELATIONSHIP_SELECTED_FROM = "SELECTED FROM";
 
     // Completion/verification flags commonly used in KOS/XDS-I
     public static final String COMPLETION_FLAG_COMPLETE = "COMPLETE";
@@ -63,4 +72,7 @@ public final class DicomConstants {
     public static final String IOCM_REJECTED_QUALITY = "113001";
     public static final String IOCM_REJECTED_PATIENT_SAFETY = "113037";
     public static final String IOCM_DATA_RETENTION_EXPIRED = "113039";
+
+    // Common module paths used in validation
+    public static final String MODULE_SR_DOCUMENT_CONTENT = "SRDocumentContent";
 }

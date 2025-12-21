@@ -7,15 +7,16 @@ import org.dcm4che3.data.VR;
 import be.uzleuven.ihe.dicom.validator.model.ValidationResult;
 import be.uzleuven.ihe.dicom.constants.SopClassLists;
 import be.uzleuven.ihe.dicom.constants.TransferSyntaxUIDs;
+import be.uzleuven.ihe.dicom.constants.ValidationMessages;
 
 import java.util.*;
-import java.util.stream.IntStream;
 
 /**
  * Advanced structure validation for DICOM objects.
  * Validates SOP Class UIDs, private attributes, empty sequences, and template identification.
  */
 public class AdvancedStructureValidator {
+
 
     /**
      * Validate Referenced SOP Class UID consistency and sanity checks.
@@ -30,69 +31,55 @@ public class AdvancedStructureValidator {
      * Validate SOP Class UIDs in Evidence Sequence.
      */
     private static void validateEvidenceSequenceSOPClasses(Attributes dataset, ValidationResult result, String path) {
-        org.dcm4che3.data.Sequence evidenceSeq = dataset.getSequence(Tag.CurrentRequestedProcedureEvidenceSequence);
-        if (evidenceSeq == null) {
-            return;
-        }
-
-        int studyNum = 0;
-        for (Attributes study : evidenceSeq) {
-            String studyPath = path + ">Evidence[" + studyNum + "]";
-            validateStudySeriesSOPClasses(study, result, studyPath);
-            studyNum++;
-        }
+        iterateSequence(dataset, Tag.CurrentRequestedProcedureEvidenceSequence,
+            (study, idx) -> validateStudySeriesSOPClasses(study, result, path + ">Evidence[" + idx + "]"));
     }
 
     /**
      * Validate SOP Class UIDs in a study's series.
      */
     private static void validateStudySeriesSOPClasses(Attributes study, ValidationResult result, String studyPath) {
-        org.dcm4che3.data.Sequence seriesSeq = study.getSequence(Tag.ReferencedSeriesSequence);
-        if (seriesSeq == null) {
-            return;
-        }
-
-        int seriesNum = 0;
-        for (Attributes series : seriesSeq) {
-            String seriesPath = studyPath + ">Series[" + seriesNum + "]";
-            validateSeriesSOPClasses(series, result, seriesPath);
-            seriesNum++;
-        }
+        iterateSequence(study, Tag.ReferencedSeriesSequence,
+            (series, idx) -> validateSeriesSOPClasses(series, result, studyPath + ">Series[" + idx + "]"));
     }
 
     /**
      * Validate SOP Class UIDs in a series.
      */
     private static void validateSeriesSOPClasses(Attributes series, ValidationResult result, String seriesPath) {
-        org.dcm4che3.data.Sequence sopSeq = series.getSequence(Tag.ReferencedSOPSequence);
-        if (sopSeq == null) {
-            return;
-        }
-
-        int sopNum = 0;
-        for (Attributes sop : sopSeq) {
-            String sopPath = seriesPath + ">ReferencedSOP[" + sopNum + "]";
+        iterateSequence(series, Tag.ReferencedSOPSequence, (sop, idx) -> {
             String sopClassUID = sop.getString(Tag.ReferencedSOPClassUID);
-            validateSOPClassUID(sopClassUID, "ReferencedSOPClassUID", result, sopPath);
-            sopNum++;
-        }
+            validateSOPClassUID(sopClassUID, "ReferencedSOPClassUID", result, seriesPath + ">ReferencedSOP[" + idx + "]");
+        });
     }
 
     /**
      * Recursively validate SOP Classes in Content Sequence.
      */
     private static void validateContentSequenceSOPClasses(Attributes dataset, ValidationResult result, String path) {
-        org.dcm4che3.data.Sequence contentSeq = dataset.getSequence(Tag.ContentSequence);
-        if (contentSeq == null) {
+        iterateSequence(dataset, Tag.ContentSequence,
+            (item, idx) -> validateContentItemSOPClasses(item, result, path + ">ContentSequence[" + idx + "]"));
+    }
+
+    /**
+     * Helper to iterate through sequence items.
+     */
+    private static void iterateSequence(Attributes dataset, int tag, SequenceItemProcessor processor) {
+        org.dcm4che3.data.Sequence seq = dataset.getSequence(tag);
+        if (seq == null) {
             return;
         }
-
-        int itemNum = 0;
-        for (Attributes item : contentSeq) {
-            String itemPath = path + ">ContentSequence[" + itemNum + "]";
-            validateContentItemSOPClasses(item, result, itemPath);
-            itemNum++;
+        int idx = 0;
+        for (Attributes item : seq) {
+            processor.process(item, idx++);
         }
+    }
+
+    /**
+     * Functional interface for processing sequence items.
+     */
+    private interface SequenceItemProcessor {
+        void process(Attributes item, int index);
     }
 
     /**
@@ -158,9 +145,7 @@ public class AdvancedStructureValidator {
             return false;
         }
 
-        result.addError("CRITICAL: " + attributeName + " contains a Transfer Syntax UID (" + uid +
-                      ") instead of a SOP Class UID. This is a common copy-paste error where " +
-                      "Transfer Syntax UID was used where SOP Class UID belongs.", path);
+        result.addError(String.format(ValidationMessages.TRANSFER_SYNTAX_ERROR, attributeName, uid), path);
         return true;
     }
 
@@ -173,8 +158,7 @@ public class AdvancedStructureValidator {
             return false;
         }
 
-        result.addWarning(attributeName + " references Verification SOP Class (1.2.840.10008.1.1). " +
-                        "This is unusual in a KOS and might indicate a copy-paste error.", path);
+        result.addWarning(String.format(ValidationMessages.VERIFICATION_WARNING, attributeName, ValidationMessages.VERIFICATION_SOP), path);
         return true;
     }
 
@@ -185,10 +169,9 @@ public class AdvancedStructureValidator {
                                                       ValidationResult result, String path) {
         if (SopClassLists.KNOWN_SOP_CLASSES.containsKey(sopClassUID)) {
             String sopClassName = SopClassLists.KNOWN_SOP_CLASSES.get(sopClassUID);
-            result.addInfo(attributeName + " references known SOP Class: " + sopClassName, path);
+            result.addInfo(String.format(ValidationMessages.KNOWN_SOP_MSG, attributeName, sopClassName), path);
         } else {
-            result.addWarning(attributeName + " references unknown or non-standard SOP Class UID: " +
-                            sopClassUID + ". Verify this is a valid SOP Class UID.", path);
+            result.addWarning(String.format(ValidationMessages.UNKNOWN_SOP_MSG, attributeName, sopClassUID), path);
         }
     }
 
@@ -206,8 +189,7 @@ public class AdvancedStructureValidator {
         boolean foundTID2010 = validateTemplateItems(templateSeq, result, path);
 
         if (!foundTID2010) {
-            result.addWarning("ContentTemplateSequence does not contain TemplateIdentifier='2010'. " +
-                            "XDS-I.b Key Object Selection should use TID 2010.", path);
+            result.addWarning(ValidationMessages.NO_TID2010_MSG, path);
         }
     }
 
@@ -220,8 +202,7 @@ public class AdvancedStructureValidator {
             return true;
         }
 
-        result.addWarning("ContentTemplateSequence (0040,A504) is missing. " +
-                        "For XDS-I.b compliance, this should explicitly identify TID 2010.", path);
+        result.addWarning(ValidationMessages.MISSING_TEMPLATE_MSG, path);
         return false;
     }
 
@@ -245,7 +226,7 @@ public class AdvancedStructureValidator {
      */
     private static boolean isTID2010(Attributes item) {
         String templateID = item.getString(Tag.TemplateIdentifier);
-        return templateID != null && templateID.equals("2010");
+        return templateID != null && templateID.equals(ValidationMessages.TID_2010);
     }
 
     /**
@@ -253,11 +234,10 @@ public class AdvancedStructureValidator {
      */
     private static void validateTID2010Mapping(Attributes item, ValidationResult result, String path) {
         String mappingResource = item.getString(Tag.MappingResource);
-        if (mappingResource == null || !mappingResource.equals("DCMR")) {
-            result.addError("ContentTemplateSequence has TemplateIdentifier=2010 but " +
-                          "MappingResource is not 'DCMR'. Expected MappingResource='DCMR'.", path);
+        if (mappingResource == null || !mappingResource.equals(ValidationMessages.DCMR)) {
+            result.addError(ValidationMessages.TID2010_ERROR, path);
         } else {
-            result.addInfo("ContentTemplateSequence correctly identifies TID 2010 (DCMR)", path);
+            result.addInfo(ValidationMessages.TID2010_INFO, path);
         }
     }
 
@@ -285,17 +265,8 @@ public class AdvancedStructureValidator {
      * Recursively check for empty sequences in ContentSequence.
      */
     private static void validateEmptySequencesInContent(Attributes dataset, ValidationResult result, String path) {
-        org.dcm4che3.data.Sequence contentSeq = dataset.getSequence(Tag.ContentSequence);
-        if (contentSeq == null) {
-            return;
-        }
-
-        int itemNum = 0;
-        for (Attributes item : contentSeq) {
-            String itemPath = path + ">ContentSequence[" + itemNum + "]";
-            validateContentItemEmptySequences(item, result, itemPath);
-            itemNum++;
-        }
+        iterateSequence(dataset, Tag.ContentSequence, (item, idx) ->
+            validateContentItemEmptySequences(item, result, path + ">ContentSequence[" + idx + "]"));
     }
 
     /**
@@ -315,8 +286,7 @@ public class AdvancedStructureValidator {
         if (dataset.contains(tag)) {
             org.dcm4che3.data.Sequence seq = dataset.getSequence(tag);
             if (seq != null && seq.isEmpty()) {
-                result.addError(name + " (" + tagString(tag) + ") is present but has zero length. " +
-                              type + " sequences must contain at least one item when present.", path);
+                result.addError(name + String.format(ValidationMessages.EMPTY_SEQUENCE_MSG, tagString(tag), type), path);
             }
         }
     }
@@ -332,7 +302,7 @@ public class AdvancedStructureValidator {
         scanPrivateAttributes(dataset, privateGroupsFound, hasCreatorTag);
 
         if (privateGroupsFound.isEmpty()) {
-            result.addInfo("No private attributes found - clean for XDS sharing", path);
+            result.addInfo(ValidationMessages.NO_PRIVATE_ATTRS, path);
             return;
         }
 
@@ -358,14 +328,10 @@ public class AdvancedStructureValidator {
     private static void reportPrivateGroup(int group, List<Integer> elements,
                                           Map<Integer, Boolean> hasCreatorTag,
                                           ValidationResult result, String path) {
-        result.addWarning(String.format("Private attributes found in group %04X (%d elements). " +
-                        "XDS-I.b KOS objects should ideally be free of private tags for broad interoperability.",
-                        group, elements.size()), path);
+        result.addWarning(String.format(ValidationMessages.PRIVATE_ATTRS_MSG, group, elements.size()), path);
 
         if (!hasCreatorTag.getOrDefault(group, false)) {
-            result.addError(String.format("Private group %04X has private elements but no " +
-                          "Private Creator Data Element (e.g., %04X,0010). " +
-                          "The file structure may be corrupt.", group, group), path);
+            result.addError(String.format(ValidationMessages.PRIVATE_NO_CREATOR_MSG, group, group), path);
         }
     }
 

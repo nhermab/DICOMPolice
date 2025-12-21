@@ -20,7 +20,7 @@ public class KeyObjectContentUtils {
         ALLOWED_KOS_VALUE_TYPES.add(DicomConstants.VALUE_TYPE_TEXT);
         ALLOWED_KOS_VALUE_TYPES.add(DicomConstants.VALUE_TYPE_CODE);
         ALLOWED_KOS_VALUE_TYPES.add(DicomConstants.VALUE_TYPE_UIDREF);
-        ALLOWED_KOS_VALUE_TYPES.add("PNAME");
+        ALLOWED_KOS_VALUE_TYPES.add(DicomConstants.VALUE_TYPE_PNAME);
         ALLOWED_KOS_VALUE_TYPES.add(DicomConstants.VALUE_TYPE_COMPOSITE);
         ALLOWED_KOS_VALUE_TYPES.add(DicomConstants.VALUE_TYPE_IMAGE);
         ALLOWED_KOS_VALUE_TYPES.add(DicomConstants.VALUE_TYPE_WAVEFORM);
@@ -33,7 +33,7 @@ public class KeyObjectContentUtils {
      * - ContentSequence present and contains at least one IMAGE/COMPOSITE/WAVEFORM reference item
      */
     public static void validateKOSRootContentConstraints(Attributes dataset, ValidationResult result) {
-        String modulePath = "SRDocumentContent";
+        String modulePath = DicomConstants.MODULE_SR_DOCUMENT_CONTENT;
 
         Sequence root = dataset.getSequence(Tag.ContentSequence);
         if (root == null || root.isEmpty()) {
@@ -80,7 +80,7 @@ public class KeyObjectContentUtils {
 
         for (int i = 0; i < seq.size(); i++) {
             Attributes item = seq.get(i);
-            String itemPath = ctx.buildPath("SRDocumentContent", "ContentSequence", i);
+            String itemPath = ctx.buildPath(DicomConstants.MODULE_SR_DOCUMENT_CONTENT, "ContentSequence", i);
 
             validateContentItem(item, result, itemPath, ctx);
         }
@@ -91,7 +91,14 @@ public class KeyObjectContentUtils {
         ctx.checkRequiredAttribute(item, Tag.RelationshipType, "RelationshipType", result, itemPath);
         if (item.contains(Tag.RelationshipType)) {
             ctx.checkEnumeratedValue(item, Tag.RelationshipType, "RelationshipType",
-                new String[]{DicomConstants.RELATIONSHIP_CONTAINS, "HAS CONCEPT MOD", "HAS OBS CONTEXT", "HAS ACQ CONTEXT", "INFERRED FROM", "SELECTED FROM"},
+                new String[]{
+                    DicomConstants.RELATIONSHIP_CONTAINS,
+                    DicomConstants.RELATIONSHIP_HAS_CONCEPT_MOD,
+                    DicomConstants.RELATIONSHIP_HAS_OBS_CONTEXT,
+                    DicomConstants.RELATIONSHIP_HAS_ACQ_CONTEXT,
+                    DicomConstants.RELATIONSHIP_INFERRED_FROM,
+                    DicomConstants.RELATIONSHIP_SELECTED_FROM
+                },
                 result, itemPath);
         }
 
@@ -121,7 +128,7 @@ public class KeyObjectContentUtils {
                         ctx.checkUID(item, Tag.UID, "UID", result, itemPath);
                     }
                     break;
-                case "PNAME":
+                case DicomConstants.VALUE_TYPE_PNAME:
                     ctx.checkRequiredAttribute(item, Tag.PersonName, "PersonName", result, itemPath);
                     break;
                 case DicomConstants.VALUE_TYPE_IMAGE:
@@ -182,12 +189,12 @@ public class KeyObjectContentUtils {
     public static void validateConceptNameCodeSequence(Attributes dataset, ValidationResult result, AbstractIODValidator ctx) {
         Sequence seq = dataset.getSequence(Tag.ConceptNameCodeSequence);
         if (seq == null || seq.isEmpty()) {
-            result.addError("ConceptNameCodeSequence is empty", "SRDocumentContent");
+            result.addError("ConceptNameCodeSequence is empty", DicomConstants.MODULE_SR_DOCUMENT_CONTENT);
             return;
         }
 
         Attributes item = seq.get(0);
-        String itemPath = "SRDocumentContent > ConceptNameCodeSequence[1]";
+        String itemPath = DicomConstants.MODULE_SR_DOCUMENT_CONTENT + " > ConceptNameCodeSequence[1]";
 
         // Code Value - Type 1
         ctx.checkRequiredAttribute(item, Tag.CodeValue, "CodeValue", result, itemPath);
@@ -203,12 +210,12 @@ public class KeyObjectContentUtils {
     public static void validateContentTemplateSequence(Attributes dataset, ValidationResult result, AbstractIODValidator ctx) {
         Sequence seq = dataset.getSequence(Tag.ContentTemplateSequence);
         if (seq == null || seq.isEmpty()) {
-            result.addError("ContentTemplateSequence is empty", "SRDocumentContent");
+            result.addError("ContentTemplateSequence is empty", DicomConstants.MODULE_SR_DOCUMENT_CONTENT);
             return;
         }
 
         Attributes item = seq.get(0);
-        String itemPath = "SRDocumentContent > ContentTemplateSequence[1]";
+        String itemPath = DicomConstants.MODULE_SR_DOCUMENT_CONTENT + " > ContentTemplateSequence[1]";
 
         // Template Identifier - Type 1
         ctx.checkRequiredAttribute(item, Tag.TemplateIdentifier, "TemplateIdentifier", result, itemPath);
@@ -237,8 +244,8 @@ public class KeyObjectContentUtils {
             return;
         }
 
-        boolean requiresQualityModifier = "113001".equals(codeValue) || "113010".equals(codeValue);
-        boolean requiresBestInSetModifier = "113013".equals(codeValue);
+        boolean requiresQualityModifier = DicomConstants.IOCM_REJECTED_QUALITY.equals(codeValue) || DicomConstants.CODE_QUALITY_ISSUE.equals(codeValue);
+        boolean requiresBestInSetModifier = DicomConstants.CODE_BEST_IN_SET.equals(codeValue);
 
         if (!requiresQualityModifier && !requiresBestInSetModifier) {
             return; // No modifiers required
@@ -256,13 +263,13 @@ public class KeyObjectContentUtils {
             String relationshipType = contentItem.getString(Tag.RelationshipType);
             String valueType = contentItem.getString(Tag.ValueType);
 
-            if ("HAS CONCEPT MOD".equals(relationshipType) && DicomConstants.VALUE_TYPE_CODE.equals(valueType)) {
+            if (DicomConstants.RELATIONSHIP_HAS_CONCEPT_MOD.equals(relationshipType) && DicomConstants.VALUE_TYPE_CODE.equals(valueType)) {
                 Sequence conceptNameSeq = contentItem.getSequence(Tag.ConceptNameCodeSequence);
                 if (conceptNameSeq != null && !conceptNameSeq.isEmpty()) {
                     Attributes conceptName = conceptNameSeq.get(0);
                     String conceptCode = conceptName.getString(Tag.CodeValue);
 
-                    if ("113011".equals(conceptCode)) { // Document Title Modifier
+                    if (DicomConstants.CODE_DOCUMENT_TITLE_MODIFIER.equals(conceptCode)) { // Document Title Modifier
                         foundModifier = true;
 
                         // Validate the modifier code itself
@@ -280,10 +287,10 @@ public class KeyObjectContentUtils {
         if (!foundModifier) {
             if (requiresQualityModifier) {
                 result.addError("Document Title 'Rejected for Quality Reasons' or 'Quality Issue' requires " +
-                              "at least one Document Title Modifier (113011, DCM) with a code from CID 7011", modulePath);
+                              "at least one Document Title Modifier (" + DicomConstants.CODE_DOCUMENT_TITLE_MODIFIER + ", DCM) with a code from CID 7011", modulePath);
             } else {
                 result.addError("Document Title 'Best In Set' requires at least one Document Title Modifier " +
-                              "(113011, DCM) with a code from CID 7012", modulePath);
+                              "(" + DicomConstants.CODE_DOCUMENT_TITLE_MODIFIER + ", DCM) with a code from CID 7012", modulePath);
             }
         }
     }
@@ -318,7 +325,7 @@ public class KeyObjectContentUtils {
 
         if (descriptionCount > 1) {
             result.addError("Found " + descriptionCount + " Key Object Description items. " +
-                          "TID 2010 allows at most one Key Object Description (113012, DCM) text item.", modulePath);
+                          "TID 2010 allows at most one Key Object Description (" + DicomConstants.CODE_KEY_OBJECT_DESCRIPTION + ", DCM) text item.", modulePath);
         }
     }
 }

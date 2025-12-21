@@ -106,6 +106,10 @@ java -cp target/DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.creator.IHE
 
 Generated samples are written to the current working directory.
 
+#### EVIL (intentionally broken) generators
+
+If you want to generate intentionally non-compliant KOS/MADO files for negative testing/fuzzing, see `EVIL_GENERATORS.md`.
+
 ---
 
 ## Validation Profiles

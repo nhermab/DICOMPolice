@@ -63,8 +63,41 @@ public class DicomCreatorUtils {
     // --- Random Data Generation ---
 
     public static String randomPersonName() {
-        String family = randomFrom("Smith", "Johnson", "Brown", "Taylor", "Anderson", "Thomas", "Jackson", "White", "Harris", "Martin");
-        String given = randomFrom("Alex", "Sam", "Jordan", "Casey", "Taylor", "Morgan", "Riley", "Jamie", "Cameron", "Avery");
+        String family = randomFrom(
+                "Smith", "Johnson", "Brown", "Taylor", "Anderson", "Thomas", "Jackson", "White", "Harris", "Martin",
+                "Peeters", "Janssens", "DeWitte", "Dubois", "Lefevre", "Laurent", "Moreau", "Dupont",
+                "Muller", "Schmidt", "Schneider", "Wagner", "Fischer",
+                "Garcia", "Rossi", "Bianchi", "Silva", "Santos",
+                "Kim", "Lee", "Park", "Choi",
+                "Sato", "Suzuki", "Takahashi", "Ito", "Yamamoto",
+                "Nguyen", "Tran",
+                "Shevchenko", "Bondarenko", "Ivanov", "Petrov",
+                "Haddad", "Almasri", "Khan", "Rahman", "Hassan",
+                "Ahmadi", "Mohammadi", "Hosseini",
+                "Patel", "Singh", "OConnor", "Murphy", "Cohen", "Novak"
+        );
+
+        String given = randomFrom(
+                "Emma", "Olivia", "Ava", "Sophia", "Isabella", "Mia", "Charlotte", "Amelia", "Harper", "Evelyn",
+                "Liam", "Noah", "Oliver", "Elijah", "Lucas", "Mason", "Logan", "James", "Benjamin",
+                "Camille", "Chloe", "Lea", "Juliette", "Louise", "Luc", "Louis", "Antoine", "Claire", "Marie",
+                "Anna", "Lena", "Sophie", "Laura", "Lukas", "Max", "Jonas", "Felix",
+                "Bram", "Tomas", "Lotte", "Nina",
+                "Sofia", "Lucia", "Maria", "Diego", "Carlos", "Mateo",
+                "Fatima", "Aisha", "Layla", "Zainab", "Nadia", "Sara",
+                "Ahmed", "Mohammed", "Omar", "Hassan", "Youssef", "Ali",
+                "Zahra", "Nazanin", "Fatemeh", "Mahnaz", "Leila",
+                "AliReza", "Reza", "Mohammad", "Hossein", "Arman",
+                "Sakura", "Yui", "Yuki", "Haruka", "Nao", "Aoi",
+                "Haruki", "Takumi", "Yuto", "Kenta",
+                "Jiwoo", "Minji", "Yuna", "Seojin", "Hyejin", "Soo",
+                "Hyun", "Joon", "Minho", "Seung",
+                "Olena", "Oksana", "Kateryna", "Anastasia", "Daria",
+                "Dmytro", "Mykola", "Vlad",
+                "Aanya", "Priya", "Neha", "Rahul", "Arjun",
+                "Alex", "Sam", "Jordan", "Casey", "Taylor", "Morgan", "Riley", "Jamie", "Cameron", "Avery",
+                "Isla", "Poppy", "Ibrahim", "Yosef", "Zara", "Maya"
+        );
         return family + "^" + given;
     }
 
@@ -141,4 +174,3 @@ public class DicomCreatorUtils {
         }
     }
 }
-
