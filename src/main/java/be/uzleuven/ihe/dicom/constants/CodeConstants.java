@@ -39,10 +39,13 @@ public final class CodeConstants {
     public static final String CODE_TARGET_REGION = "123014";
     public static final String CODE_SERIES_DATE = "ddd003";
     public static final String CODE_SERIES_TIME = "ddd004";
-    public static final String CODE_SERIES_NUMBER = "ddd005";
+    public static final String CODE_SERIES_NUMBER = "ddd010";
     public static final String CODE_SERIES_DESCRIPTION = "ddd002";
     public static final String CODE_SERIES_INSTANCE_UID = "ddd006";
     public static final String CODE_SOP_INSTANCE_UID = "ddd007";
+    public static final String CODE_INSTANCE_NUMBER = "ddd005";
+    public static final String CODE_NUMBER_OF_FRAMES = "121140";
+    public static final String CODE_NUM_SERIES_RELATED_INSTANCES = "ddd013";
 
     // ============================================================================
     // CODING SCHEME DESIGNATORS (second parameter of code(...))
@@ -85,5 +88,8 @@ public final class CodeConstants {
     public static final String MEANING_SERIES_DESCRIPTION = "Series Description";
     public static final String MEANING_SERIES_INSTANCE_UID = "Series Instance UID";
     public static final String MEANING_SOP_INSTANCE_UID = "SOP Instance UIDs";
+    public static final String MEANING_INSTANCE_NUMBER = "Instance Number";
+    public static final String MEANING_NUMBER_OF_FRAMES = "Number of Frames";
+    public static final String MEANING_NUM_SERIES_RELATED_INSTANCES = "Number of Series Related Instances";
 }
 

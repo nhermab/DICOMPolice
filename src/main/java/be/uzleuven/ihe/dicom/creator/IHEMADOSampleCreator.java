@@ -142,46 +142,62 @@ public class IHEMADOSampleCreator {
     }
 
     /**
-     * Generate random options with balanced parameters:
+     * Generate random options with balanced parameters designed to be comparable to
+     * {@link IHEKOSSampleCreator#generateRandomOptions()}.
+     *
+     * Shared ranges (KOS & MADO):
      * - totalInstanceCount: 10-10000
      * - seriesCount: 1-30 (but <= totalInstanceCount)
-     * - modalities: 1-3 different types
-     * - multiframeInstanceCount: 1-100 (but <= totalInstanceCount)
-     * - keyImageCount: 1-500 (but <= totalInstanceCount - 1, excluding KIN)
+     * - modalityPool size: 1-4
+     * - multiframe: ~50% chance
+     *
+     * MADO-only extras are kept small so manifests stay comparable in evidence size:
+     * - includeKIN always true (kept for MADO profile behavior)
+     * - multiframeInstanceCount is capped to avoid dominating the study
+     * - keyImageCount is capped to <= 5% of non-KIN instances
      */
-    private static Options generateRandomOptions() {
+    public static Options generateRandomOptions() {
         Options options = new Options();
 
-        // Random total instance count (10-10000)
-        options.totalInstanceCount = 10 + randomInt(9991); // 10 to 10000
+        // Keep comparable with KOS: 10-10000 instances
+        options.totalInstanceCount = 10 + randomInt(9991); // 10..10000
 
-        // Random series count (1-30), but can't exceed instance count
-        // Reserve at least 1 instance per series
+        // Keep comparable with KOS: 1-30 series, but can't exceed instance count
         int maxSeries = Math.min(30, options.totalInstanceCount);
         options.seriesCount = 1 + randomInt(maxSeries);
 
-        // Random modality count (1-3)
-        int modalityCount = 1 + randomInt(3); // 1 to 3
+        // Keep comparable with KOS: 1-4 modalities
+        int modalityCount = 1 + randomInt(4); // 1..4
         String[] allModalities = new String[]{"CT", "MR", "US", "OT"};
         String[] selectedModalities = new String[modalityCount];
         for (int i = 0; i < modalityCount; i++) {
+            // Deterministic (non-random) selection is fine here: we only need variety and stable distribution.
             selectedModalities[i] = allModalities[i % allModalities.length];
         }
         options.modalityPool = selectedModalities;
 
-        // Random multiframe instance count (1-100, but <= totalInstanceCount)
-        int maxMultiframe = Math.min(100, options.totalInstanceCount);
-        options.multiframeInstanceCount = 1 + randomInt(maxMultiframe);
-        options.includeMultiframe = true;
-
-        // KIN is always included (default behavior)
+        // MADO keeps KIN enabled by default; it adds 1 referenced instance.
         options.includeKIN = true;
 
-        // Random key image count (1-500, but <= totalInstanceCount-1 since KIN is one instance)
-        // Key images reference non-KIN instances
+        // Keep comparable with KOS multiframe toggle: 50% chance.
+        options.includeMultiframe = false;//randomInt(200) == 100;
+
+        // If multiframe is enabled, keep counts modest so it doesn't skew sizes.
+        // Cap multiframe to at most 25% of total instances, and hard-cap to 100 to avoid extreme cases.
+        if (options.includeMultiframe) {
+            int maxByPct = Math.max(1, options.totalInstanceCount / 4);
+            int maxMultiframe = Math.min(100, Math.min(options.totalInstanceCount, maxByPct));
+            options.multiframeInstanceCount = 1 + randomInt(maxMultiframe);
+        } else {
+            options.multiframeInstanceCount = 0;
+        }
+
+        // Key images are only descriptive UIDREFs inside the KIN descriptors.
+        // Cap to <= 5% of non-KIN instances to keep MADO overhead small.
         int nonKinInstances = Math.max(1, options.totalInstanceCount - 1);
-        int maxKeyImages = Math.min(500, nonKinInstances);
-        options.keyImageCount = Math.max(1, 1 + randomInt(maxKeyImages));
+        int capByPct = Math.max(1, (int) Math.floor(nonKinInstances * 0.05));
+        int maxKeyImages = Math.min(500, Math.min(nonKinInstances, capByPct));
+        options.keyImageCount = (maxKeyImages <= 1) ? 1 : (1 + randomInt(maxKeyImages));
 
         return options;
     }
@@ -332,8 +348,12 @@ public class IHEMADOSampleCreator {
             groupSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_SERIES_TIME, SCHEME_DCM, MEANING_SERIES_TIME, series.seriesTime));
             // KOS TID 2010 forbids NUM, so represent the series number as TEXT.
             groupSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_SERIES_NUMBER, SCHEME_DCM, MEANING_SERIES_NUMBER, Integer.toString(series.seriesNumber)));
+            // Number of Series Related Instances (NUM) - Required by MADO TID 1602
+            groupSeq.add(createNumericItem("HAS ACQ CONTEXT", CODE_NUM_SERIES_RELATED_INSTANCES, SCHEME_DCM,
+                    MEANING_NUM_SERIES_RELATED_INSTANCES, series.instances.size()));
 
             // Instance Level Entries (TID 1601)
+            int instanceNumber = 1;
             for (SimulatedInstance inst : series.instances) {
                 Attributes entry = new Attributes();
                 entry.setString(Tag.RelationshipType, VR.CS, be.uzleuven.ihe.dicom.constants.DicomConstants.RELATIONSHIP_CONTAINS);
@@ -345,17 +365,31 @@ public class IHEMADOSampleCreator {
                 refItem.setString(Tag.ReferencedSOPInstanceUID, VR.UI, inst.sopInstanceUID);
                 refSop.add(refItem);
 
+                // Instance-level metadata (TID 1601)
+                Sequence entryContent = entry.newSequence(Tag.ContentSequence, 5);
+
+                // Instance Number (TEXT) - Required by MADO TID 1601 (RC+)
+                entryContent.add(createTextItem("HAS ACQ CONTEXT", CODE_INSTANCE_NUMBER, SCHEME_DCM,
+                        MEANING_INSTANCE_NUMBER, Integer.toString(instanceNumber)));
+
+                // Number of Frames (NUM) - Required if multi-frame (RC+)
+                if (isMultiframe(inst.sopClassUID)) {
+                    entryContent.add(createNumericItem("HAS ACQ CONTEXT", CODE_NUMBER_OF_FRAMES, SCHEME_DCM,
+                            MEANING_NUMBER_OF_FRAMES, 10));
+                }
+
                 // If this is the KIN instance, add KOS descriptors container.
                 if (inst.isKIN) {
-                    Sequence entryContent = entry.newSequence(Tag.ContentSequence, 5);
                     addKinDescriptors(entryContent, study);
                 }
 
                 groupSeq.add(entry);
+                instanceNumber++;
             }
             libContent.add(group);
         }
 
+        // IMPORTANT: attach the Image Library container to the root ContentSequence.
         contentSeq.add(libContainer);
         return d;
     }
@@ -383,14 +417,11 @@ public class IHEMADOSampleCreator {
         // KOS Description (optional)
         descSeq.add(createTextItem(be.uzleuven.ihe.dicom.constants.DicomConstants.RELATIONSHIP_CONTAINS, "ddd009", "DCM", "KOS Object Description", "Key Objects for Surgery"));
 
-        // Flagged images: IMPORTANT
-        // The validator scans for duplicate ReferencedSOPInstanceUID across the SR content tree.
-        // To avoid counting duplicates, we represent flagged images as UIDREF content items
-        // (ddd007, DCM 'SOP Instance UIDs') instead of additional IMAGE references.
-        // This still satisfies TID1600ImageLibraryValidator.validateKOSReference() which
-        // only checks presence of ddd007 at least once.
+        // Flagged images: MADO TID 16XX requires IMAGE value type for visual references.
+        // Row 4/5 of TID 16XX "Image Library Entry Descriptors for Key Object Selection"
+        // specifies IMAGE or COMPOSITE value types (Status MC).
 
-        // Select up to N referenced instances (UIDREF items) from NON-KIN instances to describe.
+        // Select up to N referenced instances (IMAGE items) from NON-KIN instances to describe.
         int desired = study.options != null ? Math.max(0, study.options.keyImageCount) : 3;
         if (desired == 0) desired = 3; // default fallback
 
@@ -424,20 +455,39 @@ public class IHEMADOSampleCreator {
             if (!selected.contains(mi)) selected.add(mi);
         }
 
-        // Add UIDREF items for selected instances
+        // Add IMAGE items for selected instances (per MADO TID 16XX requirements)
         for (SimulatedInstance inst : selected) {
-            descSeq.add(createUIDRefItem(be.uzleuven.ihe.dicom.constants.DicomConstants.RELATIONSHIP_CONTAINS,
-                    CODE_SOP_INSTANCE_UID, SCHEME_DCM, MEANING_SOP_INSTANCE_UID, inst.sopInstanceUID));
-        }
+            Attributes imageItem = new Attributes();
+            imageItem.setString(Tag.RelationshipType, VR.CS, be.uzleuven.ihe.dicom.constants.DicomConstants.RELATIONSHIP_CONTAINS);
+            imageItem.setString(Tag.ValueType, VR.CS, "IMAGE"); // Must be IMAGE per MADO TID 16XX
 
-        // If you also want to convey a specific frame number without using ReferencedSOPSequence,
-        // add a TEXT note; the validator doesn't check it, but it's human-readable.
-        if (!selected.isEmpty()) {
-            descSeq.add(createTextItem(be.uzleuven.ihe.dicom.constants.DicomConstants.RELATIONSHIP_CONTAINS, "ddd010", "DCM", "Frame Note",
-                    "Selected key-image UIDREFs (may include multiframe objects)."));
+            Sequence refSop = imageItem.newSequence(Tag.ReferencedSOPSequence, 1);
+            Attributes refItem = new Attributes();
+            refItem.setString(Tag.ReferencedSOPClassUID, VR.UI, inst.sopClassUID);
+            refItem.setString(Tag.ReferencedSOPInstanceUID, VR.UI, inst.sopInstanceUID);
+            refSop.add(refItem);
+
+            descSeq.add(imageItem);
         }
 
         entryContent.add(kosDesc);
+    }
+
+    /**
+     * Helper method to determine if a SOP Class UID represents a multiframe image.
+     */
+    private static boolean isMultiframe(String sopClassUID) {
+        // Common multiframe SOP Classes
+        return UID.EnhancedCTImageStorage.equals(sopClassUID) ||
+               UID.EnhancedMRImageStorage.equals(sopClassUID) ||
+               UID.EnhancedMRColorImageStorage.equals(sopClassUID) ||
+               UID.EnhancedPETImageStorage.equals(sopClassUID) ||
+               UID.EnhancedUSVolumeStorage.equals(sopClassUID) ||
+               UID.EnhancedXAImageStorage.equals(sopClassUID) ||
+               UID.EnhancedXRFImageStorage.equals(sopClassUID) ||
+               UID.XRay3DAngiographicImageStorage.equals(sopClassUID) ||
+               UID.XRay3DCraniofacialImageStorage.equals(sopClassUID) ||
+               UID.BreastTomosynthesisImageStorage.equals(sopClassUID);
     }
 
     // --- Evidence Sequence Helper ---

@@ -23,6 +23,25 @@ public class IHEKOSSampleCreator {
     private static final String DEFAULT_WADO_RS_BASE_URL = "https://pacs.example.org/dicom-web/studies";
 
     /**
+     * Default OID for Patient ID Issuer (IHE XDS-I.b requirement).
+     * Must be a valid ISO OID.
+     */
+    private static final String DEFAULT_PATIENT_ID_ISSUER_OID = "1.2.3.4.5.6.7.8.9";
+
+    /**
+     * Default OID for Accession Number Issuer (IHE XDS-I.b requirement).
+     * Must be a valid ISO OID.
+     */
+    private static final String DEFAULT_ACCESSION_ISSUER_OID = "1.2.3.4.5.6.7.8.10";
+
+    /**
+     * Default Repository UID for XDS-I.b Retrieve Location.
+     * Per IHE RAD TF-3 Section 4.68.4.1.2.2, the Retrieve Location UID (0040,E011)
+     * identifies the XDS-I.b Imaging Document Source where the images can be retrieved.
+     */
+    private static final String DEFAULT_RETRIEVE_LOCATION_UID = "1.2.3.4.5.6.7.8.9.10";
+
+    /**
      * Generation knobs for the KOS size/shape.
      *
      * Contract:
@@ -134,7 +153,7 @@ public class IHEKOSSampleCreator {
      *
      * Note: ALL instances are included in the content tree per DICOM/IHE spec.
      */
-    private static Options generateRandomOptions() {
+    public static Options generateRandomOptions() {
         Options options = new Options();
 
         // Random instance count (10-10000)
@@ -185,6 +204,11 @@ public class IHEKOSSampleCreator {
         d.setString(Tag.PatientName, VR.PN, randomPersonName());
         d.setString(Tag.PatientID, VR.LO, randomPatientId());
         d.setString(Tag.IssuerOfPatientID, VR.LO, randomIssuer());
+
+        // XDS-I.b requires IssuerOfPatientIDQualifiersSequence with UniversalEntityID + type ISO
+        // for federated patient identification across enterprises
+        addPatientIDQualifiers(d, DEFAULT_PATIENT_ID_ISSUER_OID);
+
         d.setString(Tag.PatientBirthDate, VR.DA, randomDateYYYYMMDD(1940, 2015));
         d.setString(Tag.PatientSex, VR.CS, randomFrom("M", "F", "O"));
 
@@ -196,6 +220,10 @@ public class IHEKOSSampleCreator {
         d.setString(Tag.StudyTime, VR.TM, nowHHMMSS());
         String accessionNumber = randomAccession();
         d.setString(Tag.AccessionNumber, VR.SH, accessionNumber);
+
+        // XDS-I.b requires Issuer of Accession Number Sequence for cross-enterprise procedure tracking
+        addAccessionNumberIssuer(d, DEFAULT_ACCESSION_ISSUER_OID);
+
         d.setString(Tag.ReferringPhysicianName, VR.PN, randomPersonName());
 
         // --- Series IE (Key Object Document Series) ---
@@ -219,7 +247,8 @@ public class IHEKOSSampleCreator {
         d.setString(Tag.TimezoneOffsetFromUTC, VR.SH, timezoneOffsetFromUTC());
 
         // ReferencedRequestSequence is Type 2 (must be present) and required by this validator
-        populateReferencedRequestSequence(d, studyInstanceUid, accessionNumber);
+        // XDS-I.b requires issuer qualification for Accession Number
+        populateReferencedRequestSequenceWithIssuer(d, studyInstanceUid, accessionNumber, DEFAULT_ACCESSION_ISSUER_OID);
 
         // --- SR Document Content Module (Root container) ---
         d.setString(Tag.ValueType, VR.CS, "CONTAINER");
@@ -295,6 +324,13 @@ public class IHEKOSSampleCreator {
             Attributes seriesItem = new Attributes();
             String seriesInstanceUID = UIDUtils.createUID();
             seriesItem.setString(Tag.SeriesInstanceUID, VR.UI, seriesInstanceUID);
+
+            // CRITICAL XDS-I.b REQUIREMENT: Retrieve Location UID (0040,E011)
+            // Per IHE RAD TF-3 Section 4.68.4.1.2.2: "The KOS object shall include the Retrieve Location UID
+            // (0040,E011) attribute... within the Referenced Series Sequence (0008,1115) within the
+            // Current Requested Procedure Evidence Sequence (0040,A375)."
+            // This identifies the XDS-I.b Imaging Document Source where images can be retrieved.
+            seriesItem.setString(Tag.RetrieveLocationUID, VR.UI, DEFAULT_RETRIEVE_LOCATION_UID);
 
             // Per IHE XDS-I.b DICOM Retrieve by WADO-RS Option:
             // Retrieve URL (0008,1190) provides direct WADO-RS endpoint for web-based retrieval
