@@ -1,7 +1,6 @@
 package be.uzleuven.ihe.dicom.creator;
 
 import be.uzleuven.ihe.dicom.constants.DicomConstants;
-import be.uzleuven.ihe.dicom.constants.CodeConstants;
 import org.dcm4che3.data.*;
 import org.dcm4che3.util.UIDUtils;
 
@@ -25,21 +24,177 @@ public class IHEMADOSampleCreator {
     private static final String DEFAULT_ACCESSION_ISSUER_OID = "2.16.840.1.113883.3.72.5.9.1";
     private static final String DEFAULT_RETRIEVE_LOCATION_UID = "1.2.3.4.5.6.7.8.9.10";
 
+    /**
+     * Parameterization for MADO size/shape.
+     *
+     * Defaults are chosen to keep the current file identical in structure:
+     * - 5 series total
+     * - CT single-frame: 5 instances
+     * - CT multiframe: 1 instance (Enhanced CT)
+     * - OT: 1
+     * - US: 1
+     * - KO (KIN): 1
+     * - keyImageCount = 3 (the existing addKinDescriptors behavior)
+     */
+    public static class Options {
+        /** Total series in the referenced study (including optional KIN series). */
+        public int seriesCount = 5;
+
+        /** Ensure a KIN (Key Object) instance exists and is referenced as-is. */
+        public boolean includeKIN = true;
+
+        /** Modalities pool for non-KIN series. Uses DICOM modality codes ("CT", "MR", etc.). */
+        public String[] modalityPool = new String[]{"CT", "OT", "US"};
+
+        /** Total number of referenced instances across non-KIN series. */
+        public int totalInstanceCount = 8; // matches default: 5 + 1 + 1 + 1
+
+        /**
+         * If true, generate one multiframe-like instance (Enhanced CT) as part of the total.
+         * (Keeps compatibility with current validator expectations.)
+         */
+        public boolean includeMultiframe = true;
+
+        /** When includeMultiframe=true, number of multiframe instances to generate. */
+        public int multiframeInstanceCount = 1;
+
+        /**
+         * How many referenced "key images" (UIDREF items) to put in KIN descriptors.
+         * NOTE: This does NOT limit instances in the content tree. ALL instances in Evidence
+         * are always included in the Image Library per DICOM/IHE spec. This parameter only
+         * affects how many images the nested KIN (Key Image Note) describes via UIDREF items.
+         */
+        public int keyImageCount = 3;
+
+        public Options withSeriesCount(int v) {
+            this.seriesCount = Math.max(1, v);
+            return this;
+        }
+
+        public Options withTotalInstanceCount(int v) {
+            this.totalInstanceCount = Math.max(1, v);
+            return this;
+        }
+
+        public Options withModalityPool(String... modalities) {
+            if (modalities != null && modalities.length > 0) this.modalityPool = modalities;
+            return this;
+        }
+
+        public Options withIncludeKIN(boolean v) {
+            this.includeKIN = v;
+            return this;
+        }
+
+        public Options withIncludeMultiframe(boolean v) {
+            this.includeMultiframe = v;
+            return this;
+        }
+
+        public Options withMultiframeInstanceCount(int v) {
+            this.multiframeInstanceCount = Math.max(0, v);
+            return this;
+        }
+
+        public Options withKeyImageCount(int v) {
+            this.keyImageCount = Math.max(0, v);
+            return this;
+        }
+    }
+
+    public static Options defaultOptions() {
+        return new Options();
+    }
+
     public static void main(String[] args) throws Exception {
+        // Generate a single random MADO file with random parameters
+        int count = 1;
+        if (args != null && args.length > 0) {
+            try {
+                count = Math.max(1, Integer.parseInt(args[0]));
+            } catch (NumberFormatException ignore) {
+                // ignore
+            }
+        }
+
         File outDir = new File(System.getProperty("user.dir"));
 
-        // 1. Generate the Simulated Study Structure (5 Series)
-        SimulatedStudy study = generateSimulatedStudy();
+        for (int i = 0; i < count; i++) {
+            // Generate random options for each file
+            Options options = generateRandomOptions();
 
-        // 2. Create the MADO Manifest Attributes
-        Attributes madoKos = createMADOAttributes(study);
+            // 1. Generate the Simulated Study Structure
+            SimulatedStudy study = generateSimulatedStudy(options);
 
-        // 3. Write to file
-        String filename = "IHE_MADO.dcm";
-        File outFile = new File(outDir, filename);
-        writeDicomFile(outFile, madoKos);
+            // 2. Create the MADO Manifest Attributes
+            Attributes madoKos = createMADOAttributes(study);
 
-        System.out.println("Created MADO Manifest: " + outFile.getAbsolutePath());
+            // 3. Write to file
+            String filename = "IHE_MADO_" + i + ".dcm";
+            File outFile = new File(outDir, filename);
+            writeDicomFile(outFile, madoKos);
+
+            System.out.println("Created MADO Manifest: " + outFile.getAbsolutePath() +
+                " (series=" + options.seriesCount + ", totalInstances=" + options.totalInstanceCount +
+                ", modalities=" + options.modalityPool.length + ", multiframe=" + options.multiframeInstanceCount +
+                ", keyImages=" + options.keyImageCount + ")");
+        }
+    }
+
+    /**
+     * Generate random options with balanced parameters:
+     * - totalInstanceCount: 10-10000
+     * - seriesCount: 1-30 (but <= totalInstanceCount)
+     * - modalities: 1-3 different types
+     * - multiframeInstanceCount: 1-100 (but <= totalInstanceCount)
+     * - keyImageCount: 1-500 (but <= totalInstanceCount - 1, excluding KIN)
+     */
+    private static Options generateRandomOptions() {
+        Options options = new Options();
+
+        // Random total instance count (10-10000)
+        options.totalInstanceCount = 10 + randomInt(9991); // 10 to 10000
+
+        // Random series count (1-30), but can't exceed instance count
+        // Reserve at least 1 instance per series
+        int maxSeries = Math.min(30, options.totalInstanceCount);
+        options.seriesCount = 1 + randomInt(maxSeries);
+
+        // Random modality count (1-3)
+        int modalityCount = 1 + randomInt(3); // 1 to 3
+        String[] allModalities = new String[]{"CT", "MR", "US", "OT"};
+        String[] selectedModalities = new String[modalityCount];
+        for (int i = 0; i < modalityCount; i++) {
+            selectedModalities[i] = allModalities[i % allModalities.length];
+        }
+        options.modalityPool = selectedModalities;
+
+        // Random multiframe instance count (1-100, but <= totalInstanceCount)
+        int maxMultiframe = Math.min(100, options.totalInstanceCount);
+        options.multiframeInstanceCount = 1 + randomInt(maxMultiframe);
+        options.includeMultiframe = true;
+
+        // KIN is always included (default behavior)
+        options.includeKIN = true;
+
+        // Random key image count (1-500, but <= totalInstanceCount-1 since KIN is one instance)
+        // Key images reference non-KIN instances
+        int nonKinInstances = Math.max(1, options.totalInstanceCount - 1);
+        int maxKeyImages = Math.min(500, nonKinInstances);
+        options.keyImageCount = Math.max(1, 1 + randomInt(maxKeyImages));
+
+        return options;
+    }
+
+    public static Attributes createMADOFromOptions(Options options) {
+        SimulatedStudy study = generateSimulatedStudy(options);
+        return createMADOAttributes(study);
+    }
+
+    public static void writeMADO(Options options, File outFile) throws java.io.IOException {
+        if (options == null) options = defaultOptions();
+        Attributes attrs = createMADOFromOptions(options);
+        writeDicomFile(outFile, attrs);
     }
 
     private static Attributes createMADOAttributes(SimulatedStudy study) {
@@ -98,7 +253,7 @@ public class IHEMADOSampleCreator {
                                                    DEFAULT_ACCESSION_ISSUER_OID);
 
         // --- Evidence Sequence (Current Requested Procedure Evidence) ---
-        // Must list ALL instances in the study (Series 1-5)
+        // Must list ALL instances in the study
         // For MADO retrieval validation we also add per-series retrieval addressing.
         populateEvidence(d, study);
 
@@ -235,20 +390,52 @@ public class IHEMADOSampleCreator {
         // This still satisfies TID1600ImageLibraryValidator.validateKOSReference() which
         // only checks presence of ddd007 at least once.
 
-        // Include three UIDREF items: 1 multiframe, 2 single-frame.
-        SimulatedInstance multiFrameObj = study.seriesList.get(1).instances.get(0);
-        descSeq.add(createUIDRefItem(be.uzleuven.ihe.dicom.constants.DicomConstants.RELATIONSHIP_CONTAINS, CODE_SOP_INSTANCE_UID, SCHEME_DCM, MEANING_SOP_INSTANCE_UID, multiFrameObj.sopInstanceUID));
+        // Select up to N referenced instances (UIDREF items) from NON-KIN instances to describe.
+        int desired = study.options != null ? Math.max(0, study.options.keyImageCount) : 3;
+        if (desired == 0) desired = 3; // default fallback
 
-        SimulatedInstance singleFrame1 = study.seriesList.get(0).instances.get(1);
-        descSeq.add(createUIDRefItem(be.uzleuven.ihe.dicom.constants.DicomConstants.RELATIONSHIP_CONTAINS, CODE_SOP_INSTANCE_UID, SCHEME_DCM, MEANING_SOP_INSTANCE_UID, singleFrame1.sopInstanceUID));
+        // Collect non-KIN instances and mark multiframe candidates
+        List<SimulatedInstance> multiframeCandidates = new ArrayList<>();
+        List<SimulatedInstance> singleframeCandidates = new ArrayList<>();
 
-        SimulatedInstance singleFrame2 = study.seriesList.get(0).instances.get(3);
-        descSeq.add(createUIDRefItem(be.uzleuven.ihe.dicom.constants.DicomConstants.RELATIONSHIP_CONTAINS, CODE_SOP_INSTANCE_UID, SCHEME_DCM, MEANING_SOP_INSTANCE_UID, singleFrame2.sopInstanceUID));
+        for (SimulatedSeries s : study.seriesList) {
+            for (SimulatedInstance inst : s.instances) {
+                if (inst.isKIN) continue;
+                if (UID.EnhancedCTImageStorage.equals(inst.sopClassUID)) {
+                    multiframeCandidates.add(inst);
+                } else {
+                    singleframeCandidates.add(inst);
+                }
+            }
+        }
+
+        // Build final ordered list: prefer one multiframe if available, then single-frame items.
+        List<SimulatedInstance> selected = new ArrayList<>();
+        if (!multiframeCandidates.isEmpty()) {
+            selected.add(multiframeCandidates.get(0));
+        }
+        for (SimulatedInstance si : singleframeCandidates) {
+            if (selected.size() >= desired) break;
+            selected.add(si);
+        }
+        // If still short, fill from remaining multiframe candidates
+        for (SimulatedInstance mi : multiframeCandidates) {
+            if (selected.size() >= desired) break;
+            if (!selected.contains(mi)) selected.add(mi);
+        }
+
+        // Add UIDREF items for selected instances
+        for (SimulatedInstance inst : selected) {
+            descSeq.add(createUIDRefItem(be.uzleuven.ihe.dicom.constants.DicomConstants.RELATIONSHIP_CONTAINS,
+                    CODE_SOP_INSTANCE_UID, SCHEME_DCM, MEANING_SOP_INSTANCE_UID, inst.sopInstanceUID));
+        }
 
         // If you also want to convey a specific frame number without using ReferencedSOPSequence,
         // add a TEXT note; the validator doesn't check it, but it's human-readable.
-        descSeq.add(createTextItem(be.uzleuven.ihe.dicom.constants.DicomConstants.RELATIONSHIP_CONTAINS, "ddd010", "DCM", "Frame Note",
-                "Multiframe reference implies frame 1 (example)."));
+        if (!selected.isEmpty()) {
+            descSeq.add(createTextItem(be.uzleuven.ihe.dicom.constants.DicomConstants.RELATIONSHIP_CONTAINS, "ddd010", "DCM", "Frame Note",
+                    "Selected key-image UIDREFs (may include multiframe objects)."));
+        }
 
         entryContent.add(kosDesc);
     }
@@ -259,7 +446,8 @@ public class IHEMADOSampleCreator {
         Attributes studyItem = new Attributes();
         studyItem.setString(Tag.StudyInstanceUID, VR.UI, study.studyInstanceUID);
 
-        Sequence seriesSeq = studyItem.newSequence(Tag.ReferencedSeriesSequence, 5);
+        int seriesSize = Math.max(1, study.seriesList.size());
+        Sequence seriesSeq = studyItem.newSequence(Tag.ReferencedSeriesSequence, seriesSize);
 
         for (SimulatedSeries s : study.seriesList) {
             Attributes seriesItem = new Attributes();
@@ -269,7 +457,7 @@ public class IHEMADOSampleCreator {
             // Provide at least one method. We use RetrieveLocationUID.
             seriesItem.setString(Tag.RetrieveLocationUID, VR.UI, DEFAULT_RETRIEVE_LOCATION_UID);
 
-            Sequence sopSeq = seriesItem.newSequence(Tag.ReferencedSOPSequence, s.instances.size());
+            Sequence sopSeq = seriesItem.newSequence(Tag.ReferencedSOPSequence, Math.max(1, s.instances.size()));
             for (SimulatedInstance i : s.instances) {
                 Attributes sopItem = new Attributes();
                 sopItem.setString(Tag.ReferencedSOPClassUID, VR.UI, i.sopClassUID);
@@ -282,40 +470,126 @@ public class IHEMADOSampleCreator {
     }
 
     // --- Simulation Data Generation ---
-    private static SimulatedStudy generateSimulatedStudy() {
+    public static SimulatedStudy generateSimulatedStudy(Options options) {
+        if (options == null) options = defaultOptions();
+
         SimulatedStudy study = new SimulatedStudy();
+        study.options = options;
         study.studyInstanceUID = UIDUtils.createUID();
 
-        // Series 1: Single Frame CT (5 images) - "Normal Series"
-        SimulatedSeries s1 = new SimulatedSeries(UIDUtils.createUID(), "CT", "Routine Abdomen");
-        for (int i = 0; i < 5; i++) {
-            // Use standard CT Image Storage SOP Class UID.
-            s1.addInstance(UID.CTImageStorage, UIDUtils.createUID(), false);
+        int seriesCount = Math.max(1, options.seriesCount);
+
+        // Decide how many non-KIN series left.
+        int nonKinSeriesCount = options.includeKIN ? Math.max(1, seriesCount - 1) : seriesCount;
+
+        // Total instances to distribute among non-KIN series
+        int totalInstances = Math.max(1, options.totalInstanceCount);
+
+        int mfCount = (options.includeMultiframe) ? Math.min(Math.max(0, options.multiframeInstanceCount), totalInstances) : 0;
+        int sfCount = Math.max(0, totalInstances - mfCount);
+
+        // Build non-KIN series
+        int remainingSf = sfCount;
+        int remainingMf = mfCount;
+
+        for (int s = 0; s < nonKinSeriesCount; s++) {
+            // Pick a modality label for this series.
+            String modality = pickModality(options.modalityPool, s);
+            String desc = "Series " + (s + 1) + " " + modality;
+
+            SimulatedSeries series = new SimulatedSeries(UIDUtils.createUID(), modality, desc);
+
+            int seriesLeft = nonKinSeriesCount - s;
+
+            // Allocate at least one instance per series.
+            int minForThisSeries = 1;
+            int sfTake = 0;
+            int mfTake = 0;
+
+            if (seriesLeft == 1) {
+                sfTake = remainingSf;
+                mfTake = remainingMf;
+            } else {
+                // Spread single-frame across series
+                int sfAvg = (remainingSf > 0) ? (remainingSf / seriesLeft) : 0;
+                sfTake = Math.min(remainingSf, sfAvg);
+
+                // Put multiframe into the first series by default to mimic original structure.
+                if (remainingMf > 0 && s == 1) {
+                    mfTake = 1;
+                }
+            }
+
+            // Ensure at least one instance total; borrow from remaining.
+            int totalTake = sfTake + mfTake;
+            if (totalTake < minForThisSeries) {
+                if (remainingSf > 0) {
+                    sfTake = minForThisSeries;
+                } else if (remainingMf > 0) {
+                    mfTake = minForThisSeries;
+                }
+            }
+
+            // Generate instances.
+            for (int i = 0; i < sfTake; i++) {
+                series.addInstance(sopClassForSingleFrame(modality), UIDUtils.createUID(), false);
+            }
+
+            for (int i = 0; i < mfTake; i++) {
+                // Enhanced CT used as multiframe proxy.
+                series.addInstance(UID.EnhancedCTImageStorage, UIDUtils.createUID(), false);
+            }
+
+            remainingSf = Math.max(0, remainingSf - sfTake);
+            remainingMf = Math.max(0, remainingMf - mfTake);
+            study.addSeries(series);
         }
-        study.addSeries(s1);
 
-        // Series 2: Multi Frame (1 instance, e.g., Enhanced CT)
-        SimulatedSeries s2 = new SimulatedSeries(UIDUtils.createUID(), "CT", "Enhanced Recons");
-        s2.addInstance(UID.EnhancedCTImageStorage, UIDUtils.createUID(), false); // Multiframe
-        study.addSeries(s2);
+        // Add KIN series at the end if requested.
+        if (options.includeKIN) {
+            SimulatedSeries kin = new SimulatedSeries(UIDUtils.createUID(), "KO", "Key Images");
+            kin.addInstance(UID.KeyObjectSelectionDocumentStorage, UIDUtils.createUID(), true);
+            study.addSeries(kin);
+            study.kinSeries = kin;
+        }
 
-        // Series 3: Secondary Capture (Filler)
-        SimulatedSeries s3 = new SimulatedSeries(UIDUtils.createUID(), "OT", "Scanned Docs");
-        s3.addInstance(UID.SecondaryCaptureImageStorage, UIDUtils.createUID(), false);
-        study.addSeries(s3);
-
-        // Series 4: Ultrasound (Filler)
-        SimulatedSeries s4 = new SimulatedSeries(UIDUtils.createUID(), "US", "Ultrasound Preview");
-        s4.addInstance(UID.UltrasoundImageStorage, UIDUtils.createUID(), false);
-        study.addSeries(s4);
-
-        // Series 5: The KIN (Key Image Note)
-        SimulatedSeries s5 = new SimulatedSeries(UIDUtils.createUID(), "KO", "Key Images");
-        s5.addInstance(UID.KeyObjectSelectionDocumentStorage, UIDUtils.createUID(), true);
-        study.addSeries(s5);
-        study.kinSeries = s5;
+        // If distribution logic left instances unassigned (can happen with small counts), add them to first series.
+        if (!study.seriesList.isEmpty() && (remainingSf > 0 || remainingMf > 0)) {
+            SimulatedSeries first = study.seriesList.get(0);
+            for (int i = 0; i < remainingSf; i++) {
+                first.addInstance(sopClassForSingleFrame(first.modality), UIDUtils.createUID(), false);
+            }
+            for (int i = 0; i < remainingMf; i++) {
+                first.addInstance(UID.EnhancedCTImageStorage, UIDUtils.createUID(), false);
+            }
+        }
 
         return study;
+    }
+
+    // Backwards compatible default study generator.
+    private static SimulatedStudy generateSimulatedStudy() {
+        return generateSimulatedStudy(defaultOptions());
+    }
+
+    private static String pickModality(String[] pool, int idx) {
+        if (pool == null || pool.length == 0) return "CT";
+        return pool[idx % pool.length];
+    }
+
+    private static String sopClassForSingleFrame(String modality) {
+        if (modality == null) return UID.SecondaryCaptureImageStorage;
+        switch (modality) {
+            case "MR":
+                return UID.MRImageStorage;
+            case "US":
+                return UID.UltrasoundImageStorage;
+            case "OT":
+                return UID.SecondaryCaptureImageStorage;
+            case "CT":
+            default:
+                return UID.CTImageStorage;
+        }
     }
 
     // --- Helper Classes ---
@@ -323,6 +597,7 @@ public class IHEMADOSampleCreator {
         String studyInstanceUID;
         List<SimulatedSeries> seriesList = new ArrayList<>();
         SimulatedSeries kinSeries;
+        Options options;
 
         void addSeries(SimulatedSeries s) {
             seriesList.add(s);

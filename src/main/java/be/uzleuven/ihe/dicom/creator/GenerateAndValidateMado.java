@@ -12,10 +12,10 @@ public class GenerateAndValidateMado {
 
     public static void main(String[] args) throws Exception {
         // 1) Generate
-        IHEMADOSampleCreator.main(new String[0]);
+        IHEMADOSampleCreator.main(new String[]{"1"});
 
         // 2) Validate
-        File f = new File(System.getProperty("user.dir"), "IHE_MADO.dcm");
+        File f = new File(System.getProperty("user.dir"), "IHE_MADO_0.dcm");
         if (!f.exists()) {
             throw new IllegalStateException("Expected generated file not found: " + f.getAbsolutePath());
         }

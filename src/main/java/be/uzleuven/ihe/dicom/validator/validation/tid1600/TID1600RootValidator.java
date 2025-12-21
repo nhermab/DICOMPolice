@@ -62,4 +62,3 @@ public final class TID1600RootValidator {
         return true;
     }
 }
-

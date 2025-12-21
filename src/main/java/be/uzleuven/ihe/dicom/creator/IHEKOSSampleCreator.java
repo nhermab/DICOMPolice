@@ -1,7 +1,6 @@
 package be.uzleuven.ihe.dicom.creator;
 
 import be.uzleuven.ihe.dicom.constants.DicomConstants;
-import be.uzleuven.ihe.dicom.constants.CodeConstants;
 import org.dcm4che3.data.*;
 import org.dcm4che3.util.UIDUtils;
 
@@ -16,8 +15,90 @@ import static be.uzleuven.ihe.dicom.constants.CodeConstants.*;
 
 public class IHEKOSSampleCreator {
 
+    /**
+     * Default WADO-RS base URL for series-level retrieval addressing.
+     * Per IHE XDS-I.b DICOM Retrieve by WADO-RS Option, Retrieve URL (0008,1190)
+     * should be placed at the series level within Referenced Series Sequence.
+     */
+    private static final String DEFAULT_WADO_RS_BASE_URL = "https://pacs.example.org/dicom-web/studies";
+
+    /**
+     * Generation knobs for the KOS size/shape.
+     *
+     * Contract:
+     * - evidenceSeriesCount controls how many series appear in Evidence (CurrentRequestedProcedureEvidenceSequence)
+     * - sopInstanceCount controls how many SOP references appear overall (distributed across series)
+     * - modalities is the pool used to assign SOPClassUIDs (and impacts variety)
+     * - multiframe toggles using Enhanced CT storage for some/all references
+     *
+     * IMPORTANT: Per DICOM/IHE XDS-I specification, ALL instances in the Evidence Sequence MUST
+     * appear in the SR Content Tree. The keyImageCount parameter is deprecated and ignored.
+     */
+    public static class Options {
+        public int evidenceSeriesCount = 1;
+        public int sopInstanceCount = 6;
+        public String[] modalities = new String[]{
+                UID.CTImageStorage,
+                UID.MRImageStorage,
+                UID.DigitalXRayImageStorageForPresentation,
+                UID.UltrasoundImageStorage,
+                UID.SecondaryCaptureImageStorage
+        };
+
+        /**
+         * If true, references are allowed to be multiframe objects (Enhanced SOP classes).
+         * For now we map "multiframe" to Enhanced CT.
+         */
+        public boolean multiframe = false;
+
+        /**
+         * @deprecated This parameter is ignored. Per spec, ALL instances in Evidence must appear in Content Tree.
+         * Kept for backward compatibility only.
+         */
+        @Deprecated
+        public int keyImageCount = -1;
+
+        public Options withEvidenceSeriesCount(int v) {
+            this.evidenceSeriesCount = Math.max(1, v);
+            return this;
+        }
+
+        public Options withSopInstanceCount(int v) {
+            this.sopInstanceCount = Math.max(1, v);
+            return this;
+        }
+
+        public Options withModalities(String... sopClassUids) {
+            if (sopClassUids != null && sopClassUids.length > 0) {
+                this.modalities = sopClassUids;
+            }
+            return this;
+        }
+
+        public Options withMultiframe(boolean v) {
+            this.multiframe = v;
+            return this;
+        }
+
+        public Options withKeyImageCount(int v) {
+            // Deprecated: parameter ignored, kept for backward compatibility
+            this.keyImageCount = v;
+            return this;
+        }
+
+        /**
+         * @deprecated Always returns sopInstanceCount since all instances must be in content tree per spec.
+         */
+        @Deprecated
+        private int resolvedKeyImageCount() {
+            // Per DICOM/IHE spec: ALL instances in Evidence MUST be in Content Tree
+            return sopInstanceCount;
+        }
+    }
+
 
     public static void main(String[] args) throws Exception {
+        // Backwards compatible: first arg is number of files to generate.
         int count = 1;
         if (args != null && args.length > 0) {
             try {
@@ -29,7 +110,10 @@ public class IHEKOSSampleCreator {
 
         File outDir = new File(System.getProperty("user.dir"));
         for (int i = 0; i < count; i++) {
-            Attributes kos = createRandomIHEKOS();
+            // Generate random parameters for each file
+            Options options = generateRandomOptions();
+
+            Attributes kos = createRandomIHEKOS(options);
             // Keep ourselves honest: never write a KOS with empty required sequences.
             assertNotEmptySequence(kos, Tag.CurrentRequestedProcedureEvidenceSequence, "CurrentRequestedProcedureEvidenceSequence");
             assertNotEmptySequence(kos, Tag.ConceptNameCodeSequence, "ConceptNameCodeSequence");
@@ -37,11 +121,59 @@ public class IHEKOSSampleCreator {
 
             File out = new File(outDir, "IHEKOS_" + i + ".dcm");
             writeDicomFile(out, kos);
-            System.out.println("Wrote: " + out.getAbsolutePath());
+            System.out.println("Wrote: " + out.getAbsolutePath() + " (sopInstances=" + options.sopInstanceCount +
+                ", evidenceSeries=" + options.evidenceSeriesCount + ", modalities=" + options.modalities.length + ")");
         }
     }
 
-    private static Attributes createRandomIHEKOS() {
+    /**
+     * Generate random options with balanced parameters:
+     * - sopInstanceCount: 10-10000
+     * - evidenceSeriesCount: 1-30 (but <= sopInstanceCount)
+     * - modalities: 1-4 different types
+     *
+     * Note: ALL instances are included in the content tree per DICOM/IHE spec.
+     */
+    private static Options generateRandomOptions() {
+        Options options = new Options();
+
+        // Random instance count (10-10000)
+        options.sopInstanceCount = 10 + randomInt(9991); // 10 to 10000
+
+        // Random series count (1-30), but can't exceed instance count
+        int maxSeries = Math.min(30, options.sopInstanceCount);
+        options.evidenceSeriesCount = 1 + randomInt(maxSeries);
+
+        // Random modality count (1-4)
+        int modalityCount = 1 + randomInt(4); // 1 to 4
+        String[] allModalities = new String[]{
+            UID.CTImageStorage,
+            UID.MRImageStorage,
+            UID.DigitalXRayImageStorageForPresentation,
+            UID.UltrasoundImageStorage,
+            UID.SecondaryCaptureImageStorage
+        };
+        String[] selectedModalities = new String[modalityCount];
+        for (int i = 0; i < modalityCount; i++) {
+            selectedModalities[i] = allModalities[i];
+        }
+        options.modalities = selectedModalities;
+
+        // Random multiframe setting (50% chance)
+        options.multiframe = randomInt(2) == 1;
+
+        return options;
+    }
+
+    /** Default behavior is identical to the original generator. */
+    public static Options defaultOptions() {
+        return new Options();
+    }
+
+    /** New entrypoint for programmatic use (tests/benchmarks/etc.). */
+    public static Attributes createRandomIHEKOS(Options options) {
+        if (options == null) options = defaultOptions();
+
         Attributes d = new Attributes();
 
         // --- SOP Common ---
@@ -93,8 +225,7 @@ public class IHEKOSSampleCreator {
         d.setString(Tag.ValueType, VR.CS, "CONTAINER");
         d.setString(Tag.ContinuityOfContent, VR.CS, DicomConstants.CONTINUITY_SEPARATE);
 
-        // Document Title: IHE XDS-I Imaging Manifest is typically (113030, DCM, "Manifest")
-        // (Your validator accepts different titles for MADO vs XDS-I; for IHEKOS we use 113030.
+        // Document Title
         Sequence conceptName = d.newSequence(Tag.ConceptNameCodeSequence, 1);
         conceptName.add(code(CODE_MANIFEST, SCHEME_DCM, MEANING_MANIFEST));
 
@@ -103,13 +234,13 @@ public class IHEKOSSampleCreator {
         cts.add(createTemplateItem("2010"));
 
         // Build a single shared reference list so Evidence and ContentSequence stay consistent.
-        List<Attributes> referencedSops = buildReferencedSops();
+        List<Attributes> referencedSops = buildReferencedSops(options);
 
-        // Evidence (Current Requested Procedure Evidence Sequence)
-        populateEvidence(d, studyInstanceUid, referencedSops);
+        // Evidence
+        populateEvidenceMultiSeries(d, studyInstanceUid, referencedSops, options.evidenceSeriesCount);
 
         // Content tree: build only from the same SOPs that appear in Evidence.
-        populateContentTree(d, referencedSops);
+        populateContentTree(d, referencedSops, options.resolvedKeyImageCount());
 
         // Small extras that are commonly present
         d.setString(Tag.SpecificCharacterSet, VR.CS, "ISO_IR 100");
@@ -117,36 +248,104 @@ public class IHEKOSSampleCreator {
         return d;
     }
 
-    private static void populateContentTree(Attributes d, List<Attributes> referencedSops) {
-        Sequence content = d.newSequence(Tag.ContentSequence, 50);
+    // Backwards-compat shim: keep signature used nowhere else but safe.
+    private static Attributes createRandomIHEKOS() {
+        return createRandomIHEKOS(defaultOptions());
+    }
 
-        // NOTE: XDS-I manifest profile validation may enforce strict template conformance.
-        // Keep this minimal with only IMAGE references.
+    /**
+     * Populate the SR Content Tree with ALL instances from the Evidence Sequence.
+     * Per DICOM PS3.3 and IHE XDS-I: The Content Tree is the "playlist" that selects images.
+     * ALL instances listed in Evidence MUST appear in the Content Tree.
+     *
+     * @param d The dataset to populate
+     * @param referencedSops List of ALL SOP instances from Evidence
+     * @param imageItemCount Deprecated parameter, ignored (kept for backward compatibility)
+     */
+    private static void populateContentTree(Attributes d, List<Attributes> referencedSops, int imageItemCount) {
+        // Per spec: ALL instances in Evidence must be in Content Tree
+        // The imageItemCount parameter is ignored
+        int actualCount = referencedSops.size();
+        Sequence content = d.newSequence(Tag.ContentSequence, actualCount);
 
+        // Add ALL referenced SOPs to content tree
         for (Attributes sop : referencedSops) {
             Attributes img = createImageItem(DicomConstants.RELATIONSHIP_CONTAINS,
-                                            code(CODE_IMAGE, SCHEME_DCM, MEANING_IMAGE),
-                                            sop.getString(Tag.ReferencedSOPClassUID),
-                                            sop.getString(Tag.ReferencedSOPInstanceUID));
+                    code(CODE_IMAGE, SCHEME_DCM, MEANING_IMAGE),
+                    sop.getString(Tag.ReferencedSOPClassUID),
+                    sop.getString(Tag.ReferencedSOPInstanceUID));
             content.add(img);
         }
     }
 
-    private static List<Attributes> buildReferencedSops() {
-        int sopCount = 6; // keep stable for repeatable validation output
+    private static void populateEvidenceMultiSeries(Attributes dataset, String studyInstanceUID,
+                                                   List<Attributes> referencedSops, int seriesCount) {
+        int resolvedSeriesCount = Math.max(1, seriesCount);
+
+        Sequence evidence = dataset.newSequence(Tag.CurrentRequestedProcedureEvidenceSequence, 1);
+        Attributes studyItem = new Attributes();
+        studyItem.setString(Tag.StudyInstanceUID, VR.UI, studyInstanceUID);
+
+        Sequence refSeries = studyItem.newSequence(Tag.ReferencedSeriesSequence, resolvedSeriesCount);
+
+        // Distribute SOPs across series.
+        int total = Math.max(1, referencedSops.size());
+        int idx = 0;
+        for (int s = 0; s < resolvedSeriesCount; s++) {
+            Attributes seriesItem = new Attributes();
+            String seriesInstanceUID = UIDUtils.createUID();
+            seriesItem.setString(Tag.SeriesInstanceUID, VR.UI, seriesInstanceUID);
+
+            // Per IHE XDS-I.b DICOM Retrieve by WADO-RS Option:
+            // Retrieve URL (0008,1190) provides direct WADO-RS endpoint for web-based retrieval
+            String wadoRsUrl = String.format("%s/%s/series/%s",
+                    DEFAULT_WADO_RS_BASE_URL, studyInstanceUID, seriesInstanceUID);
+            seriesItem.setString(Tag.RetrieveURL, VR.UR, wadoRsUrl);
+
+            int remainingSeries = resolvedSeriesCount - s;
+            int remainingSops = total - idx;
+            int take = (s == resolvedSeriesCount - 1) ? remainingSops : Math.max(1, remainingSops / remainingSeries);
+
+            Sequence refSops = seriesItem.newSequence(Tag.ReferencedSOPSequence, take);
+            for (int j = 0; j < take && idx < total; j++, idx++) {
+                Attributes sop = referencedSops.get(idx);
+                Attributes ref = new Attributes();
+                ref.setString(Tag.ReferencedSOPClassUID, VR.UI, sop.getString(Tag.ReferencedSOPClassUID));
+                ref.setString(Tag.ReferencedSOPInstanceUID, VR.UI, sop.getString(Tag.ReferencedSOPInstanceUID));
+                refSops.add(ref);
+            }
+
+            refSeries.add(seriesItem);
+        }
+
+        evidence.add(studyItem);
+    }
+
+    private static List<Attributes> buildReferencedSops(Options options) {
+        int sopCount = Math.max(1, options.sopInstanceCount);
         List<Attributes> sops = new ArrayList<>(sopCount);
+
+        String[] pool = (options.modalities != null && options.modalities.length > 0)
+                ? options.modalities
+                : defaultOptions().modalities;
+
         for (int i = 0; i < sopCount; i++) {
             Attributes sop = new Attributes();
-            sop.setString(Tag.ReferencedSOPClassUID, VR.UI, randomFrom(
-                    UID.CTImageStorage,
-                    UID.MRImageStorage,
-                    UID.DigitalXRayImageStorageForPresentation,
-                    UID.UltrasoundImageStorage,
-                    UID.SecondaryCaptureImageStorage
-            ));
+
+            String sopClass;
+            if (options.multiframe) {
+                // Simple heuristic: mix in some multiframe storage.
+                // Enhanced CT is widely recognized and already in repo usage.
+                sopClass = (i % 4 == 0) ? UID.EnhancedCTImageStorage : pool[i % pool.length];
+            } else {
+                sopClass = pool[i % pool.length];
+            }
+
+            sop.setString(Tag.ReferencedSOPClassUID, VR.UI, sopClass);
             sop.setString(Tag.ReferencedSOPInstanceUID, VR.UI, UIDUtils.createUID());
             sops.add(sop);
         }
+
         return sops;
     }
 }

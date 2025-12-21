@@ -69,9 +69,15 @@ public class DicomSequenceUtils {
 
         Sequence refSeries = studyItem.newSequence(Tag.ReferencedSeriesSequence, 1);
         Attributes seriesItem = new Attributes();
-        seriesItem.setString(Tag.SeriesInstanceUID, VR.UI,
-                           seriesInstanceUID != null ? seriesInstanceUID :
-                           org.dcm4che3.util.UIDUtils.createUID());
+        String actualSeriesUID = seriesInstanceUID != null ? seriesInstanceUID :
+                                 org.dcm4che3.util.UIDUtils.createUID();
+        seriesItem.setString(Tag.SeriesInstanceUID, VR.UI, actualSeriesUID);
+
+        // Per IHE XDS-I.b DICOM Retrieve by WADO-RS Option:
+        // Retrieve URL (0008,1190) provides direct WADO-RS endpoint for web-based retrieval
+        String wadoRsUrl = String.format("https://pacs.example.org/dicom-web/studies/%s/series/%s",
+                studyInstanceUID, actualSeriesUID);
+        seriesItem.setString(Tag.RetrieveURL, VR.UR, wadoRsUrl);
 
         Sequence refSops = seriesItem.newSequence(Tag.ReferencedSOPSequence,
                                                   Math.max(1, referencedSops.size()));
