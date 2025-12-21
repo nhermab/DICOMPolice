@@ -1,5 +1,6 @@
 package be.uzleuven.ihe.dicom.validator.validation.tid1600;
 
+import be.uzleuven.ihe.dicom.constants.DicomConstants;
 import be.uzleuven.ihe.dicom.constants.TID1600Codes;
 import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Sequence;
@@ -52,7 +53,7 @@ public final class TID1600RootValidator {
         }
 
         String continuity = dataset.getString(Tag.ContinuityOfContent);
-        if (!"SEPARATE".equals(continuity)) {
+        if (!DicomConstants.CONTINUITY_SEPARATE.equals(continuity)) {
             result.addError("MADO Root Container Requirement V-ROOT-03: ContinuityOfContent (0040,A050) "
                     + "MUST be 'SEPARATE' (indicating distinct entities, not continuous narrative) "
                     + "but found: " + continuity, modulePath);

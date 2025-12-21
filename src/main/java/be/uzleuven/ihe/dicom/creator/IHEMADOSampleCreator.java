@@ -1,37 +1,21 @@
 package be.uzleuven.ihe.dicom.creator;
 
+import be.uzleuven.ihe.dicom.constants.DicomConstants;
+import be.uzleuven.ihe.dicom.constants.CodeConstants;
 import org.dcm4che3.data.*;
 import org.dcm4che3.util.UIDUtils;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
 import static be.uzleuven.ihe.dicom.creator.DicomCreatorUtils.*;
 import static be.uzleuven.ihe.dicom.creator.DicomSequenceUtils.*;
 import static be.uzleuven.ihe.dicom.creator.SRContentItemUtils.*;
+import static be.uzleuven.ihe.dicom.constants.CodeConstants.*;
 
 public class IHEMADOSampleCreator {
-
-
-    // MADO / DICOM CP Codes
-    private static final String CODE_DCM_MANIFEST_DESC = "ddd001"; // "Manifest with Description"
-    private static final String CODE_DCM_IMAGE_LIBRARY = "111028"; // "Image Library"
-    private static final String CODE_DCM_LIB_GROUP = "126200";     // "Image Library Group"
-    private static final String CODE_DCM_KOS_DESC = "113012";      // "Key Object Description"
-
-    // TID 1600 placeholder codes used by this repo's validator
-    private static final String CODE_MODALITY = "121139"; // DCM "Modality"
-    private static final String CODE_STUDY_INSTANCE_UID = "ddd011";
-    private static final String CODE_TARGET_REGION = "123014";
-    private static final String CODE_SERIES_DATE = "ddd003";
-    private static final String CODE_SERIES_TIME = "ddd004";
-    private static final String CODE_SERIES_NUMBER = "ddd005";
-    private static final String CODE_SERIES_DESCRIPTION = "ddd002";
-    private static final String CODE_SERIES_INSTANCE_UID = "ddd006";
-    private static final String CODE_KOS_TITLE = "ddd008";
-    private static final String CODE_SOP_INSTANCE_UID = "ddd007";
+    // Note: Code constants are now imported from CodeConstants class
 
 
     // Dummy values that satisfy this project's profile checks
@@ -120,30 +104,30 @@ public class IHEMADOSampleCreator {
 
         // --- SR Content (TID 2010 + TID 1600) ---
         d.setString(Tag.ValueType, VR.CS, "CONTAINER");
-        d.setString(Tag.ContinuityOfContent, VR.CS, "SEPARATE");
+        d.setString(Tag.ContinuityOfContent, VR.CS, DicomConstants.CONTINUITY_SEPARATE);
 
         // Root Concept: Manifest with Description (Triggers MADO logic)
         d.newSequence(Tag.ConceptNameCodeSequence, 1)
-                .add(code(CODE_DCM_MANIFEST_DESC, "DCM", "Manifest with Description"));
+                .add(code(CODE_MANIFEST_WITH_DESCRIPTION, SCHEME_DCM, MEANING_MANIFEST_WITH_DESCRIPTION));
 
         d.newSequence(Tag.ContentTemplateSequence, 1)
                 .add(createTemplateItem("2010"));
 
         // Completion / Verification flags (warnings otherwise)
-        d.setString(Tag.CompletionFlag, VR.CS, "COMPLETE");
-        d.setString(Tag.VerificationFlag, VR.CS, "UNVERIFIED");
+        d.setString(Tag.CompletionFlag, VR.CS, be.uzleuven.ihe.dicom.constants.DicomConstants.COMPLETION_FLAG_COMPLETE);
+        d.setString(Tag.VerificationFlag, VR.CS, be.uzleuven.ihe.dicom.constants.DicomConstants.VERIFICATION_FLAG_UNVERIFIED);
 
         // Content Sequence
         Sequence contentSeq = d.newSequence(Tag.ContentSequence, 10);
 
         // TID 1600 Study-level Acquisition Context requirements (repo validator expects these at ROOT ContentSequence)
         // NOTE: For XDS-I manifests, this project's validator requires top-level RelationshipType=CONTAINS.
-        contentSeq.add(createCodeItem("CONTAINS", CODE_MODALITY, "DCM", "Modality",
-                code("CT", "DCM", "CT")));
-        contentSeq.add(createUIDRefItem("CONTAINS", CODE_STUDY_INSTANCE_UID, "DCM", "Study Instance UID",
+        contentSeq.add(createCodeItem(be.uzleuven.ihe.dicom.constants.DicomConstants.RELATIONSHIP_CONTAINS, CODE_MODALITY, SCHEME_DCM, MEANING_MODALITY,
+                code(CODE_MODALITY_CT, SCHEME_DCM, MEANING_MODALITY_CT)));
+        contentSeq.add(createUIDRefItem(be.uzleuven.ihe.dicom.constants.DicomConstants.RELATIONSHIP_CONTAINS, CODE_STUDY_INSTANCE_UID, SCHEME_DCM, MEANING_STUDY_INSTANCE_UID,
                 study.studyInstanceUID));
-        contentSeq.add(createCodeItem("CONTAINS", CODE_TARGET_REGION, "DCM", "Target Region",
-                code("T-D4000", "SRT", "Abdomen")));
+        contentSeq.add(createCodeItem(be.uzleuven.ihe.dicom.constants.DicomConstants.RELATIONSHIP_CONTAINS, CODE_TARGET_REGION, SCHEME_DCM, MEANING_TARGET_REGION,
+                code(CODE_REGION_ABDOMEN, SCHEME_SRT, MEANING_REGION_ABDOMEN)));
 
         // Note: do NOT add a separate top-level IMAGE reference to the KIN.
         // The KIN is referenced within the Image Library entries already, and this project
@@ -151,23 +135,23 @@ public class IHEMADOSampleCreator {
 
         // B. MADO Image Library Extension (TID 1600)
         Attributes libContainer = new Attributes();
-        libContainer.setString(Tag.RelationshipType, VR.CS, "CONTAINS");
+        libContainer.setString(Tag.RelationshipType, VR.CS, be.uzleuven.ihe.dicom.constants.DicomConstants.RELATIONSHIP_CONTAINS);
         libContainer.setString(Tag.ValueType, VR.CS, "CONTAINER");
         libContainer.newSequence(Tag.ConceptNameCodeSequence, 1)
-                .add(code(CODE_DCM_IMAGE_LIBRARY, "DCM", "Image Library"));
+                .add(code(CODE_IMAGE_LIBRARY, SCHEME_DCM, MEANING_IMAGE_LIBRARY));
 
         Sequence libContent = libContainer.newSequence(Tag.ContentSequence, 20);
 
         // TID 1600 Study-level Acquisition Context requirements (validator expects these directly under Image Library)
         // 1) Modality (CODE) 2) Study Instance UID (UIDREF) 3) Target Region (CODE)
         // We model "study modality" as CT here.
-        libContent.add(createCodeItem("HAS ACQ CONTEXT", CODE_MODALITY, "DCM", "Modality",
-                code("CT", "DCM", "CT")));
-        libContent.add(createUIDRefItem("HAS ACQ CONTEXT", CODE_STUDY_INSTANCE_UID, "DCM", "Study Instance UID",
+        libContent.add(createCodeItem("HAS ACQ CONTEXT", CODE_MODALITY, SCHEME_DCM, MEANING_MODALITY,
+                code(CODE_MODALITY_CT, SCHEME_DCM, MEANING_MODALITY_CT)));
+        libContent.add(createUIDRefItem("HAS ACQ CONTEXT", CODE_STUDY_INSTANCE_UID, SCHEME_DCM, MEANING_STUDY_INSTANCE_UID,
                 study.studyInstanceUID));
         // Target Region: validator only enforces presence; use SNM/SCT/FMA to avoid info-level note.
-        libContent.add(createCodeItem("HAS ACQ CONTEXT", CODE_TARGET_REGION, "DCM", "Target Region",
-                code("T-D4000", "SRT", "Abdomen")));
+        libContent.add(createCodeItem("HAS ACQ CONTEXT", CODE_TARGET_REGION, SCHEME_DCM, MEANING_TARGET_REGION,
+                code(CODE_REGION_ABDOMEN, SCHEME_SRT, MEANING_REGION_ABDOMEN)));
 
         // Populate Library Groups (One per Series)
         int seriesNumber = 1;
@@ -177,27 +161,27 @@ public class IHEMADOSampleCreator {
             series.seriesTime = randomSeriesTime(studyTime);
 
             Attributes group = new Attributes();
-            group.setString(Tag.RelationshipType, VR.CS, "CONTAINS");
+            group.setString(Tag.RelationshipType, VR.CS, be.uzleuven.ihe.dicom.constants.DicomConstants.RELATIONSHIP_CONTAINS);
             group.setString(Tag.ValueType, VR.CS, "CONTAINER");
             group.newSequence(Tag.ConceptNameCodeSequence, 1)
-                    .add(code(CODE_DCM_LIB_GROUP, "DCM", "Image Library Group"));
+                    .add(code(CODE_IMAGE_LIBRARY_GROUP, SCHEME_DCM, MEANING_IMAGE_LIBRARY_GROUP));
 
             Sequence groupSeq = group.newSequence(Tag.ContentSequence, 20);
 
             // Series Level Metadata (TID 1602)
-            groupSeq.add(createCodeItem("HAS ACQ CONTEXT", CODE_MODALITY, "DCM", "Modality",
-                    code(series.modality, "DCM", series.modality)));
-            groupSeq.add(createUIDRefItem("HAS ACQ CONTEXT", CODE_SERIES_INSTANCE_UID, "DCM", "Series Instance UID", series.seriesUID));
-            groupSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_SERIES_DESCRIPTION, "DCM", "Series Description", series.description));
-            groupSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_SERIES_DATE, "DCM", "Series Date", series.seriesDate));
-            groupSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_SERIES_TIME, "DCM", "Series Time", series.seriesTime));
+            groupSeq.add(createCodeItem("HAS ACQ CONTEXT", CODE_MODALITY, SCHEME_DCM, MEANING_MODALITY,
+                    code(series.modality, SCHEME_DCM, series.modality)));
+            groupSeq.add(createUIDRefItem("HAS ACQ CONTEXT", CODE_SERIES_INSTANCE_UID, SCHEME_DCM, MEANING_SERIES_INSTANCE_UID, series.seriesUID));
+            groupSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_SERIES_DESCRIPTION, SCHEME_DCM, MEANING_SERIES_DESCRIPTION, series.description));
+            groupSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_SERIES_DATE, SCHEME_DCM, MEANING_SERIES_DATE, series.seriesDate));
+            groupSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_SERIES_TIME, SCHEME_DCM, MEANING_SERIES_TIME, series.seriesTime));
             // KOS TID 2010 forbids NUM, so represent the series number as TEXT.
-            groupSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_SERIES_NUMBER, "DCM", "Series Number", Integer.toString(series.seriesNumber)));
+            groupSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_SERIES_NUMBER, SCHEME_DCM, MEANING_SERIES_NUMBER, Integer.toString(series.seriesNumber)));
 
             // Instance Level Entries (TID 1601)
             for (SimulatedInstance inst : series.instances) {
                 Attributes entry = new Attributes();
-                entry.setString(Tag.RelationshipType, VR.CS, "CONTAINS");
+                entry.setString(Tag.RelationshipType, VR.CS, be.uzleuven.ihe.dicom.constants.DicomConstants.RELATIONSHIP_CONTAINS);
                 entry.setString(Tag.ValueType, VR.CS, "IMAGE");
 
                 Sequence refSop = entry.newSequence(Tag.ReferencedSOPSequence, 1);
@@ -229,20 +213,20 @@ public class IHEMADOSampleCreator {
     private static void addKinDescriptors(Sequence entryContent, SimulatedStudy study) {
         // Container for KOS Descriptors (concept: Key Object Description)
         Attributes kosDesc = new Attributes();
-        kosDesc.setString(Tag.RelationshipType, VR.CS, "CONTAINS");
+        kosDesc.setString(Tag.RelationshipType, VR.CS, be.uzleuven.ihe.dicom.constants.DicomConstants.RELATIONSHIP_CONTAINS);
         kosDesc.setString(Tag.ValueType, VR.CS, "CONTAINER");
         kosDesc.newSequence(Tag.ConceptNameCodeSequence, 1)
-                .add(code(CODE_DCM_KOS_DESC, "DCM", "Key Object Description"));
+                .add(code(CODE_KOS_DESCRIPTION, SCHEME_DCM, MEANING_KOS_DESCRIPTION));
 
         Sequence descSeq = kosDesc.newSequence(Tag.ContentSequence, 10);
 
         // KOS Title Code (required by this repo's validator for V-DESC-02)
         // Use an example from CID 7010-ish style; validator only checks presence.
-        descSeq.add(createCodeItem("CONTAINS", CODE_KOS_TITLE, "DCM", "KOS Title Code",
-                code("113000", "DCM", "Of Interest")));
+        descSeq.add(createCodeItem(be.uzleuven.ihe.dicom.constants.DicomConstants.RELATIONSHIP_CONTAINS, CODE_KOS_TITLE, SCHEME_DCM, MEANING_KOS_TITLE,
+                code(CODE_OF_INTEREST, SCHEME_DCM, MEANING_OF_INTEREST)));
 
         // KOS Description (optional)
-        descSeq.add(createTextItem("CONTAINS", "ddd009", "DCM", "KOS Object Description", "Key Objects for Surgery"));
+        descSeq.add(createTextItem(be.uzleuven.ihe.dicom.constants.DicomConstants.RELATIONSHIP_CONTAINS, "ddd009", "DCM", "KOS Object Description", "Key Objects for Surgery"));
 
         // Flagged images: IMPORTANT
         // The validator scans for duplicate ReferencedSOPInstanceUID across the SR content tree.
@@ -253,17 +237,17 @@ public class IHEMADOSampleCreator {
 
         // Include three UIDREF items: 1 multiframe, 2 single-frame.
         SimulatedInstance multiFrameObj = study.seriesList.get(1).instances.get(0);
-        descSeq.add(createUIDRefItem("CONTAINS", CODE_SOP_INSTANCE_UID, "DCM", "SOP Instance UIDs", multiFrameObj.sopInstanceUID));
+        descSeq.add(createUIDRefItem(be.uzleuven.ihe.dicom.constants.DicomConstants.RELATIONSHIP_CONTAINS, CODE_SOP_INSTANCE_UID, SCHEME_DCM, MEANING_SOP_INSTANCE_UID, multiFrameObj.sopInstanceUID));
 
         SimulatedInstance singleFrame1 = study.seriesList.get(0).instances.get(1);
-        descSeq.add(createUIDRefItem("CONTAINS", CODE_SOP_INSTANCE_UID, "DCM", "SOP Instance UIDs", singleFrame1.sopInstanceUID));
+        descSeq.add(createUIDRefItem(be.uzleuven.ihe.dicom.constants.DicomConstants.RELATIONSHIP_CONTAINS, CODE_SOP_INSTANCE_UID, SCHEME_DCM, MEANING_SOP_INSTANCE_UID, singleFrame1.sopInstanceUID));
 
         SimulatedInstance singleFrame2 = study.seriesList.get(0).instances.get(3);
-        descSeq.add(createUIDRefItem("CONTAINS", CODE_SOP_INSTANCE_UID, "DCM", "SOP Instance UIDs", singleFrame2.sopInstanceUID));
+        descSeq.add(createUIDRefItem(be.uzleuven.ihe.dicom.constants.DicomConstants.RELATIONSHIP_CONTAINS, CODE_SOP_INSTANCE_UID, SCHEME_DCM, MEANING_SOP_INSTANCE_UID, singleFrame2.sopInstanceUID));
 
         // If you also want to convey a specific frame number without using ReferencedSOPSequence,
         // add a TEXT note; the validator doesn't check it, but it's human-readable.
-        descSeq.add(createTextItem("CONTAINS", "ddd010", "DCM", "Frame Note",
+        descSeq.add(createTextItem(be.uzleuven.ihe.dicom.constants.DicomConstants.RELATIONSHIP_CONTAINS, "ddd010", "DCM", "Frame Note",
                 "Multiframe reference implies frame 1 (example)."));
 
         entryContent.add(kosDesc);
@@ -377,4 +361,3 @@ public class IHEMADOSampleCreator {
         }
     }
 }
-

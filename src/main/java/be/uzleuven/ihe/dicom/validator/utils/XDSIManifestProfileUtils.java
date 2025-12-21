@@ -1,5 +1,6 @@
 package be.uzleuven.ihe.dicom.validator.utils;
 
+import be.uzleuven.ihe.dicom.constants.DicomConstants;
 import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Sequence;
 import org.dcm4che3.data.Tag;
@@ -59,12 +60,12 @@ public final class XDSIManifestProfileUtils {
         // Require CompletionFlag/VerificationFlag for finalized XDS-I manifests
         ctx.checkRequiredAttribute(dataset, Tag.CompletionFlag, "CompletionFlag", result, modulePath);
         if (dataset.contains(Tag.CompletionFlag)) {
-            ctx.checkEnumeratedValue(dataset, Tag.CompletionFlag, "CompletionFlag", new String[]{"COMPLETE"}, result, modulePath);
+            ctx.checkEnumeratedValue(dataset, Tag.CompletionFlag, "CompletionFlag", new String[]{DicomConstants.COMPLETION_FLAG_COMPLETE}, result, modulePath);
         }
 
         ctx.checkRequiredAttribute(dataset, Tag.VerificationFlag, "VerificationFlag", result, modulePath);
         if (dataset.contains(Tag.VerificationFlag)) {
-            ctx.checkEnumeratedValue(dataset, Tag.VerificationFlag, "VerificationFlag", new String[]{"VERIFIED", "UNVERIFIED"}, result, modulePath);
+            ctx.checkEnumeratedValue(dataset, Tag.VerificationFlag, "VerificationFlag", new String[]{DicomConstants.VERIFICATION_FLAG_VERIFIED, DicomConstants.VERIFICATION_FLAG_UNVERIFIED}, result, modulePath);
         }
 
         // ContentTemplateSequence expected to be DCMR/TID 2010 for KOS (common XDS-I convention)

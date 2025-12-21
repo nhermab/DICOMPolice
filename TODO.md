@@ -256,5 +256,5 @@ Want to help? Check out our [Contributing Guide](CONTRIBUTING.md) (to be created
 - This list is living document - expect frequent updates
 - Many items depend on MADO profile finalization
 
-**Last Updated**: 2024-12-21
+**Last Updated**: 2025-12-21
 

@@ -1,5 +1,7 @@
 package be.uzleuven.ihe.dicom.creator.evil;
 
+import be.uzleuven.ihe.dicom.constants.DicomConstants;
+import be.uzleuven.ihe.dicom.constants.CodeConstants;
 import org.dcm4che3.data.*;
 import org.dcm4che3.util.UIDUtils;
 
@@ -10,6 +12,7 @@ import java.util.List;
 import static be.uzleuven.ihe.dicom.creator.DicomCreatorUtils.*;
 import static be.uzleuven.ihe.dicom.creator.DicomSequenceUtils.*;
 import static be.uzleuven.ihe.dicom.creator.SRContentItemUtils.*;
+import static be.uzleuven.ihe.dicom.constants.CodeConstants.*;
 
 /**
  * EVIL generator: creates MADO (manifest with description) documents that randomly omit creation steps
@@ -22,22 +25,7 @@ public class EVILMADOCreator {
     private static final double SKIP_STEP_P = 0.20;
     private static final double CORRUPT_P = 0.05;
 
-    // MADO / DICOM CP Codes (same placeholders as the normal creator)
-    private static final String CODE_DCM_MANIFEST_DESC = "ddd001";
-    private static final String CODE_DCM_IMAGE_LIBRARY = "111028";
-    private static final String CODE_DCM_LIB_GROUP = "126200";
-    private static final String CODE_DCM_KOS_DESC = "113012";
-
-    private static final String CODE_MODALITY = "121139";
-    private static final String CODE_STUDY_INSTANCE_UID = "ddd011";
-    private static final String CODE_TARGET_REGION = "123014";
-    private static final String CODE_SERIES_DATE = "ddd003";
-    private static final String CODE_SERIES_TIME = "ddd004";
-    private static final String CODE_SERIES_NUMBER = "ddd005";
-    private static final String CODE_SERIES_DESCRIPTION = "ddd002";
-    private static final String CODE_SERIES_INSTANCE_UID = "ddd006";
-    private static final String CODE_KOS_TITLE = "ddd008";
-    private static final String CODE_SOP_INSTANCE_UID = "ddd007";
+    // Note: Code constants are now imported from CodeConstants class
 
     private static final String DEFAULT_INSTITUTION_NAME = "IHE Demo Hospital";
     private static final String DEFAULT_PATIENT_ID_ISSUER = "HUPA";
@@ -131,12 +119,12 @@ public class EVILMADOCreator {
         // --- SR root ---
         if (!EvilDice.chance(SKIP_STEP_P)) {
             d.setString(Tag.ValueType, VR.CS, "CONTAINER");
-            d.setString(Tag.ContinuityOfContent, VR.CS, "SEPARATE");
+            d.setString(Tag.ContinuityOfContent, VR.CS, DicomConstants.CONTINUITY_SEPARATE);
         }
 
         if (!EvilDice.chance(SKIP_STEP_P)) {
             d.newSequence(Tag.ConceptNameCodeSequence, 1)
-                    .add(code(CODE_DCM_MANIFEST_DESC, "DCM", "Manifest with Description"));
+                    .add(code(CODE_MANIFEST_WITH_DESCRIPTION, SCHEME_DCM, MEANING_MANIFEST_WITH_DESCRIPTION));
         }
 
         if (!EvilDice.chance(SKIP_STEP_P)) {
@@ -145,8 +133,8 @@ public class EVILMADOCreator {
         }
 
         if (!EvilDice.chance(SKIP_STEP_P)) {
-            d.setString(Tag.CompletionFlag, VR.CS, "COMPLETE");
-            d.setString(Tag.VerificationFlag, VR.CS, "UNVERIFIED");
+            d.setString(Tag.CompletionFlag, VR.CS, DicomConstants.COMPLETION_FLAG_COMPLETE);
+            d.setString(Tag.VerificationFlag, VR.CS, DicomConstants.VERIFICATION_FLAG_UNVERIFIED);
         }
 
         if (!EvilDice.chance(SKIP_STEP_P)) {
@@ -154,40 +142,40 @@ public class EVILMADOCreator {
 
             // TID 1600-ish, top-level
             if (!EvilDice.chance(SKIP_STEP_P)) {
-                contentSeq.add(createCodeItem("CONTAINS", CODE_MODALITY, "DCM", "Modality",
-                        code("CT", "DCM", "CT")));
+                contentSeq.add(createCodeItem(DicomConstants.RELATIONSHIP_CONTAINS, CODE_MODALITY, SCHEME_DCM, MEANING_MODALITY,
+                        code(CODE_MODALITY_CT, SCHEME_DCM, MEANING_MODALITY_CT)));
             }
             if (!EvilDice.chance(SKIP_STEP_P)) {
-                contentSeq.add(createUIDRefItem("CONTAINS", CODE_STUDY_INSTANCE_UID, "DCM", "Study Instance UID",
+                contentSeq.add(createUIDRefItem(DicomConstants.RELATIONSHIP_CONTAINS, CODE_STUDY_INSTANCE_UID, SCHEME_DCM, MEANING_STUDY_INSTANCE_UID,
                         study.studyInstanceUID));
             }
             if (!EvilDice.chance(SKIP_STEP_P)) {
-                contentSeq.add(createCodeItem("CONTAINS", CODE_TARGET_REGION, "DCM", "Target Region",
-                        code("T-D4000", "SRT", "Abdomen")));
+                contentSeq.add(createCodeItem(DicomConstants.RELATIONSHIP_CONTAINS, CODE_TARGET_REGION, SCHEME_DCM, MEANING_TARGET_REGION,
+                        code(CODE_REGION_ABDOMEN, SCHEME_SRT, MEANING_REGION_ABDOMEN)));
             }
 
             // Image Library
             if (!EvilDice.chance(SKIP_STEP_P)) {
                 Attributes libContainer = new Attributes();
-                libContainer.setString(Tag.RelationshipType, VR.CS, "CONTAINS");
+                libContainer.setString(Tag.RelationshipType, VR.CS, DicomConstants.RELATIONSHIP_CONTAINS);
                 libContainer.setString(Tag.ValueType, VR.CS, "CONTAINER");
                 libContainer.newSequence(Tag.ConceptNameCodeSequence, 1)
-                        .add(code(CODE_DCM_IMAGE_LIBRARY, "DCM", "Image Library"));
+                        .add(code(CODE_IMAGE_LIBRARY, SCHEME_DCM, MEANING_IMAGE_LIBRARY));
 
                 Sequence libContent = libContainer.newSequence(Tag.ContentSequence, 50);
 
                 // acquisition context under lib
                 if (!EvilDice.chance(SKIP_STEP_P)) {
-                    libContent.add(createCodeItem("HAS ACQ CONTEXT", CODE_MODALITY, "DCM", "Modality",
-                            code("CT", "DCM", "CT")));
+                    libContent.add(createCodeItem("HAS ACQ CONTEXT", CODE_MODALITY, SCHEME_DCM, MEANING_MODALITY,
+                            code(CODE_MODALITY_CT, SCHEME_DCM, MEANING_MODALITY_CT)));
                 }
                 if (!EvilDice.chance(SKIP_STEP_P)) {
-                    libContent.add(createUIDRefItem("HAS ACQ CONTEXT", CODE_STUDY_INSTANCE_UID, "DCM", "Study Instance UID",
+                    libContent.add(createUIDRefItem("HAS ACQ CONTEXT", CODE_STUDY_INSTANCE_UID, SCHEME_DCM, MEANING_STUDY_INSTANCE_UID,
                             study.studyInstanceUID));
                 }
                 if (!EvilDice.chance(SKIP_STEP_P)) {
-                    libContent.add(createCodeItem("HAS ACQ CONTEXT", CODE_TARGET_REGION, "DCM", "Target Region",
-                            code("T-D4000", "SRT", "Abdomen")));
+                    libContent.add(createCodeItem("HAS ACQ CONTEXT", CODE_TARGET_REGION, SCHEME_DCM, MEANING_TARGET_REGION,
+                            code(CODE_REGION_ABDOMEN, SCHEME_SRT, MEANING_REGION_ABDOMEN)));
                 }
 
                 int seriesNumber = 1;
@@ -202,31 +190,31 @@ public class EVILMADOCreator {
                     }
 
                     Attributes group = new Attributes();
-                    group.setString(Tag.RelationshipType, VR.CS, "CONTAINS");
+                    group.setString(Tag.RelationshipType, VR.CS, DicomConstants.RELATIONSHIP_CONTAINS);
                     group.setString(Tag.ValueType, VR.CS, "CONTAINER");
                     group.newSequence(Tag.ConceptNameCodeSequence, 1)
-                            .add(code(CODE_DCM_LIB_GROUP, "DCM", "Image Library Group"));
+                            .add(code(CODE_IMAGE_LIBRARY_GROUP, SCHEME_DCM, MEANING_IMAGE_LIBRARY_GROUP));
 
                     Sequence groupSeq = group.newSequence(Tag.ContentSequence, 50);
 
                     if (!EvilDice.chance(SKIP_STEP_P)) {
-                        groupSeq.add(createCodeItem("HAS ACQ CONTEXT", CODE_MODALITY, "DCM", "Modality",
-                                code(series.modality, "DCM", series.modality)));
+                        groupSeq.add(createCodeItem("HAS ACQ CONTEXT", CODE_MODALITY, SCHEME_DCM, MEANING_MODALITY,
+                                code(series.modality, SCHEME_DCM, series.modality)));
                     }
                     if (!EvilDice.chance(SKIP_STEP_P)) {
-                        groupSeq.add(createUIDRefItem("HAS ACQ CONTEXT", CODE_SERIES_INSTANCE_UID, "DCM", "Series Instance UID", series.seriesUID));
+                        groupSeq.add(createUIDRefItem("HAS ACQ CONTEXT", CODE_SERIES_INSTANCE_UID, SCHEME_DCM, MEANING_SERIES_INSTANCE_UID, series.seriesUID));
                     }
                     if (!EvilDice.chance(SKIP_STEP_P)) {
-                        groupSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_SERIES_DESCRIPTION, "DCM", "Series Description", series.description));
+                        groupSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_SERIES_DESCRIPTION, SCHEME_DCM, MEANING_SERIES_DESCRIPTION, series.description));
                     }
                     if (!EvilDice.chance(SKIP_STEP_P)) {
-                        groupSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_SERIES_DATE, "DCM", "Series Date", series.seriesDate));
+                        groupSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_SERIES_DATE, SCHEME_DCM, MEANING_SERIES_DATE, series.seriesDate));
                     }
                     if (!EvilDice.chance(SKIP_STEP_P)) {
-                        groupSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_SERIES_TIME, "DCM", "Series Time", series.seriesTime));
+                        groupSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_SERIES_TIME, SCHEME_DCM, MEANING_SERIES_TIME, series.seriesTime));
                     }
                     if (!EvilDice.chance(SKIP_STEP_P)) {
-                        groupSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_SERIES_NUMBER, "DCM", "Series Number", Integer.toString(series.seriesNumber)));
+                        groupSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_SERIES_NUMBER, SCHEME_DCM, MEANING_SERIES_NUMBER, Integer.toString(series.seriesNumber)));
                     }
 
                     for (SimulatedInstance inst : series.instances) {
@@ -235,7 +223,7 @@ public class EVILMADOCreator {
                         }
 
                         Attributes entry = new Attributes();
-                        entry.setString(Tag.RelationshipType, VR.CS, "CONTAINS");
+                        entry.setString(Tag.RelationshipType, VR.CS, DicomConstants.RELATIONSHIP_CONTAINS);
                         entry.setString(Tag.ValueType, VR.CS, "IMAGE");
 
                         if (!EvilDice.chance(SKIP_STEP_P)) {
@@ -274,30 +262,30 @@ public class EVILMADOCreator {
 
     private static void addKinDescriptors(Sequence entryContent, SimulatedStudy study) {
         Attributes kosDesc = new Attributes();
-        kosDesc.setString(Tag.RelationshipType, VR.CS, "CONTAINS");
+        kosDesc.setString(Tag.RelationshipType, VR.CS, DicomConstants.RELATIONSHIP_CONTAINS);
         kosDesc.setString(Tag.ValueType, VR.CS, "CONTAINER");
         kosDesc.newSequence(Tag.ConceptNameCodeSequence, 1)
-                .add(code(CODE_DCM_KOS_DESC, "DCM", "Key Object Description"));
+                .add(code(CODE_KOS_DESCRIPTION, SCHEME_DCM, MEANING_KOS_DESCRIPTION));
 
         Sequence descSeq = kosDesc.newSequence(Tag.ContentSequence, 10);
 
         if (!EvilDice.chance(SKIP_STEP_P)) {
-            descSeq.add(createCodeItem("CONTAINS", CODE_KOS_TITLE, "DCM", "KOS Title Code",
-                    code("113000", "DCM", "Of Interest")));
+            descSeq.add(createCodeItem(DicomConstants.RELATIONSHIP_CONTAINS, CODE_KOS_TITLE, SCHEME_DCM, MEANING_KOS_TITLE,
+                    code(CODE_OF_INTEREST, SCHEME_DCM, MEANING_OF_INTEREST)));
         }
 
         if (!EvilDice.chance(SKIP_STEP_P)) {
-            descSeq.add(createTextItem("CONTAINS", "ddd009", "DCM", "KOS Object Description", "Key Objects for Surgery"));
+            descSeq.add(createTextItem(DicomConstants.RELATIONSHIP_CONTAINS, "ddd009", "DCM", "KOS Object Description", "Key Objects for Surgery"));
         }
 
         // Add some UIDREFs describing what the KIN references (may be skipped)
         if (!EvilDice.chance(SKIP_STEP_P)) {
             SimulatedInstance multiFrameObj = study.seriesList.get(1).instances.get(0);
-            descSeq.add(createUIDRefItem("CONTAINS", CODE_SOP_INSTANCE_UID, "DCM", "SOP Instance UIDs", multiFrameObj.sopInstanceUID));
+            descSeq.add(createUIDRefItem(DicomConstants.RELATIONSHIP_CONTAINS, CODE_SOP_INSTANCE_UID, SCHEME_DCM, MEANING_SOP_INSTANCE_UID, multiFrameObj.sopInstanceUID));
         }
         if (!EvilDice.chance(SKIP_STEP_P)) {
             SimulatedInstance singleFrame1 = study.seriesList.get(0).instances.get(1);
-            descSeq.add(createUIDRefItem("CONTAINS", CODE_SOP_INSTANCE_UID, "DCM", "SOP Instance UIDs", singleFrame1.sopInstanceUID));
+            descSeq.add(createUIDRefItem(DicomConstants.RELATIONSHIP_CONTAINS, CODE_SOP_INSTANCE_UID, SCHEME_DCM, MEANING_SOP_INSTANCE_UID, singleFrame1.sopInstanceUID));
         }
 
         entryContent.add(kosDesc);

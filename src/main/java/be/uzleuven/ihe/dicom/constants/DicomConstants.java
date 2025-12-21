@@ -43,7 +43,7 @@ public final class DicomConstants {
     public static final String VALUE_TYPE_WAVEFORM = "WAVEFORM";
     public static final String VALUE_TYPE_TEXT = "TEXT";
     public static final String VALUE_TYPE_PNAME = "PNAME";
-    public static final String CONTINUITY_SEPARATE = "SEPARATE";
+    public static final String CONTINUITY_SEPARATE = DicomConstants.CONTINUITY_SEPARATE;
 
     // Relationship types used in SR trees
     public static final String RELATIONSHIP_CONTAINS = "CONTAINS";

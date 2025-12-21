@@ -1,5 +1,7 @@
 package be.uzleuven.ihe.dicom.creator.evil;
 
+import be.uzleuven.ihe.dicom.constants.DicomConstants;
+import be.uzleuven.ihe.dicom.constants.CodeConstants;
 import org.dcm4che3.data.*;
 import org.dcm4che3.util.UIDUtils;
 
@@ -10,6 +12,7 @@ import java.util.List;
 import static be.uzleuven.ihe.dicom.creator.DicomCreatorUtils.*;
 import static be.uzleuven.ihe.dicom.creator.DicomSequenceUtils.*;
 import static be.uzleuven.ihe.dicom.creator.SRContentItemUtils.*;
+import static be.uzleuven.ihe.dicom.constants.CodeConstants.*;
 
 /**
  * EVIL generator: creates KOS documents that randomly omit creation steps or inject wrong tags/values.
@@ -80,8 +83,8 @@ public class EVILKOSCreator {
         if (!EvilDice.chance(SKIP_STEP_P)) d.setInt(Tag.InstanceNumber, VR.IS, 1 + randomInt(999));
         if (!EvilDice.chance(SKIP_STEP_P)) d.setString(Tag.ContentDate, VR.DA, todayYYYYMMDD());
         if (!EvilDice.chance(SKIP_STEP_P)) d.setString(Tag.ContentTime, VR.TM, nowHHMMSS());
-        if (!EvilDice.chance(SKIP_STEP_P)) d.setString(Tag.CompletionFlag, VR.CS, "COMPLETE");
-        if (!EvilDice.chance(SKIP_STEP_P)) d.setString(Tag.VerificationFlag, VR.CS, "UNVERIFIED");
+        if (!EvilDice.chance(SKIP_STEP_P)) d.setString(Tag.CompletionFlag, VR.CS, DicomConstants.COMPLETION_FLAG_COMPLETE);
+        if (!EvilDice.chance(SKIP_STEP_P)) d.setString(Tag.VerificationFlag, VR.CS, DicomConstants.VERIFICATION_FLAG_UNVERIFIED);
         if (!EvilDice.chance(SKIP_STEP_P)) d.setString(Tag.TimezoneOffsetFromUTC, VR.SH, timezoneOffsetFromUTC());
 
         if (!EvilDice.chance(SKIP_STEP_P)) {
@@ -92,12 +95,12 @@ public class EVILKOSCreator {
         // --- SR Document Content Module (Root container) ---
         if (!EvilDice.chance(SKIP_STEP_P)) {
             d.setString(Tag.ValueType, VR.CS, "CONTAINER");
-            d.setString(Tag.ContinuityOfContent, VR.CS, "SEPARATE");
+            d.setString(Tag.ContinuityOfContent, VR.CS, DicomConstants.CONTINUITY_SEPARATE);
         }
 
         if (!EvilDice.chance(SKIP_STEP_P)) {
             Sequence conceptName = d.newSequence(Tag.ConceptNameCodeSequence, 1);
-            conceptName.add(code("113030", "DCM", "Manifest"));
+            conceptName.add(code(CODE_MANIFEST, SCHEME_DCM, MEANING_MANIFEST));
         }
 
         if (!EvilDice.chance(SKIP_STEP_P)) {
@@ -134,8 +137,8 @@ public class EVILKOSCreator {
     private static void populateContentTree(Attributes d, List<Attributes> referencedSops) {
         Sequence content = d.newSequence(Tag.ContentSequence, 50);
         for (Attributes sop : referencedSops) {
-            Attributes img = createImageItem("CONTAINS",
-                    code("111030", "DCM", "Image"),
+            Attributes img = createImageItem(DicomConstants.RELATIONSHIP_CONTAINS,
+                    code(CODE_IMAGE, SCHEME_DCM, MEANING_IMAGE),
                     sop.getString(Tag.ReferencedSOPClassUID),
                     sop.getString(Tag.ReferencedSOPInstanceUID));
             content.add(img);

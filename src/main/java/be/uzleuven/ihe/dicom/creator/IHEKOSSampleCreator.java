@@ -1,5 +1,7 @@
 package be.uzleuven.ihe.dicom.creator;
 
+import be.uzleuven.ihe.dicom.constants.DicomConstants;
+import be.uzleuven.ihe.dicom.constants.CodeConstants;
 import org.dcm4che3.data.*;
 import org.dcm4che3.util.UIDUtils;
 
@@ -10,6 +12,7 @@ import java.util.List;
 import static be.uzleuven.ihe.dicom.creator.DicomCreatorUtils.*;
 import static be.uzleuven.ihe.dicom.creator.DicomSequenceUtils.*;
 import static be.uzleuven.ihe.dicom.creator.SRContentItemUtils.*;
+import static be.uzleuven.ihe.dicom.constants.CodeConstants.*;
 
 public class IHEKOSSampleCreator {
 
@@ -79,8 +82,8 @@ public class IHEKOSSampleCreator {
         d.setString(Tag.ContentTime, VR.TM, nowHHMMSS());
 
         // SR General / XDS-I profile requirements
-        d.setString(Tag.CompletionFlag, VR.CS, "COMPLETE");
-        d.setString(Tag.VerificationFlag, VR.CS, "UNVERIFIED");
+        d.setString(Tag.CompletionFlag, VR.CS, DicomConstants.COMPLETION_FLAG_COMPLETE);
+        d.setString(Tag.VerificationFlag, VR.CS, DicomConstants.VERIFICATION_FLAG_UNVERIFIED);
         d.setString(Tag.TimezoneOffsetFromUTC, VR.SH, timezoneOffsetFromUTC());
 
         // ReferencedRequestSequence is Type 2 (must be present) and required by this validator
@@ -88,12 +91,12 @@ public class IHEKOSSampleCreator {
 
         // --- SR Document Content Module (Root container) ---
         d.setString(Tag.ValueType, VR.CS, "CONTAINER");
-        d.setString(Tag.ContinuityOfContent, VR.CS, "SEPARATE");
+        d.setString(Tag.ContinuityOfContent, VR.CS, DicomConstants.CONTINUITY_SEPARATE);
 
         // Document Title: IHE XDS-I Imaging Manifest is typically (113030, DCM, "Manifest")
         // (Your validator accepts different titles for MADO vs XDS-I; for IHEKOS we use 113030.
         Sequence conceptName = d.newSequence(Tag.ConceptNameCodeSequence, 1);
-        conceptName.add(code("113030", "DCM", "Manifest"));
+        conceptName.add(code(CODE_MANIFEST, SCHEME_DCM, MEANING_MANIFEST));
 
         // ContentTemplateSequence identifies TID 2010 / DCMR
         Sequence cts = d.newSequence(Tag.ContentTemplateSequence, 1);
@@ -121,8 +124,8 @@ public class IHEKOSSampleCreator {
         // Keep this minimal with only IMAGE references.
 
         for (Attributes sop : referencedSops) {
-            Attributes img = createImageItem("CONTAINS",
-                                            code("111030", "DCM", "Image"),
+            Attributes img = createImageItem(DicomConstants.RELATIONSHIP_CONTAINS,
+                                            code(CODE_IMAGE, SCHEME_DCM, MEANING_IMAGE),
                                             sop.getString(Tag.ReferencedSOPClassUID),
                                             sop.getString(Tag.ReferencedSOPInstanceUID));
             content.add(img);

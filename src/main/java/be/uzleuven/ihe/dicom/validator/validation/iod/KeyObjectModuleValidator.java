@@ -1,5 +1,6 @@
 package be.uzleuven.ihe.dicom.validator.validation.iod;
 
+import be.uzleuven.ihe.dicom.constants.DicomConstants;
 import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Sequence;
 import org.dcm4che3.data.Tag;
@@ -244,7 +245,7 @@ public class KeyObjectModuleValidator {
         // ContinuityOfContent - Type 1
         validator.checkRequiredAttribute(dataset, Tag.ContinuityOfContent, "ContinuityOfContent", result, modulePath);
         validator.checkEnumeratedValue(dataset, Tag.ContinuityOfContent, "ContinuityOfContent",
-                           new String[]{"SEPARATE"}, result, modulePath);
+                           new String[]{DicomConstants.CONTINUITY_SEPARATE}, result, modulePath);
 
         // CompletionFlag / VerificationFlag (SR General)
         // In the wild, some KOS objects are missing these; keep generic validation permissive.
@@ -253,7 +254,7 @@ public class KeyObjectModuleValidator {
         }
         if (dataset.contains(Tag.CompletionFlag)) {
             validator.checkEnumeratedValue(dataset, Tag.CompletionFlag, "CompletionFlag",
-                new String[]{"COMPLETE", "PARTIAL"}, result, modulePath);
+                new String[]{DicomConstants.COMPLETION_FLAG_COMPLETE, "PARTIAL"}, result, modulePath);
         }
 
         if (!dataset.contains(Tag.VerificationFlag)) {
@@ -261,11 +262,11 @@ public class KeyObjectModuleValidator {
         }
         if (dataset.contains(Tag.VerificationFlag)) {
             validator.checkEnumeratedValue(dataset, Tag.VerificationFlag, "VerificationFlag",
-                new String[]{"VERIFIED", "UNVERIFIED"}, result, modulePath);
+                new String[]{DicomConstants.VERIFICATION_FLAG_VERIFIED, DicomConstants.VERIFICATION_FLAG_UNVERIFIED}, result, modulePath);
 
             // If VERIFIED, must have Verifying Observer Sequence and Verification DateTime
             String verificationFlag = dataset.getString(Tag.VerificationFlag);
-            if ("VERIFIED".equals(verificationFlag)) {
+            if (DicomConstants.VERIFICATION_FLAG_VERIFIED.equals(verificationFlag)) {
                 if (!dataset.contains(Tag.VerifyingObserverSequence)) {
                     result.addError("VerificationFlag is 'VERIFIED' but VerifyingObserverSequence (0040,A073) is missing. " +
                                   "A verified KOS must include at least one verifying observer.", modulePath);

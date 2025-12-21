@@ -276,7 +276,7 @@ This project is licensed under the **GNU General Public License v2.0 (GPLv2)**.
 
 ```
 DICOMPolice - DICOM Key Object Selection and MADO Manifest Validator
-Copyright (C) 2024 UZ Leuven
+Copyright (C) 2026 UZ Leuven
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
