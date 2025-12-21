@@ -2,14 +2,14 @@
 
 **A comprehensive DICOM Key Object Selection (KOS) and MADO Manifest validator and creator for IHE XDS-I.b compliance.**
 
-DICOMPolice validates DICOM Key Object Selection (KOS) documents and Manifest with Descriptive Objects (MADO) manifests according to IHE XDS-I.b and MADO profile specifications. It provides both validation and sample creation tools to ensure interoperability in medical imaging document exchange.
+DICOMPolice validates DICOM Key Object Selection (KOS) documents and Manifest-based Access to DICOM Objects (MADO) manifests according to IHE XDS-I.b and MADO profile specifications. It provides both validation and sample creation tools to ensure interoperability in medical imaging document exchange.
 
 ---
 
 ## Features
 
 - ✅ **IHE XDS-I.b KOS Validation**: Validates Key Object Selection documents for XDS-I Imaging Manifest compliance
-- ✅ **MADO Profile Support**: Full validation for Manifest with Descriptive Objects (TID 1600 Image Library)
+- ✅ **MADO Profile Support**: Full validation for Manifest-based Access to DICOM Objects (TID 1600 Image Library)
 - ✅ **IOD Validation**: DICOM Information Object Definition compliance checking (inspired by PixelMed's dciodvfy)
 - ✅ **Advanced Encoding Checks**: Character set, UI padding, text padding validation
 - ✅ **Timezone Consistency**: Validates timezone offset requirements across content
@@ -46,7 +46,7 @@ DICOMPolice validates DICOM Key Object Selection (KOS) documents and Manifest wi
 ### Build from Source
 
 ```bash
-git clone https://github.com/yourusername/DICOMPolice.git
+git clone https://github.com/nhermab/DICOMPolice.git
 cd DICOMPolice
 mvn clean package
 ```
@@ -121,7 +121,7 @@ The **IHEXDSIManifest** profile validates Key Object Selection documents accordi
 - Timezone offset consistency
 - Explicit VR Little Endian transfer syntax (recommended)
 
-### MADO (Manifest with Descriptive Objects)
+### MADO (Manifest-based Access to DICOM Objects)
 
 The **IHEMADO** profile extends XDS-I with enhanced metadata using TID 1600 Image Library template structure.
 
@@ -188,7 +188,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed system design and component 
 
 ⚠️ **IMPORTANT: Public Comment Version**
 
-The MADO (Manifest with Descriptive Objects) profile is currently in **Public Comment** status as part of the IHE Radiology Technical Framework development process. The implementation in DICOMPolice is based on the draft specification and is intended for:
+The MADO (Manifest-based Access to DICOM Objects) profile is currently in **Public Comment** status as part of the IHE Radiology Technical Framework development process. The implementation in DICOMPolice is based on the draft specification and is intended for:
 
 - **Trial implementations** for Connectathon testing
 - **Profile development feedback** and refinement
@@ -344,7 +344,7 @@ See [TODO.md](TODO.md) for planned features and enhancements.
 
 For questions, issues, or contributions:
 
-- **GitHub Issues**: https://github.com/yourusername/DICOMPolice/issues
+- **GitHub Issues**: https://github.com/nhermab/DICOMPolice/issues
 - **IHE Connectathon**: Participate in testing events
 - **Email**: [nhermab@uzleuven.be]
 

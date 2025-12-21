@@ -5,8 +5,11 @@ import org.dcm4che3.data.Tag;
 import org.dcm4che3.data.UID;
 import org.dcm4che3.data.VR;
 import be.uzleuven.ihe.dicom.validator.model.ValidationResult;
+import be.uzleuven.ihe.dicom.constants.SopClassLists;
+import be.uzleuven.ihe.dicom.constants.TransferSyntaxUIDs;
 
 import java.util.*;
+import java.util.stream.IntStream;
 
 /**
  * Advanced structure validation for DICOM objects.
@@ -14,77 +17,65 @@ import java.util.*;
  */
 public class AdvancedStructureValidator {
 
-    // Known DICOM SOP Classes (sample - extend as needed)
-    private static final Map<String, String> KNOWN_SOP_CLASSES = new HashMap<>();
-
-    // Transfer Syntax UIDs that are commonly confused with SOP Classes
-    private static final Set<String> TRANSFER_SYNTAX_UIDS = new HashSet<>();
-
-    // Special UIDs that are not SOP Classes
-
-    static {
-        // Storage SOP Classes
-        KNOWN_SOP_CLASSES.put(UID.CTImageStorage, "CT Image Storage");
-        KNOWN_SOP_CLASSES.put(UID.MRImageStorage, "MR Image Storage");
-        KNOWN_SOP_CLASSES.put(UID.UltrasoundImageStorage, "Ultrasound Image Storage");
-        KNOWN_SOP_CLASSES.put(UID.SecondaryCaptureImageStorage, "Secondary Capture Image Storage");
-        KNOWN_SOP_CLASSES.put(UID.XRayAngiographicImageStorage, "X-Ray Angiographic Image Storage");
-        KNOWN_SOP_CLASSES.put(UID.XRayRadiofluoroscopicImageStorage, "X-Ray Radiofluoroscopic Image Storage");
-        KNOWN_SOP_CLASSES.put(UID.DigitalXRayImageStorageForPresentation, "Digital X-Ray Image Storage - For Presentation");
-        KNOWN_SOP_CLASSES.put(UID.DigitalXRayImageStorageForProcessing, "Digital X-Ray Image Storage - For Processing");
-        KNOWN_SOP_CLASSES.put(UID.KeyObjectSelectionDocumentStorage, "Key Object Selection Document Storage");
-        KNOWN_SOP_CLASSES.put(UID.GrayscaleSoftcopyPresentationStateStorage, "Grayscale Softcopy Presentation State Storage");
-        KNOWN_SOP_CLASSES.put(UID.EncapsulatedPDFStorage, "Encapsulated PDF Storage");
-        KNOWN_SOP_CLASSES.put(UID.BasicTextSRStorage, "Basic Text SR Storage");
-        KNOWN_SOP_CLASSES.put(UID.EnhancedSRStorage, "Enhanced SR Storage");
-        KNOWN_SOP_CLASSES.put(UID.ComprehensiveSRStorage, "Comprehensive SR Storage");
-        KNOWN_SOP_CLASSES.put(UID.Comprehensive3DSRStorage, "Comprehensive 3D SR Storage");
-
-        // Transfer Syntaxes (NOT SOP Classes)
-        TRANSFER_SYNTAX_UIDS.add(UID.ImplicitVRLittleEndian);
-        TRANSFER_SYNTAX_UIDS.add(UID.ExplicitVRLittleEndian);
-        TRANSFER_SYNTAX_UIDS.add(UID.ExplicitVRBigEndian);
-        TRANSFER_SYNTAX_UIDS.add(UID.DeflatedExplicitVRLittleEndian);
-        TRANSFER_SYNTAX_UIDS.add(UID.JPEGBaseline8Bit);
-        TRANSFER_SYNTAX_UIDS.add(UID.JPEGExtended12Bit);
-        TRANSFER_SYNTAX_UIDS.add(UID.JPEGLossless);
-        TRANSFER_SYNTAX_UIDS.add(UID.JPEGLosslessSV1);
-        TRANSFER_SYNTAX_UIDS.add(UID.JPEGLSLossless);
-        TRANSFER_SYNTAX_UIDS.add(UID.JPEG2000);
-        TRANSFER_SYNTAX_UIDS.add(UID.RLELossless);
-
-        // Other special UIDs
-    }
-
     /**
      * Validate Referenced SOP Class UID consistency and sanity checks.
      * Detect if Transfer Syntax UIDs are mistakenly used as SOP Class UIDs.
      */
     public static void validateReferencedSOPClasses(Attributes dataset, ValidationResult result, String path) {
-        // Check in CurrentRequestedProcedureEvidenceSequence
+        validateEvidenceSequenceSOPClasses(dataset, result, path);
+        validateContentSequenceSOPClasses(dataset, result, path);
+    }
+
+    /**
+     * Validate SOP Class UIDs in Evidence Sequence.
+     */
+    private static void validateEvidenceSequenceSOPClasses(Attributes dataset, ValidationResult result, String path) {
         org.dcm4che3.data.Sequence evidenceSeq = dataset.getSequence(Tag.CurrentRequestedProcedureEvidenceSequence);
-        if (evidenceSeq != null) {
-            for (Attributes study : evidenceSeq) {
-                org.dcm4che3.data.Sequence seriesSeq = study.getSequence(Tag.ReferencedSeriesSequence);
-                if (seriesSeq != null) {
-                    for (Attributes series : seriesSeq) {
-                        org.dcm4che3.data.Sequence sopSeq = series.getSequence(Tag.ReferencedSOPSequence);
-                        if (sopSeq != null) {
-                            int itemNum = 0;
-                            for (Attributes sop : sopSeq) {
-                                String sopClassUID = sop.getString(Tag.ReferencedSOPClassUID);
-                                validateSOPClassUID(sopClassUID, "ReferencedSOPClassUID", result,
-                                                   path + ">Evidence>ReferencedSOP[" + itemNum + "]");
-                                itemNum++;
-                            }
-                        }
-                    }
-                }
-            }
+        if (evidenceSeq == null) {
+            return;
         }
 
-        // Check in ContentSequence
-        validateContentSequenceSOPClasses(dataset, result, path);
+        int studyNum = 0;
+        for (Attributes study : evidenceSeq) {
+            String studyPath = path + ">Evidence[" + studyNum + "]";
+            validateStudySeriesSOPClasses(study, result, studyPath);
+            studyNum++;
+        }
+    }
+
+    /**
+     * Validate SOP Class UIDs in a study's series.
+     */
+    private static void validateStudySeriesSOPClasses(Attributes study, ValidationResult result, String studyPath) {
+        org.dcm4che3.data.Sequence seriesSeq = study.getSequence(Tag.ReferencedSeriesSequence);
+        if (seriesSeq == null) {
+            return;
+        }
+
+        int seriesNum = 0;
+        for (Attributes series : seriesSeq) {
+            String seriesPath = studyPath + ">Series[" + seriesNum + "]";
+            validateSeriesSOPClasses(series, result, seriesPath);
+            seriesNum++;
+        }
+    }
+
+    /**
+     * Validate SOP Class UIDs in a series.
+     */
+    private static void validateSeriesSOPClasses(Attributes series, ValidationResult result, String seriesPath) {
+        org.dcm4che3.data.Sequence sopSeq = series.getSequence(Tag.ReferencedSOPSequence);
+        if (sopSeq == null) {
+            return;
+        }
+
+        int sopNum = 0;
+        for (Attributes sop : sopSeq) {
+            String sopPath = seriesPath + ">ReferencedSOP[" + sopNum + "]";
+            String sopClassUID = sop.getString(Tag.ReferencedSOPClassUID);
+            validateSOPClassUID(sopClassUID, "ReferencedSOPClassUID", result, sopPath);
+            sopNum++;
+        }
     }
 
     /**
@@ -92,60 +83,110 @@ public class AdvancedStructureValidator {
      */
     private static void validateContentSequenceSOPClasses(Attributes dataset, ValidationResult result, String path) {
         org.dcm4che3.data.Sequence contentSeq = dataset.getSequence(Tag.ContentSequence);
-        if (contentSeq != null) {
-            int itemNum = 0;
-            for (Attributes item : contentSeq) {
-                String itemPath = path + ">ContentSequence[" + itemNum + "]";
+        if (contentSeq == null) {
+            return;
+        }
 
-                // Check Referenced SOP Sequence
-                org.dcm4che3.data.Sequence refSOPSeq = item.getSequence(Tag.ReferencedSOPSequence);
-                if (refSOPSeq != null) {
-                    int sopNum = 0;
-                    for (Attributes sop : refSOPSeq) {
-                        String sopClassUID = sop.getString(Tag.ReferencedSOPClassUID);
-                        validateSOPClassUID(sopClassUID, "ReferencedSOPClassUID", result,
-                                          itemPath + ">ReferencedSOP[" + sopNum + "]");
-                        sopNum++;
-                    }
-                }
-
-                // Recurse into nested content
-                validateContentSequenceSOPClasses(item, result, itemPath);
-                itemNum++;
-            }
+        int itemNum = 0;
+        for (Attributes item : contentSeq) {
+            String itemPath = path + ">ContentSequence[" + itemNum + "]";
+            validateContentItemSOPClasses(item, result, itemPath);
+            itemNum++;
         }
     }
+
+    /**
+     * Validate SOP Classes within a single content item and recurse into nested content.
+     */
+    private static void validateContentItemSOPClasses(Attributes item, ValidationResult result, String itemPath) {
+        validateItemReferencedSOPSequence(item, result, itemPath);
+        validateContentSequenceSOPClasses(item, result, itemPath);
+    }
+
+    /**
+     * Validate referenced SOPs within a content item.
+     */
+    private static void validateItemReferencedSOPSequence(Attributes item, ValidationResult result, String itemPath) {
+        org.dcm4che3.data.Sequence refSOPSeq = item.getSequence(Tag.ReferencedSOPSequence);
+        if (refSOPSeq == null) {
+            return;
+        }
+
+        int sopNum = 0;
+        for (Attributes sop : refSOPSeq) {
+            String sopPath = itemPath + ">ReferencedSOP[" + sopNum + "]";
+            String sopClassUID = sop.getString(Tag.ReferencedSOPClassUID);
+            validateSOPClassUID(sopClassUID, "ReferencedSOPClassUID", result, sopPath);
+            sopNum++;
+        }
+    }
+
 
     /**
      * Validate a single SOP Class UID for common errors.
      */
     private static void validateSOPClassUID(String sopClassUID, String attributeName,
                                            ValidationResult result, String path) {
-        if (sopClassUID == null || sopClassUID.isEmpty()) {
-            return; // Already checked by other validators
-        }
-
-        // Check if it's a Transfer Syntax UID (common error)
-        if (TRANSFER_SYNTAX_UIDS.contains(sopClassUID)) {
-            result.addError("CRITICAL: " + attributeName + " contains a Transfer Syntax UID (" + sopClassUID +
-                          ") instead of a SOP Class UID. This is a common copy-paste error where " +
-                          "Transfer Syntax UID was used where SOP Class UID belongs.", path);
+        if (isNullOrEmpty(sopClassUID)) {
             return;
         }
 
-        // Check if it's Verification SOP Class (unusual in references)
-        if (UID.Verification.equals(sopClassUID)) {
-            result.addWarning(attributeName + " references Verification SOP Class (1.2.840.10008.1.1). " +
-                            "This is unusual in a KOS and might indicate a copy-paste error.", path);
+        if (isTransferSyntaxUID(sopClassUID, attributeName, result, path)) {
             return;
         }
 
-        // Check if it's a known SOP Class
-        if (KNOWN_SOP_CLASSES.containsKey(sopClassUID)) {
-            String sopClassName = KNOWN_SOP_CLASSES.get(sopClassUID);
+        if (isVerificationSOPClass(sopClassUID, attributeName, result, path)) {
+            return;
+        }
+
+        reportKnownOrUnknownSOPClass(sopClassUID, attributeName, result, path);
+    }
+
+    /**
+     * Check if the string is null or empty.
+     */
+    private static boolean isNullOrEmpty(String value) {
+        return value == null || value.isEmpty();
+    }
+
+    /**
+     * Check if UID is a Transfer Syntax (common error) and report it.
+     */
+    private static boolean isTransferSyntaxUID(String uid, String attributeName,
+                                               ValidationResult result, String path) {
+        if (!TransferSyntaxUIDs.COMMON_TRANSFER_SYNTAX_UIDS.contains(uid)) {
+            return false;
+        }
+
+        result.addError("CRITICAL: " + attributeName + " contains a Transfer Syntax UID (" + uid +
+                      ") instead of a SOP Class UID. This is a common copy-paste error where " +
+                      "Transfer Syntax UID was used where SOP Class UID belongs.", path);
+        return true;
+    }
+
+    /**
+     * Check if UID is Verification SOP Class (unusual) and report it.
+     */
+    private static boolean isVerificationSOPClass(String uid, String attributeName,
+                                                  ValidationResult result, String path) {
+        if (!UID.Verification.equals(uid)) {
+            return false;
+        }
+
+        result.addWarning(attributeName + " references Verification SOP Class (1.2.840.10008.1.1). " +
+                        "This is unusual in a KOS and might indicate a copy-paste error.", path);
+        return true;
+    }
+
+    /**
+     * Report whether SOP Class UID is known or unknown.
+     */
+    private static void reportKnownOrUnknownSOPClass(String sopClassUID, String attributeName,
+                                                      ValidationResult result, String path) {
+        if (SopClassLists.KNOWN_SOP_CLASSES.containsKey(sopClassUID)) {
+            String sopClassName = SopClassLists.KNOWN_SOP_CLASSES.get(sopClassUID);
             result.addInfo(attributeName + " references known SOP Class: " + sopClassName, path);
         } else {
-            // Unknown SOP Class - might be valid but worth noting
             result.addWarning(attributeName + " references unknown or non-standard SOP Class UID: " +
                             sopClassUID + ". Verify this is a valid SOP Class UID.", path);
         }
@@ -158,28 +199,11 @@ public class AdvancedStructureValidator {
     public static void validateTemplateIdentification(Attributes dataset, ValidationResult result, String path) {
         org.dcm4che3.data.Sequence templateSeq = dataset.getSequence(Tag.ContentTemplateSequence);
 
-        if (templateSeq == null || templateSeq.isEmpty()) {
-            result.addWarning("ContentTemplateSequence (0040,A504) is missing. " +
-                            "For XDS-I.b compliance, this should explicitly identify TID 2010.", path);
+        if (!hasValidTemplateSequence(templateSeq, result, path)) {
             return;
         }
 
-        boolean foundTID2010 = false;
-        for (Attributes item : templateSeq) {
-            String templateID = item.getString(Tag.TemplateIdentifier);
-            String mappingResource = item.getString(Tag.MappingResource);
-
-            if (templateID != null && templateID.equals("2010")) {
-                foundTID2010 = true;
-
-                if (mappingResource == null || !mappingResource.equals("DCMR")) {
-                    result.addError("ContentTemplateSequence has TemplateIdentifier=2010 but " +
-                                  "MappingResource is not 'DCMR'. Expected MappingResource='DCMR'.", path);
-                } else {
-                    result.addInfo("ContentTemplateSequence correctly identifies TID 2010 (DCMR)", path);
-                }
-            }
-        }
+        boolean foundTID2010 = validateTemplateItems(templateSeq, result, path);
 
         if (!foundTID2010) {
             result.addWarning("ContentTemplateSequence does not contain TemplateIdentifier='2010'. " +
@@ -188,23 +212,73 @@ public class AdvancedStructureValidator {
     }
 
     /**
+     * Check if template sequence exists and is not empty.
+     */
+    private static boolean hasValidTemplateSequence(org.dcm4che3.data.Sequence templateSeq,
+                                                     ValidationResult result, String path) {
+        if (templateSeq != null && !templateSeq.isEmpty()) {
+            return true;
+        }
+
+        result.addWarning("ContentTemplateSequence (0040,A504) is missing. " +
+                        "For XDS-I.b compliance, this should explicitly identify TID 2010.", path);
+        return false;
+    }
+
+    /**
+     * Validate each template item and return true if TID 2010 was found.
+     */
+    private static boolean validateTemplateItems(org.dcm4che3.data.Sequence templateSeq,
+                                                  ValidationResult result, String path) {
+        boolean foundTID2010 = false;
+        for (Attributes item : templateSeq) {
+            if (isTID2010(item)) {
+                foundTID2010 = true;
+                validateTID2010Mapping(item, result, path);
+            }
+        }
+        return foundTID2010;
+    }
+
+    /**
+     * Check if item represents TID 2010.
+     */
+    private static boolean isTID2010(Attributes item) {
+        String templateID = item.getString(Tag.TemplateIdentifier);
+        return templateID != null && templateID.equals("2010");
+    }
+
+    /**
+     * Validate that TID 2010 has correct mapping resource.
+     */
+    private static void validateTID2010Mapping(Attributes item, ValidationResult result, String path) {
+        String mappingResource = item.getString(Tag.MappingResource);
+        if (mappingResource == null || !mappingResource.equals("DCMR")) {
+            result.addError("ContentTemplateSequence has TemplateIdentifier=2010 but " +
+                          "MappingResource is not 'DCMR'. Expected MappingResource='DCMR'.", path);
+        } else {
+            result.addInfo("ContentTemplateSequence correctly identifies TID 2010 (DCMR)", path);
+        }
+    }
+
+    /**
      * Check for zero-length sequences where Type 1 or Type 2 sequences should have items.
      */
     public static void validateEmptySequences(Attributes dataset, ValidationResult result, String path) {
-        // Type 1 sequences that must not be empty
+        validateRootRequiredSequences(dataset, result, path);
+        validateEmptySequencesInContent(dataset, result, path);
+    }
+
+    /**
+     * Validate Type 1 sequences at root level that must not be empty.
+     */
+    private static void validateRootRequiredSequences(Attributes dataset, ValidationResult result, String path) {
         checkSequenceNotEmpty(dataset, Tag.CurrentRequestedProcedureEvidenceSequence,
                              "CurrentRequestedProcedureEvidenceSequence", "Type 1", result, path);
-
-        // Check ConceptNameCodeSequence in root
         checkSequenceNotEmpty(dataset, Tag.ConceptNameCodeSequence,
                              "ConceptNameCodeSequence", "Type 1", result, path);
-
-        // Check ContentTemplateSequence
         checkSequenceNotEmpty(dataset, Tag.ContentTemplateSequence,
                              "ContentTemplateSequence", "Type 1", result, path);
-
-        // Recursively check ContentSequence items
-        validateEmptySequencesInContent(dataset, result, path);
     }
 
     /**
@@ -212,20 +286,25 @@ public class AdvancedStructureValidator {
      */
     private static void validateEmptySequencesInContent(Attributes dataset, ValidationResult result, String path) {
         org.dcm4che3.data.Sequence contentSeq = dataset.getSequence(Tag.ContentSequence);
-        if (contentSeq != null) {
-            int itemNum = 0;
-            for (Attributes item : contentSeq) {
-                String itemPath = path + ">ContentSequence[" + itemNum + "]";
-
-                // Check Concept Name Code Sequence in content items
-                checkSequenceNotEmpty(item, Tag.ConceptNameCodeSequence,
-                                     "ConceptNameCodeSequence", "Type 1", result, itemPath);
-
-                // Recurse
-                validateEmptySequencesInContent(item, result, itemPath);
-                itemNum++;
-            }
+        if (contentSeq == null) {
+            return;
         }
+
+        int itemNum = 0;
+        for (Attributes item : contentSeq) {
+            String itemPath = path + ">ContentSequence[" + itemNum + "]";
+            validateContentItemEmptySequences(item, result, itemPath);
+            itemNum++;
+        }
+    }
+
+    /**
+     * Validate empty sequences within a content item.
+     */
+    private static void validateContentItemEmptySequences(Attributes item, ValidationResult result, String itemPath) {
+        checkSequenceNotEmpty(item, Tag.ConceptNameCodeSequence,
+                             "ConceptNameCodeSequence", "Type 1", result, itemPath);
+        validateEmptySequencesInContent(item, result, itemPath);
     }
 
     /**
@@ -257,21 +336,36 @@ public class AdvancedStructureValidator {
             return;
         }
 
-        // Report on private attributes found
+        reportPrivateAttributesFound(privateGroupsFound, hasCreatorTag, result, path);
+    }
+
+    /**
+     * Report all private attributes found and validation issues.
+     */
+    private static void reportPrivateAttributesFound(Map<Integer, List<Integer>> privateGroupsFound,
+                                                      Map<Integer, Boolean> hasCreatorTag,
+                                                      ValidationResult result, String path) {
         for (Map.Entry<Integer, List<Integer>> entry : privateGroupsFound.entrySet()) {
             int group = entry.getKey();
             List<Integer> elements = entry.getValue();
+            reportPrivateGroup(group, elements, hasCreatorTag, result, path);
+        }
+    }
 
-            result.addWarning(String.format("Private attributes found in group %04X (%d elements). " +
-                            "XDS-I.b KOS objects should ideally be free of private tags for broad interoperability.",
-                            group, elements.size()), path);
+    /**
+     * Report a single private group and its issues.
+     */
+    private static void reportPrivateGroup(int group, List<Integer> elements,
+                                          Map<Integer, Boolean> hasCreatorTag,
+                                          ValidationResult result, String path) {
+        result.addWarning(String.format("Private attributes found in group %04X (%d elements). " +
+                        "XDS-I.b KOS objects should ideally be free of private tags for broad interoperability.",
+                        group, elements.size()), path);
 
-            // Check for Private Creator Data Element
-            if (!hasCreatorTag.getOrDefault(group, false)) {
-                result.addError(String.format("Private group %04X has private elements but no " +
-                              "Private Creator Data Element (e.g., %04X,0010). " +
-                              "The file structure may be corrupt.", group, group), path);
-            }
+        if (!hasCreatorTag.getOrDefault(group, false)) {
+            result.addError(String.format("Private group %04X has private elements but no " +
+                          "Private Creator Data Element (e.g., %04X,0010). " +
+                          "The file structure may be corrupt.", group, group), path);
         }
     }
 
@@ -282,28 +376,70 @@ public class AdvancedStructureValidator {
                                              Map<Integer, Boolean> hasCreator) {
         int[] tags = dataset.tags();
         for (int tag : tags) {
-            int group = (tag >>> 16) & 0xFFFF;
-            int element = tag & 0xFFFF;
+            processTag(tag, dataset, privateGroups, hasCreator);
+        }
+    }
 
-            // Check if odd group (private)
-            if ((group & 1) == 1) {
-                privateGroups.computeIfAbsent(group, k -> new ArrayList<>()).add(element);
+    /**
+     * Process a single tag for private attributes and recurse into sequences.
+     */
+    private static void processTag(int tag, Attributes dataset, Map<Integer, List<Integer>> privateGroups,
+                                  Map<Integer, Boolean> hasCreator) {
+        int group = (tag >>> 16) & 0xFFFF;
+        int element = tag & 0xFFFF;
 
-                // Check if this is a Private Creator Data Element (gggg,0010-00FF)
-                if (element >= 0x0010 && element <= 0x00FF) {
-                    hasCreator.put(group, true);
-                }
-            }
+        if (isPrivateTag(group)) {
+            recordPrivateTag(group, element, privateGroups, hasCreator);
+        }
 
-            // Recurse into sequences
-            VR vr = dataset.getVR(tag);
-            if (vr == VR.SQ) {
-                org.dcm4che3.data.Sequence seq = dataset.getSequence(tag);
-                if (seq != null) {
-                    for (Attributes item : seq) {
-                        scanPrivateAttributes(item, privateGroups, hasCreator);
-                    }
-                }
+        if (isSequenceTag(dataset, tag)) {
+            recurseIntoSequence(tag, dataset, privateGroups, hasCreator);
+        }
+    }
+
+    /**
+     * Check if a group is private (odd group number).
+     */
+    private static boolean isPrivateTag(int group) {
+        return (group & 1) == 1;
+    }
+
+    /**
+     * Record a private tag and mark creator if applicable.
+     */
+    private static void recordPrivateTag(int group, int element, Map<Integer, List<Integer>> privateGroups,
+                                        Map<Integer, Boolean> hasCreator) {
+        privateGroups.computeIfAbsent(group, k -> new ArrayList<>()).add(element);
+
+        if (isPrivateCreatorDataElement(element)) {
+            hasCreator.put(group, true);
+        }
+    }
+
+    /**
+     * Check if element is a Private Creator Data Element (gggg,0010-00FF).
+     */
+    private static boolean isPrivateCreatorDataElement(int element) {
+        return element >= 0x0010 && element <= 0x00FF;
+    }
+
+    /**
+     * Check if tag is a sequence.
+     */
+    private static boolean isSequenceTag(Attributes dataset, int tag) {
+        VR vr = dataset.getVR(tag);
+        return vr == VR.SQ;
+    }
+
+    /**
+     * Recurse into sequence items.
+     */
+    private static void recurseIntoSequence(int tag, Attributes dataset, Map<Integer, List<Integer>> privateGroups,
+                                           Map<Integer, Boolean> hasCreator) {
+        org.dcm4che3.data.Sequence seq = dataset.getSequence(tag);
+        if (seq != null) {
+            for (Attributes item : seq) {
+                scanPrivateAttributes(item, privateGroups, hasCreator);
             }
         }
     }
@@ -317,4 +453,3 @@ public class AdvancedStructureValidator {
         return String.format("(%04X,%04X)", group, element);
     }
 }
-

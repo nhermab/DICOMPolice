@@ -10,7 +10,7 @@ import be.uzleuven.ihe.dicom.validator.validation.MADOTemplateValidator;
 import be.uzleuven.ihe.dicom.validator.validation.MADOTimezoneValidator;
 
 /**
- * MADO (Manifest with Descriptive Objects) profile validation utilities.
+ * MADO (Manifest-based Access to DICOM Objects) profile validation utilities.
  * MADO extends XDS-I.b with TID 1600 Image Library for enhanced metadata.
  */
 public final class MADOProfileUtils {

@@ -1,5 +1,6 @@
 package be.uzleuven.ihe.dicom.validator.validation.tid1600;
 
+import be.uzleuven.ihe.dicom.constants.TID1600Codes;
 import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Sequence;
 import org.dcm4che3.data.Tag;

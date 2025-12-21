@@ -7,7 +7,7 @@ import be.uzleuven.ihe.dicom.validator.utils.MADOProfileUtils;
 import be.uzleuven.ihe.dicom.validator.model.ValidationResult;
 
 /**
- * Validator for MADO (Manifest with Descriptive Objects) profile.
+ * Validator for MADO (Manifest-based Access to DICOM Objects) profile.
  * MADO extends KOS with TID 1600 Image Library template for enhanced metadata.
  * Used in XDS and MHD deployments with richer study/series/instance descriptors.
  */
@@ -21,7 +21,7 @@ public class MADOManifestValidator extends KeyObjectSelectionValidator {
     private static final String PROFILE_IHE_MADO = "IHEMADO";
 
     public MADOManifestValidator() {
-        super("MADO Manifest (Manifest with Descriptive Objects)");
+        super("MADO Manifest (Manifest-based Access to DICOM Objects)");
     }
 
     @Override

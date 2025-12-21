@@ -1,6 +1,4 @@
-package be.uzleuven.ihe.dicom.validator.validation.tid1600;
-
-import be.uzleuven.ihe.dicom.constants.DicomConstants;
+package be.uzleuven.ihe.dicom.constants;
 
 /**
  * Code constants used by MADO TID 1600 Image Library validation.

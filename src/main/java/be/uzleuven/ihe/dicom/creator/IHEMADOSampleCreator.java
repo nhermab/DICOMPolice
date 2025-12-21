@@ -1,20 +1,19 @@
 package be.uzleuven.ihe.dicom.creator;
 
 import org.dcm4che3.data.*;
-import org.dcm4che3.io.DicomOutputStream;
 import org.dcm4che3.util.UIDUtils;
 
 import java.io.File;
 import java.io.IOException;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
-import java.util.Random;
+
+import static be.uzleuven.ihe.dicom.creator.DicomCreatorUtils.*;
+import static be.uzleuven.ihe.dicom.creator.DicomSequenceUtils.*;
+import static be.uzleuven.ihe.dicom.creator.SRContentItemUtils.*;
 
 public class IHEMADOSampleCreator {
 
-    private static final Random RND = new Random();
 
     // MADO / DICOM CP Codes
     private static final String CODE_DCM_MANIFEST_DESC = "ddd001"; // "Manifest with Description"
@@ -34,8 +33,6 @@ public class IHEMADOSampleCreator {
     private static final String CODE_KOS_TITLE = "ddd008";
     private static final String CODE_SOP_INSTANCE_UID = "ddd007";
 
-    // Custom TID/CID for MADO KOS descriptors (Draft CP)
-    private static final String CID_MADO_KOS_DESCRIPTORS = "16XX";
 
     // Dummy values that satisfy this project's profile checks
     private static final String DEFAULT_INSTITUTION_NAME = "IHE Demo Hospital";
@@ -94,19 +91,11 @@ public class IHEMADOSampleCreator {
         d.setString(Tag.PatientSex, VR.CS, "O");
 
         // MADO requires IssuerOfPatientIDQualifiersSequence with UniversalEntityID + type ISO
-        Sequence pidQualifiers = d.newSequence(Tag.IssuerOfPatientIDQualifiersSequence, 1);
-        Attributes pidQual = new Attributes();
-        pidQual.setString(Tag.UniversalEntityID, VR.UT, DEFAULT_PATIENT_ID_ISSUER_OID);
-        pidQual.setString(Tag.UniversalEntityIDType, VR.CS, "ISO");
-        pidQualifiers.add(pidQual);
+        addPatientIDQualifiers(d, DEFAULT_PATIENT_ID_ISSUER_OID);
 
         // --- Accession + Issuer ---
         d.setString(Tag.AccessionNumber, VR.SH, "ACC-MADO-001");
-        Sequence issuerAccSeq = d.newSequence(Tag.IssuerOfAccessionNumberSequence, 1);
-        Attributes issuerAcc = new Attributes();
-        issuerAcc.setString(Tag.UniversalEntityID, VR.UT, DEFAULT_ACCESSION_ISSUER_OID);
-        issuerAcc.setString(Tag.UniversalEntityIDType, VR.CS, "ISO");
-        issuerAccSeq.add(issuerAcc);
+        addAccessionNumberIssuer(d, DEFAULT_ACCESSION_ISSUER_OID);
 
         // --- Equipment IE ---
         d.setString(Tag.Manufacturer, VR.LO, "IHE_MADO_CREATOR");
@@ -120,7 +109,9 @@ public class IHEMADOSampleCreator {
         d.setString(Tag.ContentTime, VR.TM, studyTime);
 
         // --- ReferencedRequestSequence (Type 2, MADO semantics require non-empty) ---
-        populateReferencedRequestSequence(d, study);
+        populateReferencedRequestSequenceWithIssuer(d, study.studyInstanceUID,
+                                                   d.getString(Tag.AccessionNumber),
+                                                   DEFAULT_ACCESSION_ISSUER_OID);
 
         // --- Evidence Sequence (Current Requested Procedure Evidence) ---
         // Must list ALL instances in the study (Series 1-5)
@@ -230,22 +221,6 @@ public class IHEMADOSampleCreator {
         return d;
     }
 
-    private static void populateReferencedRequestSequence(Attributes d, SimulatedStudy study) {
-        Sequence rrs = d.newSequence(Tag.ReferencedRequestSequence, 1);
-        Attributes item = new Attributes();
-        item.setString(Tag.StudyInstanceUID, VR.UI, study.studyInstanceUID);
-        item.setString(Tag.AccessionNumber, VR.SH, d.getString(Tag.AccessionNumber));
-
-        // Issuer required per validator
-        Sequence issuerAccSeq = item.newSequence(Tag.IssuerOfAccessionNumberSequence, 1);
-        Attributes issuerAcc = new Attributes();
-        issuerAcc.setString(Tag.UniversalEntityID, VR.UT, DEFAULT_ACCESSION_ISSUER_OID);
-        issuerAcc.setString(Tag.UniversalEntityIDType, VR.CS, "ISO");
-        issuerAccSeq.add(issuerAcc);
-
-        item.setString(Tag.PlacerOrderNumberImagingServiceRequest, VR.LO, "PLACER-ORDER-" + (1000 + RND.nextInt(9000)));
-        rrs.add(item);
-    }
 
     /**
      * Adds TID 16XX Descriptors to an Image Library Entry for a KOS/KIN instance.
@@ -399,102 +374,6 @@ public class IHEMADOSampleCreator {
             this.sopClassUID = cls;
             this.sopInstanceUID = uid;
             this.isKIN = isKin;
-        }
-    }
-
-    // --- DICOM Writing Utilities ---
-    private static void addContentItem(Sequence seq, String rel, String type, Attributes concept, SimulatedInstance ref, int frame) {
-        Attributes item = new Attributes();
-        item.setString(Tag.RelationshipType, VR.CS, rel);
-        item.setString(Tag.ValueType, VR.CS, type);
-        if (concept != null) item.addSelected(concept, new int[]{Tag.ConceptNameCodeSequence});
-
-        if (ref != null) {
-            Sequence refSeq = item.newSequence(Tag.ReferencedSOPSequence, 1);
-            Attributes refItem = new Attributes();
-            refItem.setString(Tag.ReferencedSOPClassUID, VR.UI, ref.sopClassUID);
-            refItem.setString(Tag.ReferencedSOPInstanceUID, VR.UI, ref.sopInstanceUID);
-            if (frame > 0) refItem.setInt(Tag.ReferencedFrameNumber, VR.IS, frame);
-            refSeq.add(refItem);
-        }
-        seq.add(item);
-    }
-
-    private static Attributes createTextItem(String rel, String codeVal, String scheme, String meaning, String textVal) {
-        Attributes item = new Attributes();
-        item.setString(Tag.RelationshipType, VR.CS, rel);
-        item.setString(Tag.ValueType, VR.CS, "TEXT");
-        item.newSequence(Tag.ConceptNameCodeSequence, 1).add(code(codeVal, scheme, meaning));
-        item.setString(Tag.TextValue, VR.UT, textVal);
-        return item;
-    }
-
-    private static Attributes createUIDRefItem(String rel, String codeVal, String scheme, String meaning, String uidVal) {
-        Attributes item = new Attributes();
-        item.setString(Tag.RelationshipType, VR.CS, rel);
-        item.setString(Tag.ValueType, VR.CS, "UIDREF");
-        item.newSequence(Tag.ConceptNameCodeSequence, 1).add(code(codeVal, scheme, meaning));
-        item.setString(Tag.UID, VR.UI, uidVal);
-        return item;
-    }
-
-    private static Attributes createNumericItem(String rel, String codeVal, String scheme, String meaning, int number) {
-        // Use NUM with a simple integer value. Validator only checks presence; keep it readable.
-        Attributes item = new Attributes();
-        item.setString(Tag.RelationshipType, VR.CS, rel);
-        item.setString(Tag.ValueType, VR.CS, "NUM");
-        item.newSequence(Tag.ConceptNameCodeSequence, 1).add(code(codeVal, scheme, meaning));
-        Attributes mv = new Attributes();
-        // NumericValue is VR=DS (Decimal String). Use setString (or setDouble) to store a DS value.
-        mv.setString(Tag.NumericValue, VR.DS, Integer.toString(number));
-        item.newSequence(Tag.MeasuredValueSequence, 1).add(mv);
-        return item;
-    }
-
-    private static Attributes createCodeItem(String rel, String codeVal, String scheme, String meaning, Attributes conceptCode) {
-        Attributes item = new Attributes();
-        item.setString(Tag.RelationshipType, VR.CS, rel);
-        item.setString(Tag.ValueType, VR.CS, "CODE");
-        item.newSequence(Tag.ConceptNameCodeSequence, 1).add(code(codeVal, scheme, meaning));
-        item.newSequence(Tag.ConceptCodeSequence, 1).add(conceptCode);
-        return item;
-    }
-
-    private static Attributes createTemplateItem(String tid) {
-        Attributes item = new Attributes();
-        item.setString(Tag.MappingResource, VR.CS, "DCMR");
-        item.setString(Tag.TemplateIdentifier, VR.CS, tid);
-        return item;
-    }
-
-    private static Attributes code(String val, String scheme, String meaning) {
-        Attributes a = new Attributes();
-        a.setString(Tag.CodeValue, VR.SH, val);
-        a.setString(Tag.CodingSchemeDesignator, VR.SH, scheme);
-        a.setString(Tag.CodeMeaning, VR.LO, meaning);
-        return a;
-    }
-
-    private static String now(String fmt) {
-        return new SimpleDateFormat(fmt).format(new Date());
-    }
-
-    private static String randomSeriesTime(String baseStudyTime) {
-        // Keep valid DICOM TM; jitter seconds a bit.
-        try {
-            int hh = Integer.parseInt(baseStudyTime.substring(0, 2));
-            int mm = Integer.parseInt(baseStudyTime.substring(2, 4));
-            int ss = Integer.parseInt(baseStudyTime.substring(4, 6));
-            ss = (ss + RND.nextInt(50)) % 60;
-            return String.format("%02d%02d%02d", hh, mm, ss);
-        } catch (Exception e) {
-            return now("HHmmss");
-        }
-    }
-
-    private static void writeDicomFile(File f, Attributes attrs) throws IOException {
-        try (DicomOutputStream dos = new DicomOutputStream(f)) {
-            dos.writeDataset(attrs.createFileMetaInformation(UID.ExplicitVRLittleEndian), attrs);
         }
     }
 }
