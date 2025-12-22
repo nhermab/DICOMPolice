@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DICOM Validator | UZ Leuven</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="container">
+      <div class="header-content">
+        <div class="logo-section">
+          <div class="logo-placeholder">
+            <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect width="40" height="40" rx="8" fill="white" opacity="0.2"/>
+              <path d="M20 10L30 15V25L20 30L10 25V15L20 10Z" stroke="white" stroke-width="2" stroke-linejoin="round"/>
+              <circle cx="20" cy="20" r="3" fill="white"/>
+            </svg>
+          </div>
+          <div class="logo-text">
+            <h1>DICOM Validator</h1>
+            <p class="subtitle">UZ Leuven Medical Imaging</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <div class="container">
+      <!-- Upload Section -->
+      <section class="card upload-section">
+        <div class="card-header">
+          <h2>Validate DICOM File</h2>
+          <p class="description">Upload a DICOM file to validate against IHE profiles</p>
+        </div>
+
+        <div class="card-body">
+          <!-- Profile Selection -->
+          <div class="form-group">
+            <label for="profile-select" class="form-label">
+              <span class="label-icon">📋</span>
+              Validation Profile
+            </label>
+            <select id="profile-select" class="form-select">
+              <option value="">Loading profiles...</option>
+            </select>
+            <p class="form-help" id="profile-description">Select a validation profile to see details</p>
+          </div>
+
+          <!-- File Upload Area -->
+          <div class="upload-area" id="upload-area">
+            <input type="file" id="file-input" accept=".dcm,.dicom" hidden>
+            <div class="upload-content">
+              <div class="upload-icon">
+                <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="32" cy="32" r="28" stroke="#0066CC" stroke-width="2" stroke-dasharray="4 4"/>
+                  <path d="M32 20V44M20 32H44" stroke="#0066CC" stroke-width="3" stroke-linecap="round"/>
+                </svg>
+              </div>
+              <h3 class="upload-title">Drop DICOM file here</h3>
+              <p class="upload-text">or <button type="button" class="link-button" id="browse-button">browse files</button></p>
+              <p class="upload-hint">Supports .dcm and .dicom files</p>
+            </div>
+            <div class="file-info" id="file-info" style="display: none;">
+              <div class="file-icon">📄</div>
+              <div class="file-details">
+                <p class="file-name" id="file-name"></p>
+                <p class="file-size" id="file-size"></p>
+              </div>
+              <button type="button" class="remove-file-btn" id="remove-file-btn">✕</button>
+            </div>
+          </div>
+
+          <!-- Validate Button -->
+          <button id="validate-btn" class="btn btn-primary btn-large" disabled>
+            <span class="btn-text">Validate File</span>
+            <span class="btn-loader" style="display: none;"></span>
+          </button>
+        </div>
+      </section>
+
+      <!-- Error Section -->
+      <section class="card error-section" id="error-section" style="display: none;">
+        <div class="card-header">
+          <h2>⚠️ Validation Error</h2>
+        </div>
+        <div class="card-body">
+          <div class="error-message" id="error-message"></div>
+        </div>
+      </section>
+
+      <!-- Results Section -->
+      <section class="card results-section" id="results-section" style="display: none;">
+        <div class="card-header">
+          <h2>Validation Results</h2>
+          <div class="result-status" id="result-status"></div>
+        </div>
+
+        <div class="card-body">
+          <!-- Summary Cards -->
+          <div class="summary-grid" id="summary-grid"></div>
+
+          <!-- Metadata (keep this above filters so it never ends up at the bottom) -->
+          <div class="metadata-section" id="metadata-section"></div>
+
+          <!-- Filter Indicator -->
+          <div class="filter-indicator" id="filter-indicator" style="display: none;">
+            <span class="filter-text">Filtering by: <strong id="filter-type"></strong></span>
+            <button class="clear-filter-btn" onclick="clearFilter()">✕ Clear Filter</button>
+          </div>
+
+          <!-- Detailed Reports -->
+          <div class="reports-container" id="reports-container"></div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-content">
+        <p>&copy; 2025 UZ Leuven - Universitaire Ziekenhuizen Leuven</p>
+        <p class="footer-links">
+          <a href="#" class="footer-link">Privacy Policy</a>
+          <span class="separator">•</span>
+          <a href="#" class="footer-link">Terms of Use</a>
+          <span class="separator">•</span>
+          <a href="#" class="footer-link">Contact</a>
+        </p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
+

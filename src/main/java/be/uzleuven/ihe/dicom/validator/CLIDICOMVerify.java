@@ -318,4 +318,58 @@ public class CLIDICOMVerify {
         for (int i = 0; i < count; i++) sb.append(c);
         return sb.toString();
     }
+
+    /**
+     * Public API method for programmatic validation (used by REST API).
+     * @param file DICOM file to validate
+     * @param profile Validation profile (IHEXDSIManifest, IHEMADO, etc.)
+     * @return ValidationResult containing validation messages
+     * @throws IOException if file cannot be read
+     */
+    public static ValidationResult validateFile(File file, String profile) throws IOException {
+        ValidationResult combinedResult = new ValidationResult();
+
+        // Phase 1: Validate DICOM Part 10 File Format
+        Part10FileValidator.validatePart10FileFormat(file, combinedResult, "Part10FileFormat");
+
+        if (!combinedResult.isValid()) {
+            return combinedResult;
+        }
+
+        // Phase 2: Read DICOM dataset
+        Attributes dataset;
+        try (DicomInputStream dis = new DicomInputStream(file)) {
+            dataset = dis.readDataset();
+        }
+
+        // Phase 3: Validate File Meta Information
+        Part10FileValidator.validateFileMetaInformation(dataset, combinedResult, "FileMetaInformation");
+
+        // Phase 4: Validate IOD
+        IODValidator validator = IODValidatorFactory.selectValidator(dataset, profile);
+
+        if (validator == null) {
+            combinedResult.addError("No validator found for SOP Class UID: " + dataset.getString(Tag.SOPClassUID), "IODValidator");
+            return combinedResult;
+        }
+
+        // For the webapp/API we always want the "checks performed" (INFO) entries.
+        // So we run the validator in verbose mode here.
+        boolean verbose = true;
+
+        ValidationResult iodResult;
+        if (validator instanceof be.uzleuven.ihe.dicom.validator.validation.iod.AbstractIODValidator) {
+            be.uzleuven.ihe.dicom.validator.validation.iod.AbstractIODValidator.setActiveProfile(profile);
+            try {
+                iodResult = validator.validate(dataset, verbose, profile);
+            } finally {
+                be.uzleuven.ihe.dicom.validator.validation.iod.AbstractIODValidator.setActiveProfile(null);
+            }
+        } else {
+            iodResult = validator.validate(dataset, verbose, profile);
+        }
+
+        combinedResult.merge(iodResult);
+        return combinedResult;
+    }
 }

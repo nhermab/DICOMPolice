@@ -56,6 +56,29 @@ which are licensed under GPLv2. Please refer to the dcm4che project for the comp
 - https://github.com/dcm4che/dcm4che
 
 -------------------------------------------------------------------------------
+3) Spring Boot / Spring Framework (library dependency)
+-------------------------------------------------------------------------------
+This project depends on Spring Boot and Spring Framework libraries (for example: org.springframework.boot:spring-boot-starter-web
+and transitive Spring Framework artifacts) which are licensed under the Apache License, Version 2.0.
+Please refer to the Spring project pages and the Apache License for full license text and notices:
+
+- https://spring.io/projects/spring-boot
+- https://spring.io/projects/spring-framework
+- https://www.apache.org/licenses/LICENSE-2.0
+
+The Spring projects (Spring Boot and Spring Framework) are provided under the Apache License 2.0.
+Redistributors must include the Apache License 2.0 text when redistributing those components.
+
+-------------------------------------------------------------------------------
+4) SLF4J (library dependency)
+-------------------------------------------------------------------------------
+This project may include the SLF4J API (e.g., org.slf4j:slf4j-api) as a logging facade used by Spring and other libraries.
+SLF4J is distributed under a permissive license (see SLF4J project for details). Please refer to:
+
+- https://www.slf4j.org/
+- https://www.slf4j.org/license.html
+
+-------------------------------------------------------------------------------
 End of Third Party Notices
 -------------------------------------------------------------------------------
 

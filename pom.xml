@@ -1,61 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
-                             http://maven.apache.org/xsd/maven-4.0.0.xsd">
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>2.7.18</version>
+        <relativePath/>
+    </parent>
 
     <groupId>be.uzleuven.ihe.dicom</groupId>
     <artifactId>DICOMPolice</artifactId>
     <version>0.1.0-SNAPSHOT</version>
     <name>DICOMPolice</name>
-    <description>Minimal POM for DICOMPolice project</description>
+    <packaging>jar</packaging>
 
     <properties>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <maven.compiler.source>1.8</maven.compiler.source>
-        <maven.compiler.target>1.8</maven.compiler.target>
-        <!-- dcm4che version property -->
-        <dcm4che.version>3.3.6</dcm4che.version>
-        <junit.jupiter.version>5.10.2</junit.jupiter.version>
+        <java.version>1.8</java.version>
     </properties>
 
     <repositories>
         <repository>
-            <id>dcm4che</id>
+            <id>www.dcm4che.org</id>
             <name>dcm4che Repository</name>
-            <url>https://maven.dcm4che.org/</url>
-            <snapshots>
-                <enabled>false</enabled>
-            </snapshots>
+            <url>https://www.dcm4che.org/maven2</url>
         </repository>
     </repositories>
 
     <dependencies>
+        <!-- Spring Boot web (embedded Tomcat + JSON) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!-- dcm4che -->
         <dependency>
             <groupId>org.dcm4che</groupId>
             <artifactId>dcm4che-core</artifactId>
-            <version>5.31.0</version> </dependency>
-
+            <version>5.31.0</version>
+        </dependency>
         <dependency>
             <groupId>org.dcm4che</groupId>
             <artifactId>dcm4che-net</artifactId>
             <version>5.31.0</version>
         </dependency>
-        <!-- NEVER EVER ADD INSPECTION / TEST / UNIT TEST NONSENSE STOP IT -->
-
     </dependencies>
 
     <build>
         <plugins>
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.2.5</version>
-                <configuration>
-                    <useModulePath>false</useModulePath>
-                </configuration>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
             </plugin>
         </plugins>
     </build>
-
 </project>

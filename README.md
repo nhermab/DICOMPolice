@@ -4,31 +4,71 @@
 
 DICOMPolice validates DICOM Key Object Selection (KOS) documents and Manifest-based Access to DICOM Objects (MADO) manifests (TID 1600 Image Library) according to the IHE Radiology Technical Framework (XDS-I.b) and the draft MADO profile.
 
-It also includes generators for compliant sample files (and optional “EVIL” intentionally broken samples) to support interoperability testing.
+Available through **command-line interface**, **web interface**, and **REST API** (Gazelle-compatible). Includes generators for compliant sample files and optional "EVIL" intentionally broken samples for interoperability testing.
+
+---
+
+## Quick Start
+
+```cmd
+# Build the project
+mvn clean package
+
+# Start the web interface
+mvn spring-boot:run
+
+# Or validate from command line
+java -cp target\DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.validator.CLIDICOMVerify your-file.dcm
+
+# Generate a sample KOS file
+java -cp target\DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.creator.IHEKOSSampleCreator
+```
 
 ---
 
 ## Features
 
+### Validation Capabilities
 - ✅ **IHE XDS-I.b KOS Validation**: Validates Key Object Selection documents for XDS-I Imaging Manifest compliance
 - ✅ **MADO Profile Support**: Validates MADO Manifest with Description requirements (incl. TID 1600 Image Library)
-- ✅ **IOD Validation**: IOD compliance checks inspired by PixelMed’s `dciodvfy`
-- ✅ **Advanced Encoding Checks**: Character set support + padding checks
-- ✅ **Timezone Consistency**: Validates timezone offset requirements across content
-- ✅ **Digital Signature Structure Checks**: Detects/validates presence (not cryptographic verification)
-- ✅ **Part 10 File Format**: Validates DICOM Part 10 structure and meta information
-- ✅ **Sample Creators**: Create compliant IHE KOS and MADO manifests for testing
-- ✅ **CLI Interface**: Validate one or more files with optional verbose output
+- ✅ **Multi-Layer Validation**:
+  - DICOM Part 10 file format and meta information
+  - IOD compliance checks inspired by PixelMed's `dciodvfy`
+  - Structured Reporting (SR) content tree validation
+  - SR Template validation (TID 1600, TID 2010)
+  - Advanced encoding validation (character sets, padding, UIDs)
+  - Timezone consistency across MADO content
+  - Digital signature structure checks (presence validation)
+  - Evidence orphan detection
+  - Forbidden tag detection (pixel data, waveforms, etc.)
+
+### Interfaces
+- 🖥️ **Command-Line Interface**: Batch validation with verbose output options
+- 🌐 **Web Interface**: Modern drag-and-drop UI for file validation with detailed reports
+- 🔌 **REST API**: Gazelle Validation Service compatible endpoints (`/validation/v2`)
+- 📊 **Detailed Reports**: Categorized validation results (ERROR, WARNING, INFO)
+
+### Sample Generation
+- ✅ **Valid Sample Creators**: Generate compliant IHE KOS and MADO manifests for testing
+- 🎲 **EVIL Generators**: Create intentionally malformed files with controlled randomness
+  - 20% chance of missing required elements
+  - 5% chance of explicit corruptions
+  - 30% chance of forbidden tags injection
+  - Deterministic mode with seed for reproducibility
 
 ---
 
 ## Table of Contents
 
+- [Quick Start](#quick-start)
+- [Features](#features)
 - [Installation](#installation)
 - [Usage](#usage)
-  - [Validation](#validation)
+  - [Web Interface](#web-interface)
+  - [Command-Line Validation](#command-line-validation)
   - [Sample Creation](#sample-creation)
   - [EVIL (intentionally broken) generators](#evil-intentionally-broken-generators)
+- [REST API](#rest-api)
 - [Validation Profiles](#validation-profiles)
 - [Architecture](#architecture)
 - [MADO Profile Notice](#mado-profile-notice)
@@ -59,7 +99,40 @@ The compiled JAR will be in `target\`.
 
 ## Usage
 
-### Validation
+### Web Interface
+
+DICOMPolice includes a modern web interface for interactive validation.
+
+#### Starting the Web Server
+
+```cmd
+REM Run as Spring Boot application
+mvn spring-boot:run
+```
+
+Or run the WAR file directly:
+
+```cmd
+java -jar target\DICOMPolice-0.1.0-SNAPSHOT.war
+```
+
+The web interface will be available at `http://localhost:8080`
+
+#### Using the Web Interface
+
+1. **Select a validation profile** from the dropdown (IHE XDS-I.b Manifest or MADO)
+2. **Upload a DICOM file** by:
+   - Dragging and dropping onto the upload area, or
+   - Clicking to browse and select a file
+3. **Click "Validate"** to process the file
+4. **View results** organized by severity:
+   - **Errors** (❌) - Critical validation failures
+   - **Warnings** (⚠️) - Non-critical issues that should be addressed
+   - **Info** (ℹ️) - Informational messages and recommendations
+5. **Filter messages** by severity using the category buttons
+6. **Download results** for reporting and documentation
+
+### Command-Line Validation
 
 Validate DICOM KOS/MADO files using the CLI:
 
@@ -141,7 +214,57 @@ java -cp target\DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.creator.Gen
 
 ### EVIL (intentionally broken) generators
 
-For negative testing/fuzzing, see `EVIL_GENERATORS.md`.
+DICOMPolice includes specialized generators that create **intentionally malformed** DICOM files for negative testing and validator development.
+
+#### Key Features
+
+- **Probabilistic Corruption**: 20% missing elements, 5% explicit corruptions, 30% forbidden tags
+- **Forbidden Tag Injection**: Adds tags that violate KOS/MADO specifications:
+  - Critical violations: Pixel Data, Waveform Data, Audio Data
+  - Warning violations: Image Pixel Module, positioning, acquisition parameters
+- **Deterministic Mode**: Reproducible generation using seed values (`-Devil.seed=123`)
+- **Multiple Profiles**: Available for both KOS and MADO
+
+#### Quick Start
+
+```cmd
+REM Generate 5 intentionally broken KOS files
+java -cp target\DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.creator.evil.EVILKOSCreator 5
+
+REM Generate 5 broken MADO files deterministically
+java -cp target\DICOMPolice-0.1.0-SNAPSHOT.jar -Devil.seed=123 be.uzleuven.ihe.dicom.creator.evil.EVILMADOCreator 5
+```
+
+For complete documentation, see [EVIL_GENERATORS.md](EVIL_GENERATORS.md).
+
+---
+
+## REST API
+
+DICOMPolice implements the **Gazelle Validation Service API** specification, enabling integration with IHE Gazelle Test Management and other validation frameworks.
+
+### API Endpoints
+
+The REST API is available at `/validation/v2` when the web server is running.
+
+**Base URL**: `http://localhost:8080/validation/v2`
+
+### Key Endpoints
+
+- **GET** `/validation/v2/profiles` - List available validation profiles
+- **POST** `/validation/v2/validate/{validationServiceName}` - Validate a DICOM file
+- **GET** `/validation/v2/validation-status/{uuid}` - Check validation status
+- **GET** `/validation/v2/validation-result-overview/{uuid}` - Get validation summary
+- **GET** `/validation/v2/validation-result-details/{uuid}` - Get detailed results
+
+### Supported Profiles
+
+- `IHEXDSIManifest` - IHE XDS-I.b Key Object Selection
+- `IHEMADO` - MADO Manifest with Descriptors
+
+### Example Usage
+
+See [API_README.md](API_README.md) for complete API documentation, request/response formats, and integration examples.
 
 ---
 
@@ -179,9 +302,19 @@ The MADO profile is currently implemented against a **draft** specification (Pub
 mvn clean package
 ```
 
+This produces:
+- **JAR**: `target\DICOMPolice-0.1.0-SNAPSHOT.jar` - For command-line usage and sample generation
+- **WAR**: `target\DICOMPolice-0.1.0-SNAPSHOT.war` - For web interface deployment
+
 ---
 
 ## Third-Party Dependencies
+
+### Spring Boot (Apache License 2.0)
+
+- **Framework**: Spring Boot
+- **Version used by this project**: **2.7.18**
+- Used for web interface and REST API
 
 ### dcm4che (GPLv2)
 
@@ -190,7 +323,7 @@ mvn clean package
 
 ### PixelMed (BSD-style License)
 
-Portions of the IOD validation logic are based on PixelMed’s `dciodvfy.cc`.
+Portions of the IOD validation logic are based on PixelMed's `dciodvfy.cc`.
 See [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES) for details.
 
 ---
