@@ -11,6 +11,10 @@ Available through **command-line interface**, **web interface**, and **REST API*
 
 [online web based demo](https://ihebelgium.ehealthhub.be/TheDICOMPolice/)
 
+## example files
+
+[example files if you don't have any](./examplefiles.md)
+
 ## Quick Start
 
 ```cmd
