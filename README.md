@@ -7,6 +7,9 @@ DICOMPolice validates DICOM Key Object Selection (KOS) documents and Manifest-ba
 Available through **command-line interface**, **web interface**, and **REST API** (Gazelle-compatible). Includes generators for compliant sample files and optional "EVIL" intentionally broken samples for interoperability testing.
 
 ---
+## DEMO
+
+online web based demo: [https://ihebelgium.ehealthhub.be/TheDICOMPolice/]
 
 ## Quick Start
 
