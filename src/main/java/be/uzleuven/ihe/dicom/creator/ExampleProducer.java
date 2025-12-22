@@ -29,7 +29,7 @@ import static be.uzleuven.ihe.dicom.creator.DicomCreatorUtils.writeDicomFile;
 public class ExampleProducer {
 
     public static void main(String[] args) throws Exception {
-        int perTypeCount = parseCount(args, 2000);
+        int perTypeCount = parseCount(args, 100);
         File baseDir = parseBaseDir(args);
 
         File goodKosDir = new File(baseDir, "GOODKOS");
@@ -44,7 +44,7 @@ public class ExampleProducer {
 
         String runId = Long.toString(System.currentTimeMillis(), 36).toUpperCase(Locale.ROOT);
 
-        //produceGoodKos(perTypeCount, goodKosDir, runId);
+        produceGoodKos(perTypeCount, goodKosDir, runId);
         produceGoodMado(perTypeCount, goodMadoDir, runId);
         //produceEvilKos(perTypeCount, evilKosDir, runId);
         //produceEvilMado(perTypeCount, evilMadoDir, runId);

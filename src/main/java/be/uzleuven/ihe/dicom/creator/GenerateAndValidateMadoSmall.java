@@ -8,11 +8,11 @@ import java.io.File;
  * Small helper runner to generate IHE_MADO.dcm and validate it using the in-repo validator.
  * This avoids relying on external scripts during development.
  */
-public class GenerateAndValidateMado {
+public class GenerateAndValidateMadoSmall {
 
     public static void main(String[] args) throws Exception {
         // 1) Generate
-        IHEMADOSampleCreator.main(new String[]{"1"});
+        IHEMADOSampleCreator.main(new String[]{"1", "--default-sizes"});
 
         // 2) Validate
         File f = new File(System.getProperty("user.dir"), "IHE_MADO_0.dcm");

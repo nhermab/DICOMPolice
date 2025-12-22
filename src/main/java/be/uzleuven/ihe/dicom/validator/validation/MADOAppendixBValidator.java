@@ -4,6 +4,7 @@ import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Sequence;
 import org.dcm4che3.data.Tag;
 import be.uzleuven.ihe.dicom.validator.model.ValidationResult;
+import be.uzleuven.ihe.dicom.constants.ValidationMessages;
 
 /**
  * Validator for MADO Appendix B format (Alternative Approach 1).
@@ -63,12 +64,12 @@ public final class MADOAppendixBValidator {
                                           String path, boolean verbose) {
         String studyUID = studyItem.getString(Tag.StudyInstanceUID);
         if (studyUID == null || studyUID.trim().isEmpty()) {
-            result.addError("StudyInstanceUID missing in Evidence study item", path);
+            result.addError(ValidationMessages.APPENDIX_B_STUDY_UID_MISSING, path);
         }
 
         Sequence seriesSeq = studyItem.getSequence(Tag.ReferencedSeriesSequence);
         if (seriesSeq == null || seriesSeq.isEmpty()) {
-            result.addError("ReferencedSeriesSequence is missing in Evidence study item", path);
+            result.addError(ValidationMessages.APPENDIX_B_SERIES_MISSING, path);
             return;
         }
 
@@ -202,7 +203,7 @@ public final class MADOAppendixBValidator {
                     result.addInfo("Multi-frame object: " + frames + " frames", path);
                 }
             } catch (NumberFormatException e) {
-                result.addError("Number of Frames (0028,0008) has invalid format: " + numberOfFrames, path);
+                result.addError(String.format(ValidationMessages.APPENDIX_B_NUMBER_OF_FRAMES_INVALID, numberOfFrames), path);
             }
         } else if (isMultiframeSOPClass(sopClassUID)) {
             result.addWarning("Appendix B: Number of Frames (0028,0008) is missing for likely multi-frame SOP Class. " +

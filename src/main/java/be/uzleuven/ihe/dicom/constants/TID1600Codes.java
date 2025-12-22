@@ -21,13 +21,17 @@ public final class TID1600Codes {
     public static final String CODE_SERIES_DESCRIPTION = "ddd002";
     public static final String CODE_SERIES_NUMBER = "ddd005";
     public static final String CODE_SERIES_INSTANCE_UID = "ddd006";
+    public static final String CODE_NUMBER_OF_SERIES_RELATED_INSTANCES = "ddd013";
+
     public static final String CODE_KOS_TITLE = "ddd008";
-    /** Currently reserved for instance-level rules that may be added later. */
-    @SuppressWarnings("unused")
-    public static final String CODE_INSTANCE_NUMBER = "ddd005"; // Same as series number code
+
+    /** Instance Number for an Image Library Entry, value type TEXT, required by MADO (R+). */
+    public static final String CODE_INSTANCE_NUMBER = "ddd012";
+
     /** Currently reserved for KOS description rules that may be added later. */
     @SuppressWarnings("unused")
     public static final String CODE_KOS_DESCRIPTION = "ddd009";
+
     public static final String CODE_SOP_INSTANCE_UID = "ddd007";
 
     // Reuse shared concept codes and coding scheme designator

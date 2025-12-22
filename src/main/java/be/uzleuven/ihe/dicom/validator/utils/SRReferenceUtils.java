@@ -19,6 +19,23 @@ public class SRReferenceUtils {
     }
 
     public static SRRefScan scanSRReferencesWithChecks(Attributes dataset, ValidationResult result, String modulePath, AbstractIODValidator ctx) {
+        return scanSRReferencesWithChecks(dataset, result, modulePath, ctx, false);
+    }
+
+    /**
+     * @param allowDuplicateReferencedSOPInstanceUIDs when true, do not emit an error if the same SOP Instance UID
+     *                                               is referenced multiple times in SR ContentSequence.
+     *                                               This is needed for profiles like IHE MADO where the same instance
+     *                                               may legitimately appear both as an Image Library Entry and as a
+     *                                               visual reference inside a Key Object Description subtree.
+     */
+    public static SRRefScan scanSRReferencesWithChecks(
+            Attributes dataset,
+            ValidationResult result,
+            String modulePath,
+            AbstractIODValidator ctx,
+            boolean allowDuplicateReferencedSOPInstanceUIDs
+    ) {
         SRRefScan scan = new SRRefScan();
         String selfSOPInstanceUID = dataset.getString(Tag.SOPInstanceUID);
 
@@ -35,7 +52,7 @@ public class SRReferenceUtils {
                 result.addError("Top-level ContentSequence item RelationshipType must be CONTAINS for XDS-I manifest; found: " + rel, itemPath);
             }
 
-            scanSRReferencesRecursive(item, itemPath, selfSOPInstanceUID, scan, result, ctx);
+            scanSRReferencesRecursive(item, itemPath, selfSOPInstanceUID, scan, result, ctx, allowDuplicateReferencedSOPInstanceUIDs);
         }
 
         return scan;
@@ -46,7 +63,8 @@ public class SRReferenceUtils {
                                           String selfSOPInstanceUID,
                                           SRRefScan scan,
                                           ValidationResult result,
-                                          AbstractIODValidator ctx) {
+                                          AbstractIODValidator ctx,
+                                          boolean allowDuplicateReferencedSOPInstanceUIDs) {
 
         String valueType = item.getString(Tag.ValueType);
         if (DicomConstants.VALUE_TYPE_IMAGE.equals(valueType) || DicomConstants.VALUE_TYPE_COMPOSITE.equals(valueType)) {
@@ -75,7 +93,9 @@ public class SRReferenceUtils {
                         }
 
                         if (!scan.referencedSOPInstanceUIDs.add(uid)) {
-                            result.addError("Duplicate referenced SOP Instance UID in SR ContentSequence: " + uid, refPath);
+                            if (!allowDuplicateReferencedSOPInstanceUIDs) {
+                                result.addError("Duplicate referenced SOP Instance UID in SR ContentSequence: " + uid, refPath);
+                            }
                         }
                     }
                 }
@@ -86,7 +106,7 @@ public class SRReferenceUtils {
         if (nested != null) {
             for (int i = 0; i < nested.size(); i++) {
                 Attributes child = nested.get(i);
-                scanSRReferencesRecursive(child, ctx.buildPath(itemPath, "ContentSequence", i), selfSOPInstanceUID, scan, result, ctx);
+                scanSRReferencesRecursive(child, ctx.buildPath(itemPath, "ContentSequence", i), selfSOPInstanceUID, scan, result, ctx, allowDuplicateReferencedSOPInstanceUIDs);
             }
         }
     }

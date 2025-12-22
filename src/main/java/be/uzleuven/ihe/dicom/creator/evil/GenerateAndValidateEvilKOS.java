@@ -37,6 +37,6 @@ public class GenerateAndValidateEvilKOS {
 
         System.out.println("Validating: " + f.getAbsolutePath());
         // KOS manifests use the IHEXDSIManifest profile
-        CLIDICOMVerify.main(new String[]{"--profile", "IHEXDSIManifest", "-v", f.getAbsolutePath()});
+        CLIDICOMVerify.main(new String[]{"--profile", "IHEXDSIManifest", f.getAbsolutePath()});
     }
 }

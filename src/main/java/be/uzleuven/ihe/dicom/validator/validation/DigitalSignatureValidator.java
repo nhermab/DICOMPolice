@@ -4,6 +4,7 @@ import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Sequence;
 import org.dcm4che3.data.Tag;
 import be.uzleuven.ihe.dicom.validator.model.ValidationResult;
+import be.uzleuven.ihe.dicom.constants.ValidationMessages;
 
 /**
  * Validator for DICOM Digital Signatures.
@@ -73,7 +74,7 @@ public final class DigitalSignatureValidator {
         Sequence sigSeq = dataset.getSequence(Tag.DigitalSignaturesSequence);
 
         if (sigSeq == null || sigSeq.isEmpty()) {
-            result.addError("Digital Signatures Sequence (FFFA,FFFA) is present but empty", modulePath);
+            result.addError(ValidationMessages.DIGITAL_SIGNATURES_EMPTY, modulePath);
             return;
         }
 

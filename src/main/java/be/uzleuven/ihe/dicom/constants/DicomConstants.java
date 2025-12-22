@@ -43,6 +43,7 @@ public final class DicomConstants {
     public static final String VALUE_TYPE_WAVEFORM = "WAVEFORM";
     public static final String VALUE_TYPE_TEXT = "TEXT";
     public static final String VALUE_TYPE_PNAME = "PNAME";
+    public static final String VALUE_TYPE_NUM = "NUM";
 
     /**
      * SR Continuity of Content (0040,A050) value for containers.

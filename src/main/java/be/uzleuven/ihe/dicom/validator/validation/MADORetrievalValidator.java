@@ -4,6 +4,7 @@ import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Sequence;
 import org.dcm4che3.data.Tag;
 import be.uzleuven.ihe.dicom.validator.model.ValidationResult;
+import be.uzleuven.ihe.dicom.constants.ValidationMessages;
 
 import java.net.URI;
 import java.util.HashSet;
@@ -79,8 +80,7 @@ public final class MADORetrievalValidator {
 
                 // Enforce: per series, at least one retrieval method must be present
                 if (!seriesHasURL && !seriesHasLoc) {
-                    result.addError("No retrieval addressing found for series. Expected RetrieveLocationUID (0040,E011) " +
-                            "or RetrieveURL (0008,1190) at series level.", seriesPath);
+                    result.addError(ValidationMessages.RETRIEVE_LOCATION_UID_MISSING, seriesPath);
                 }
 
                 // Enforce: do not mix addressing modes across series (community must be consistent)

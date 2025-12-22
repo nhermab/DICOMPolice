@@ -117,20 +117,40 @@ public class IHEKOSSampleCreator {
 
 
     public static void main(String[] args) throws Exception {
-        // Backwards compatible: first arg is number of files to generate.
+        // Generate a single KOS file
         int count = 1;
+        boolean useRandomSizes = true; // preserve historical behavior unless overridden
+
         if (args != null && args.length > 0) {
-            try {
-                count = Math.max(1, Integer.parseInt(args[0]));
-            } catch (NumberFormatException ignore) {
-                // ignore
+            for (String a : args) {
+                if (a == null) continue;
+                String token = a.trim();
+                if (token.isEmpty()) continue;
+
+                if ("--help".equalsIgnoreCase(token) || "-h".equalsIgnoreCase(token)) {
+                    System.out.println("Usage: IHEKOSSampleCreator [count] [--default-sizes] [--random-sizes] [--help]");
+                    System.out.println("  count           : number of KOS files to generate (default 1)");
+                    System.out.println("  --default-sizes : use deterministic default size/shape options instead of random sizes");
+                    System.out.println("  --random-sizes  : explicitly use random sizes (default behavior)");
+                    return;
+                } else if ("--default-sizes".equalsIgnoreCase(token)) {
+                    useRandomSizes = false;
+                } else if ("--random-sizes".equalsIgnoreCase(token)) {
+                    useRandomSizes = true;
+                } else {
+                    try {
+                        count = Math.max(1, Integer.parseInt(token));
+                    } catch (NumberFormatException ignore) {
+                        // ignore unknown token
+                    }
+                }
             }
         }
 
         File outDir = new File(System.getProperty("user.dir"));
         for (int i = 0; i < count; i++) {
-            // Generate random parameters for each file
-            Options options = generateRandomOptions();
+            // Choose random parameters for each file unless deterministic defaults requested
+            Options options = useRandomSizes ? generateRandomOptions() : defaultOptions();
 
             Attributes kos = createRandomIHEKOS(options);
             // Keep ourselves honest: never write a KOS with empty required sequences.
@@ -141,7 +161,7 @@ public class IHEKOSSampleCreator {
             File out = new File(outDir, "IHEKOS_" + i + ".dcm");
             writeDicomFile(out, kos);
             System.out.println("Wrote: " + out.getAbsolutePath() + " (sopInstances=" + options.sopInstanceCount +
-                ", evidenceSeries=" + options.evidenceSeriesCount + ", modalities=" + options.modalities.length + ")");
+                    ", evidenceSeries=" + options.evidenceSeriesCount + ", modalities=" + options.modalities.length + ")");
         }
     }
 

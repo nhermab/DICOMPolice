@@ -139,12 +139,23 @@ public class KeyObjectModuleValidator {
 
         // CurrentRequestedProcedureEvidenceSequence - Type 1C
         // Required if there are referenced instances
+        // This is CRITICAL - without it, the KOS is invalid
         if (hasReferencedInstances(dataset)) {
-            validator.checkRequiredAttribute(dataset, Tag.CurrentRequestedProcedureEvidenceSequence,
-                                 "CurrentRequestedProcedureEvidenceSequence", result, modulePath);
+            if (!validator.checkRequiredAttribute(dataset, Tag.CurrentRequestedProcedureEvidenceSequence,
+                                 "CurrentRequestedProcedureEvidenceSequence", result, modulePath)) {
+                result.addError("CurrentRequestedProcedureEvidenceSequence (0040,A375) is MISSING. " +
+                              "This is required by DICOM standard for KOS objects that reference instances. " +
+                              "Without this, a PACS or Archive will reject this object.", modulePath);
+            }
 
             if (dataset.contains(Tag.CurrentRequestedProcedureEvidenceSequence)) {
-                SRReferenceUtils.validateCurrentRequestedProcedureEvidenceSequence(dataset, result, modulePath, verbose, validator);
+                Sequence evidenceSeq = dataset.getSequence(Tag.CurrentRequestedProcedureEvidenceSequence);
+                if (evidenceSeq == null || evidenceSeq.isEmpty()) {
+                    result.addError("CurrentRequestedProcedureEvidenceSequence is present but empty. " +
+                                  "Must contain at least one study with referenced series/instances.", modulePath);
+                } else {
+                    SRReferenceUtils.validateCurrentRequestedProcedureEvidenceSequence(dataset, result, modulePath, verbose, validator);
+                }
             }
         }
 
@@ -296,7 +307,8 @@ public class KeyObjectModuleValidator {
 
         // ContentSequence - Type 1C (typically required for KOS)
         if (dataset.contains(Tag.ContentSequence)) {
-            KeyObjectContentUtils.validateContentSequence(dataset, result, validator);
+            KeyObjectContentUtils.validateContentSequence(dataset, result, validator,
+                    be.uzleuven.ihe.dicom.validator.validation.iod.AbstractIODValidator.getActiveProfile());
             KeyObjectContentUtils.validateKOSRootContentConstraints(dataset, result);
         }
     }

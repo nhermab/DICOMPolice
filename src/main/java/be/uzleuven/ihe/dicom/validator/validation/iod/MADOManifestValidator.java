@@ -1,10 +1,13 @@
 package be.uzleuven.ihe.dicom.validator.validation.iod;
 
+import be.uzleuven.ihe.dicom.constants.DicomConstants;
+import be.uzleuven.ihe.dicom.constants.ValidationMessages;
 import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Sequence;
 import org.dcm4che3.data.Tag;
 import be.uzleuven.ihe.dicom.validator.utils.MADOProfileUtils;
 import be.uzleuven.ihe.dicom.validator.model.ValidationResult;
+import be.uzleuven.ihe.dicom.validator.validation.MADOComplianceChecker;
 
 /**
  * Validator for MADO (Manifest-based Access to DICOM Objects) profile.
@@ -66,13 +69,19 @@ public class MADOManifestValidator extends KeyObjectSelectionValidator {
             result.addInfo("Starting MADO Manifest validation");
         }
 
+        // Header constraints (MADO-specific)
+        validateMADOHeaderConstraints(dataset, result);
+
+        // MADO Compliance Check - High-level check of critical requirements
+        MADOComplianceChecker.checkMADOCompliance(dataset, result, verbose);
+
         // Basic KOS validation + MADO overrides via polymorphism
         ValidationResult baseResult = super.validate(dataset, verbose);
         result.merge(baseResult);
 
         // MADO-specific IE validations
         validateMADOPatientIE(dataset, result, verbose);
-        validateMADOStudyIE(dataset, result, verbose);
+        validateMADOStudyIE(dataset, result);
         validateMADOEquipmentIE(dataset, result, verbose);
         validateMADOSRDocumentContentModule(dataset, result, verbose);
         validateMADOSOPCommonModule(dataset, result, verbose);
@@ -87,6 +96,19 @@ public class MADOManifestValidator extends KeyObjectSelectionValidator {
         return result;
     }
 
+    private void validateMADOHeaderConstraints(Attributes dataset, ValidationResult result) {
+        String modulePath = "Header";
+
+        // SOP Class UID (0008,0016) must be KOS document
+        String sopClassUID = dataset.getString(Tag.SOPClassUID);
+        if (sopClassUID == null || sopClassUID.trim().isEmpty()) {
+            result.addError("SOPClassUID (0008,0016) is missing/empty. MADO manifest must be a KOS document.", modulePath);
+        } else if (!DicomConstants.KEY_OBJECT_SELECTION_SOP_CLASS_UID.equals(sopClassUID.trim())) {
+            result.addError("SOPClassUID (0008,0016) must be Key Object Selection Document Storage (" +
+                    DicomConstants.KEY_OBJECT_SELECTION_SOP_CLASS_UID + ") but found: " + sopClassUID, modulePath);
+        }
+    }
+
     private void validateMADOPatientIE(Attributes dataset, ValidationResult result, boolean verbose) {
         if (verbose) {
             result.addInfo("Validating Patient IE for MADO");
@@ -97,7 +119,7 @@ public class MADOManifestValidator extends KeyObjectSelectionValidator {
         // Patient ID SHALL be present (global uniqueness achieved with Issuer qualifiers)
         String patientId = dataset.getString(Tag.PatientID);
         if (patientId == null || patientId.trim().isEmpty()) {
-            result.addError("PatientID (0010,0020) is missing/empty. MADO requires robust patient identification.", modulePath);
+            result.addError(ValidationMessages.PATIENT_ID_REQUIRED, modulePath);
         }
 
         // MADO requires robust patient identification
@@ -140,11 +162,7 @@ public class MADOManifestValidator extends KeyObjectSelectionValidator {
         }
     }
 
-    private void validateMADOStudyIE(Attributes dataset, ValidationResult result, boolean verbose) {
-        if (verbose) {
-            result.addInfo("Validating Study IE for MADO");
-        }
-
+    private void validateMADOStudyIE(Attributes dataset, ValidationResult result) {
         String modulePath = "Study";
 
         // Study Date & Time SHALL be present
@@ -180,6 +198,13 @@ public class MADOManifestValidator extends KeyObjectSelectionValidator {
                         "is missing. MADO requires issuer for accession numbers.", modulePath);
             }
         }
+
+        // If AccessionNumber attribute is present (even blank), issuer is conditionally required (RC+).
+        // Note: ReferencedRequestSequence has its own stricter issuer checks per item.
+        if (dataset.contains(Tag.AccessionNumber) && !dataset.contains(Tag.IssuerOfAccessionNumberSequence)) {
+            result.addError("AccessionNumber attribute is present but IssuerOfAccessionNumberSequence (0008,0051) is missing. " +
+                    "MADO requires issuer information when an accession domain is used.", modulePath);
+        }
     }
 
     private void validateMADOEquipmentIE(Attributes dataset, ValidationResult result, boolean verbose) {
@@ -188,35 +213,45 @@ public class MADOManifestValidator extends KeyObjectSelectionValidator {
         // Manufacturer SHALL be present (base module check allows empty)
         String manufacturer = dataset.getString(Tag.Manufacturer);
         if (manufacturer == null || manufacturer.trim().isEmpty()) {
-            result.addError("Manufacturer (0008,0070) is missing/empty. MADO requires it to identify the manifest creator.", modulePath);
+            result.addError(ValidationMessages.MANUFACTURER_REQUIRED, modulePath);
         }
 
-        // Institution Name SHALL be present
+        // Institution Name SHALL be present OR Institution Code Sequence should be provided
         String institutionName = dataset.getString(Tag.InstitutionName);
-        if (institutionName == null || institutionName.trim().isEmpty()) {
-            result.addError("InstitutionName (0008,0080) is missing/empty. MADO requires it.", modulePath);
+        Sequence institutionCodeSeq = dataset.getSequence(Tag.InstitutionCodeSequence);
+        boolean hasInstitutionName = institutionName != null && !institutionName.trim().isEmpty();
+        boolean hasInstitutionCode = institutionCodeSeq != null && !institutionCodeSeq.isEmpty();
+
+        if (!hasInstitutionName && !hasInstitutionCode) {
+            result.addError(ValidationMessages.INSTITUTION_NAME_REQUIRED, modulePath);
         }
 
         if (verbose) {
-            result.addInfo("Validated MADO equipment creator identification (Manufacturer/InstitutionName)", modulePath);
+            result.addInfo("Validated MADO equipment creator identification (Manufacturer/InstitutionName/InstitutionCodeSequence)", modulePath);
         }
     }
 
     private void validateMADOSRDocumentContentModule(Attributes dataset, ValidationResult result, boolean verbose) {
         String modulePath = "SRDocumentContent";
         validateMADODocumentTitle(dataset, result, modulePath);
+        if (verbose) {
+            result.addInfo("Validated SR Document Content module for MADO (document title)", modulePath);
+        }
     }
 
     private void validateMADOSOPCommonModule(Attributes dataset, ValidationResult result, boolean verbose) {
         String modulePath = "SOPCommon";
         // Timezone Offset From UTC - MANDATORY in MADO
         checkRequiredAttribute(dataset, Tag.TimezoneOffsetFromUTC, "TimezoneOffsetFromUTC", result, modulePath);
+        if (verbose) {
+            result.addInfo("Validated SOP Common module for MADO (TimezoneOffsetFromUTC)", modulePath);
+        }
     }
 
     private void validateMADODocumentTitle(Attributes dataset, ValidationResult result, String modulePath) {
         Sequence seq = dataset.getSequence(Tag.ConceptNameCodeSequence);
         if (seq == null || seq.isEmpty()) {
-            // Already reported by super
+            result.addError("ConceptNameCodeSequence is missing. MADO requires document title.", modulePath);
             return;
         }
 
@@ -225,15 +260,17 @@ public class MADOManifestValidator extends KeyObjectSelectionValidator {
         String csd = item.getString(Tag.CodingSchemeDesignator);
         String meaning = item.getString(Tag.CodeMeaning);
 
-        boolean ok = MADO_MANIFEST_CODE_VALUE.equals(codeValue) &&
-                     MADO_MANIFEST_CSD.equals(csd) &&
-                     MADO_MANIFEST_CODE_MEANING.equalsIgnoreCase(meaning);
+        // MADO requires either (113030, DCM, "Manifest") OR (ddd001, DCM, "Manifest with Description")
+        boolean isManifest = "113030".equals(codeValue) && "DCM".equals(csd);
+        boolean isManifestWithDesc = MADO_MANIFEST_CODE_VALUE.equals(codeValue) && MADO_MANIFEST_CSD.equals(csd);
 
-        if (!ok) {
+        if (!isManifest && !isManifestWithDesc) {
             result.addError(
-                "ConceptNameCodeSequence must be (" + MADO_MANIFEST_CODE_VALUE + ", " +
-                MADO_MANIFEST_CSD + ", \"" + MADO_MANIFEST_CODE_MEANING + "\") for MADO manifest; found (" +
-                codeValue + ", " + csd + ", \"" + meaning + "\")", modulePath);
+                "MADO ConceptNameCodeSequence (Document Title) must be either:\n" +
+                "  (113030, DCM, \"Manifest\") OR\n" +
+                "  (" + MADO_MANIFEST_CODE_VALUE + ", " + MADO_MANIFEST_CSD + ", \"" + MADO_MANIFEST_CODE_MEANING + "\")\n" +
+                "Found: (" + codeValue + ", " + csd + ", \"" + meaning + "\")\n" +
+                "Note: Generic KOS titles like (113000, DCM, \"Of Interest\") are NOT valid for MADO.", modulePath);
         }
     }
 }

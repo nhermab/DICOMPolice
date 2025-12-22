@@ -2,6 +2,7 @@ package be.uzleuven.ihe.dicom.validator.validation;
 
 import be.uzleuven.ihe.dicom.validator.model.ValidationResult;
 import be.uzleuven.ihe.dicom.constants.DicomConstants;
+import be.uzleuven.ihe.dicom.constants.ValidationMessages;
 
 import java.io.File;
 import java.io.RandomAccessFile;
@@ -128,9 +129,8 @@ public final class Part10FileValidator {
         if (mediaStorageSOPClassUID != null) {
             String sopClassUID = dataset.getString(org.dcm4che3.data.Tag.SOPClassUID);
             if (sopClassUID != null && !mediaStorageSOPClassUID.equals(sopClassUID)) {
-                result.addError("File Meta Information: MediaStorageSOPClassUID (0002,0002) does not match " +
-                              "SOPClassUID (0008,0016). Found: " + mediaStorageSOPClassUID +
-                              " vs " + sopClassUID, modulePath);
+                result.addError(ValidationMessages.MEDIA_STORAGE_SOP_CLASS_MISMATCH +
+                              " Found: " + mediaStorageSOPClassUID + " vs " + sopClassUID, modulePath);
             }
 
             // For MADO, must be Key Object Selection

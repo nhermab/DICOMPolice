@@ -21,7 +21,7 @@ public final class MADOTimezoneValidator {
         // Check manifest timezone offset
         String manifestTimezone = dataset.getString(Tag.TimezoneOffsetFromUTC);
         if (manifestTimezone == null || manifestTimezone.trim().isEmpty()) {
-            result.addError("TimezoneOffsetFromUTC (0008,0201) is mandatory in MADO but is missing.", modulePath);
+            result.addError(ValidationMessages.TIMEZONE_OFFSET_MANDATORY, modulePath);
             return;
         }
 

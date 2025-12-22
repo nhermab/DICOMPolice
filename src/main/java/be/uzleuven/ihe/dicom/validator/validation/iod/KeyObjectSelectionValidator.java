@@ -5,6 +5,7 @@ import be.uzleuven.ihe.dicom.validator.validation.AdvancedEncodingValidator;
 import be.uzleuven.ihe.dicom.validator.validation.TimezoneValidator;
 import be.uzleuven.ihe.dicom.validator.validation.AdvancedStructureValidator;
 import be.uzleuven.ihe.dicom.validator.validation.EvidenceOrphanValidator;
+import be.uzleuven.ihe.dicom.validator.validation.KOSComplianceChecker;
 import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Tag;
 import org.dcm4che3.data.UID;
@@ -38,6 +39,15 @@ public class KeyObjectSelectionValidator extends AbstractIODValidator {
 
         if (verbose) {
             result.addInfo("Validating Key Object Selection Document");
+        }
+
+        // KOS Compliance Check - High-level check of critical requirements
+        // If a MADO profile is active, skip generic KOS compliance warnings (MADO uses TID 1600 structure).
+        String activeProfile = AbstractIODValidator.getActiveProfile();
+        if (!"IHEMADO".equalsIgnoreCase(activeProfile)) {
+            KOSComplianceChecker.checkKOSCompliance(dataset, result, verbose);
+        } else if (verbose) {
+            result.addInfo("Skipping generic KOS compliance check because active profile is IHEMADO", "KOSCompliance");
         }
 
         // Verify SOPClassUID

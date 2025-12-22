@@ -6,6 +6,7 @@ import org.dcm4che3.data.Tag;
 import be.uzleuven.ihe.dicom.validator.validation.iod.AbstractIODValidator;
 import be.uzleuven.ihe.dicom.validator.model.ValidationResult;
 import be.uzleuven.ihe.dicom.constants.DicomConstants;
+import be.uzleuven.ihe.dicom.constants.ValidationMessages;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -72,7 +73,13 @@ public class KeyObjectContentUtils {
         return false;
     }
 
-    public static void validateContentSequence(Attributes dataset, ValidationResult result, AbstractIODValidator ctx) {
+    /**
+     * Validate KOS content for a specific profile.
+     *
+     * Today this is used to support MADO, which extends TID 2010 with TID 1600/16XX where additional
+     * ValueTypes (notably NUM) are allowed inside the Image Library subtree.
+     */
+    public static void validateContentSequence(Attributes dataset, ValidationResult result, AbstractIODValidator ctx, String profile) {
         Sequence seq = dataset.getSequence(Tag.ContentSequence);
         if (seq == null) {
             return;
@@ -82,11 +89,22 @@ public class KeyObjectContentUtils {
             Attributes item = seq.get(i);
             String itemPath = ctx.buildPath(DicomConstants.MODULE_SR_DOCUMENT_CONTENT, "ContentSequence", i);
 
-            validateContentItem(item, result, itemPath, ctx);
+            validateContentItem(item, result, itemPath, ctx, profile);
         }
     }
 
-    private static void validateContentItem(Attributes item, ValidationResult result, String itemPath, AbstractIODValidator ctx) {
+    public static void validateContentSequence(Attributes dataset, ValidationResult result, AbstractIODValidator ctx) {
+        validateContentSequence(dataset, result, ctx, null);
+    }
+
+    private static boolean isMADOProfile(String profile) {
+        if (profile == null || profile.isEmpty()) {
+            return false;
+        }
+        return "IHEMADO".equalsIgnoreCase(profile) || "MADO".equalsIgnoreCase(profile);
+    }
+
+    private static void validateContentItem(Attributes item, ValidationResult result, String itemPath, AbstractIODValidator ctx, String profile) {
         // RelationshipType - Type 1
         ctx.checkRequiredAttribute(item, Tag.RelationshipType, "RelationshipType", result, itemPath);
         if (item.contains(Tag.RelationshipType)) {
@@ -106,7 +124,10 @@ public class KeyObjectContentUtils {
         ctx.checkRequiredAttribute(item, Tag.ValueType, "ValueType", result, itemPath);
         String valueType = item.getString(Tag.ValueType);
         if (valueType != null) {
-            if (!ALLOWED_KOS_VALUE_TYPES.contains(valueType)) {
+            boolean allowedByKOS = ALLOWED_KOS_VALUE_TYPES.contains(valueType);
+            boolean allowedByMADOExtension = isMADOProfile(profile) && be.uzleuven.ihe.dicom.constants.DicomConstants.VALUE_TYPE_NUM.equals(valueType);
+
+            if (!allowedByKOS && !allowedByMADOExtension) {
                 result.addError("Disallowed ValueType for KOS (TID 2010): " + valueType, itemPath);
             }
         }
@@ -148,6 +169,13 @@ public class KeyObjectContentUtils {
                         result.addWarning("CONTAINER content item has no nested ContentSequence", itemPath);
                     }
                     break;
+                case be.uzleuven.ihe.dicom.constants.DicomConstants.VALUE_TYPE_NUM:
+                    // NUM is not allowed by base TID 2010, but is allowed by MADO extensions (TID 1600/16XX).
+                    // Structural validation only; detailed NUM checks are handled by dedicated TID validators.
+                    if (!isMADOProfile(profile)) {
+                        result.addError("Disallowed ValueType for KOS (TID 2010): " + valueType, itemPath);
+                    }
+                    break;
                 default:
                     // structural validation only
                     break;
@@ -156,13 +184,13 @@ public class KeyObjectContentUtils {
 
         // Recurse
         if (item.contains(Tag.ContentSequence)) {
-            validateContentSequenceItem(item, result, itemPath, ctx);
+            validateContentSequenceItem(item, result, itemPath, ctx, profile);
         }
     }
 
     private static void validateCodeSequenceSingleItem(Sequence seq, ValidationResult result, String itemPath, AbstractIODValidator ctx) {
         if (seq == null || seq.isEmpty()) {
-            result.addError("Code sequence is empty", itemPath);
+            result.addError(String.format(ValidationMessages.CODE_SEQUENCE_SINGLE_ITEM, "Code Sequence"), itemPath);
             return;
         }
         Attributes codeItem = seq.get(0);
@@ -173,6 +201,11 @@ public class KeyObjectContentUtils {
 
     private static void validateContentSequenceItem(Attributes parent, ValidationResult result,
                                                     String parentPath, AbstractIODValidator ctx) {
+        validateContentSequenceItem(parent, result, parentPath, ctx, null);
+    }
+
+    private static void validateContentSequenceItem(Attributes parent, ValidationResult result,
+                                                    String parentPath, AbstractIODValidator ctx, String profile) {
         Sequence seq = parent.getSequence(Tag.ContentSequence);
         if (seq == null) {
             return;
@@ -182,7 +215,7 @@ public class KeyObjectContentUtils {
             Attributes item = seq.get(i);
             String itemPath = ctx.buildPath(parentPath, "ContentSequence", i);
 
-            validateContentItem(item, result, itemPath, ctx);
+            validateContentItem(item, result, itemPath, ctx, profile);
         }
     }
 

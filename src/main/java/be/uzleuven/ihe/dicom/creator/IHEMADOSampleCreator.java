@@ -109,19 +109,46 @@ public class IHEMADOSampleCreator {
     public static void main(String[] args) throws Exception {
         // Generate a single random MADO file with random parameters
         int count = 1;
+        boolean useRandomSizes = true; // preserve historical behavior unless overridden
+        boolean useKOSDefaultSizes = false; // if true, derive defaults from IHEKOSSampleCreator
         if (args != null && args.length > 0) {
-            try {
-                count = Math.max(1, Integer.parseInt(args[0]));
-            } catch (NumberFormatException ignore) {
-                // ignore
+            for (String a : args) {
+                if ("--help".equalsIgnoreCase(a) || "-h".equalsIgnoreCase(a)) {
+                    System.out.println("Usage: IHEMADOSampleCreator [count] [--default-sizes] [--random-sizes] [--help]");
+                    System.out.println("  count           : number of MADO files to generate (default 1)");
+                    System.out.println("  --default-sizes : use deterministic default size/shape options instead of random sizes");
+                    System.out.println("  --random-sizes  : explicitly use random sizes (default behavior)");
+                    return;
+                } else if ("--default-sizes".equalsIgnoreCase(a)) {
+                    // Use deterministic defaults. Prefer KOS default sizing if available to keep KOS/MADO
+                    // sample sizes aligned. This flag now indicates using the KOS default size mapping.
+                    useRandomSizes = false;
+                    useKOSDefaultSizes = true;
+                } else if ("--random-sizes".equalsIgnoreCase(a)) {
+                    useRandomSizes = true;
+                    useKOSDefaultSizes = false;
+                } else {
+                    try {
+                        count = Math.max(1, Integer.parseInt(a));
+                    } catch (NumberFormatException ignore) {
+                        // ignore unknown token
+                    }
+                }
             }
         }
 
         File outDir = new File(System.getProperty("user.dir"));
 
         for (int i = 0; i < count; i++) {
-            // Generate random options for each file
-            Options options = generateRandomOptions();
+            // Choose options for each file (random or deterministic default)
+            Options options;
+            if (useKOSDefaultSizes) {
+                // Map KOS defaults to MADO Options so generated MADO files are comparable to KOS defaults
+                IHEKOSSampleCreator.Options kos = IHEKOSSampleCreator.defaultOptions();
+                options = optionsFromKOSOptions(kos);
+            } else {
+                options = useRandomSizes ? generateRandomOptions() : defaultOptions();
+            }
 
             // 1. Generate the Simulated Study Structure
             SimulatedStudy study = generateSimulatedStudy(options);
@@ -200,6 +227,56 @@ public class IHEMADOSampleCreator {
         options.keyImageCount = (maxKeyImages <= 1) ? 1 : (1 + randomInt(maxKeyImages));
 
         return options;
+    }
+
+    /**
+     * Map KOS Options to MADO Options so --default-sizes uses KOS defaults translated into MADO semantics.
+     */
+    private static Options optionsFromKOSOptions(IHEKOSSampleCreator.Options kos) {
+        Options opt = new Options();
+        if (kos == null) return opt;
+
+        // KOS sopInstanceCount roughly maps to MADO totalInstanceCount (minus the KIN instance we add)
+        opt.totalInstanceCount = Math.max(1, kos.sopInstanceCount - 1);
+
+        // KOS evidenceSeriesCount maps to MADO seriesCount (we add one for KIN later if includeKIN true)
+        opt.seriesCount = Math.max(1, kos.evidenceSeriesCount + (opt.includeKIN ? 1 : 0));
+
+        // Map modalities by converting SOP Class UIDs to modality codes; fall back to CT/OT/US
+        if (kos.modalities != null && kos.modalities.length > 0) {
+            String[] pool = new String[kos.modalities.length];
+            for (int i = 0; i < kos.modalities.length; i++) {
+                pool[i] = modalityFromSopClass(kos.modalities[i]);
+            }
+            opt.modalityPool = pool;
+        }
+
+        // Map multiframe flag: if KOS multiframe true, include a small number of multiframe MADO instances.
+        opt.includeMultiframe = kos.multiframe;
+        opt.multiframeInstanceCount = kos.multiframe ? Math.max(1, Math.min(5, kos.sopInstanceCount / 10)) : 0;
+
+        // keyImageCount: keep small descriptive number
+        opt.keyImageCount = 3;
+
+        return opt;
+    }
+
+    private static String modalityFromSopClass(String sopClassUid) {
+        if (sopClassUid == null) return "CT";
+        switch (sopClassUid) {
+            case UID.MRImageStorage:
+                return "MR";
+            case UID.UltrasoundImageStorage:
+                return "US";
+            case UID.DigitalXRayImageStorageForPresentation:
+            case UID.DigitalXRayImageStorageForProcessing:
+                return "CR"; // map to CR (treated as SecondaryCapture fallback)
+            case UID.SecondaryCaptureImageStorage:
+                return "OT";
+            case UID.CTImageStorage:
+            default:
+                return "CT";
+        }
     }
 
     public static Attributes createMADOFromOptions(Options options) {

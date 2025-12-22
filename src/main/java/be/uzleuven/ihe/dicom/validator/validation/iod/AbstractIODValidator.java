@@ -11,6 +11,27 @@ public abstract class AbstractIODValidator implements IODValidator {
 
     protected final String iodName;
 
+    /**
+     * Active profile for the current validation run.
+     *
+     * Some module validators are implemented as static helpers and do not receive the profile name.
+     * We keep the profile in a ThreadLocal so code can stay backwards compatible while allowing
+     * profile-specific relaxations (e.g., MADO extends TID 2010 with TID 1600 allowing NUM items).
+     */
+    private static final ThreadLocal<String> ACTIVE_PROFILE = new ThreadLocal<>();
+
+    public static String getActiveProfile() {
+        return ACTIVE_PROFILE.get();
+    }
+
+    public static void setActiveProfile(String profile) {
+        if (profile == null || profile.isEmpty()) {
+            ACTIVE_PROFILE.remove();
+        } else {
+            ACTIVE_PROFILE.set(profile);
+        }
+    }
+
     protected AbstractIODValidator(String iodName) {
         this.iodName = iodName;
     }
@@ -220,4 +241,3 @@ public abstract class AbstractIODValidator implements IODValidator {
         return seqPath + "[" + (itemNumber + 1) + "]";
     }
 }
-

@@ -27,6 +27,10 @@ public final class MADOProfileUtils {
      * @param ctx      The validation context, for shared state between validators
      */
     public static void validateMADOProfile(Attributes dataset, ValidationResult result, boolean verbose, AbstractIODValidator ctx) {
+        // ctx is passed for potential cross-validator shared state; intentionally unused today.
+        @SuppressWarnings("unused")
+        AbstractIODValidator ignoredCtx = ctx;
+
         String modulePath = "MADOProfile";
 
         // Phase 1: Check for forbidden elements
@@ -66,9 +70,7 @@ public final class MADOProfileUtils {
         }
     }
 
-    /**
-     * MADO approach enumeration.
-     */
+    /** MADO approach enumeration. */
     private enum MADOApproach {
         APPROACH_2_TID_1600,  // Uses TID 1600 Image Library in SR Content Tree
         APPENDIX_B,           // Uses extended Hierarchical Macro attributes
@@ -87,23 +89,37 @@ public final class MADOProfileUtils {
      */
     private static MADOApproach detectMADOApproach(Attributes dataset, ValidationResult result,
                                                    String modulePath, boolean verbose) {
-        // Parameters result, modulePath, verbose reserved for future enhanced detection logging
-
         // Check for TID 1600 Image Library in ContentSequence
         Sequence contentSeq = dataset.getSequence(Tag.ContentSequence);
-        if (contentSeq != null && !contentSeq.isEmpty()) {
-            if (hasImageLibrary(contentSeq)) {
-                return MADOApproach.APPROACH_2_TID_1600;
+        if (contentSeq == null || contentSeq.isEmpty()) {
+            result.addError("ContentSequence is missing/empty. MADO requires TID 1600 Image Library in content tree.", modulePath);
+            return MADOApproach.UNKNOWN;
+        }
+
+        if (hasImageLibrary(contentSeq)) {
+            if (verbose) {
+                result.addInfo("Detected TID 1600 Image Library (111028, DCM) in content tree", modulePath);
             }
+            return MADOApproach.APPROACH_2_TID_1600;
         }
 
         // Check for Appendix B extended attributes in Evidence
         Sequence evidenceSeq = dataset.getSequence(Tag.CurrentRequestedProcedureEvidenceSequence);
         if (evidenceSeq != null && !evidenceSeq.isEmpty()) {
             if (hasAppendixBExtensions(evidenceSeq)) {
+                if (verbose) {
+                    result.addInfo("Detected Appendix B style attributes in Evidence sequence", modulePath);
+                }
                 return MADOApproach.APPENDIX_B;
             }
         }
+
+        // Not found - provide helpful diagnostic
+        result.addError("MADO Format Detection Failed:\n" +
+                      "  - Expected: TID 1600 Image Library container (111028, DCM, \"Image Library\") in ContentSequence\n" +
+                      "  - Alternative: Appendix B extended attributes in Evidence sequence\n" +
+                      "  - Found: Neither. This appears to be a generic KOS, not a MADO manifest.\n" +
+                      "  Note: Flat ContentSequence with COMPOSITE references is NOT valid MADO structure.", modulePath);
 
         return MADOApproach.UNKNOWN;
     }
@@ -162,8 +178,10 @@ public final class MADOProfileUtils {
         XDSIManifestProfileUtils.validateForbiddenElements(dataset, result, modulePath);
 
         // Check for self-reference using SRReferenceUtils
-        // This scans the content tree and checks for self-references and duplicates
-        SRReferenceUtils.scanSRReferencesWithChecks(dataset, result, modulePath, ctx);
+        // This scans the content tree and checks for self-references and duplicates.
+        // MADO manifests legitimately repeat IMAGE references (e.g., Image Library entry + visual reference),
+        // so we allow duplicates here while still detecting self-references.
+        SRReferenceUtils.scanSRReferencesWithChecks(dataset, result, modulePath, ctx, true);
 
         // Check for IOCM rejection note titles (prohibited in sharing context)
         Sequence conceptSeq = dataset.getSequence(Tag.ConceptNameCodeSequence);
@@ -186,26 +204,50 @@ public final class MADOProfileUtils {
             return;
         }
 
+        String manifestStudyUID = dataset.getString(Tag.StudyInstanceUID);
+
         // Validate each request item
         for (int i = 0; i < refRequestSeq.size(); i++) {
             Attributes item = refRequestSeq.get(i);
             String itemPath = modulePath + ".ReferencedRequestSequence[" + i + "]";
 
-            String studyUID = item.getString(Tag.StudyInstanceUID);
+            String itemStudyUID = item.getString(Tag.StudyInstanceUID);
             String accessionNumber = item.getString(Tag.AccessionNumber);
             String placerOrderNumber = item.getString(Tag.PlacerOrderNumberImagingServiceRequest);
 
-            if (studyUID == null || studyUID.trim().isEmpty()) {
+            if (itemStudyUID == null || itemStudyUID.trim().isEmpty()) {
                 result.addError("StudyInstanceUID missing/empty in ReferencedRequestSequence item " + i, itemPath);
+            } else if (manifestStudyUID != null && !manifestStudyUID.trim().isEmpty()
+                    && !manifestStudyUID.trim().equals(itemStudyUID.trim())) {
+                result.addError("ReferencedRequestSequence item " + i + " has StudyInstanceUID " + itemStudyUID +
+                        " which does not match manifest StudyInstanceUID " + manifestStudyUID, itemPath);
             }
 
-            if (accessionNumber == null || accessionNumber.trim().isEmpty()) {
-                result.addError("AccessionNumber missing/empty in ReferencedRequestSequence item " + i, itemPath);
+            // MADO: if AccessionNumber is present, Issuer SHALL be present (RC+ per profile text)
+            if (accessionNumber == null) {
+                result.addError("AccessionNumber missing in ReferencedRequestSequence item " + i, itemPath);
             } else {
-                // If Accession Number present, Issuer SHALL be present
-                if (!item.contains(Tag.IssuerOfAccessionNumberSequence)) {
-                    result.addError("IssuerOfAccessionNumberSequence (0008,0051) missing in ReferencedRequestSequence item " + i,
+                Sequence issuerSeq = item.getSequence(Tag.IssuerOfAccessionNumberSequence);
+                if (issuerSeq == null || issuerSeq.isEmpty()) {
+                    result.addError("IssuerOfAccessionNumberSequence (0008,0051) missing/empty in ReferencedRequestSequence item " + i,
                             itemPath);
+                } else {
+                    // Validate issuer item content (UniversalEntityID + UniversalEntityIDType=ISO)
+                    Attributes issuer = issuerSeq.get(0);
+                    String universalEntityId = issuer.getString(Tag.UniversalEntityID);
+                    String universalEntityIdType = issuer.getString(Tag.UniversalEntityIDType);
+
+                    if (universalEntityId == null || universalEntityId.trim().isEmpty()) {
+                        result.addError("IssuerOfAccessionNumberSequence[0].UniversalEntityID (0040,0032) missing/empty in ReferencedRequestSequence item " + i,
+                                itemPath);
+                    }
+                    if (universalEntityIdType == null || universalEntityIdType.trim().isEmpty()) {
+                        result.addError("IssuerOfAccessionNumberSequence[0].UniversalEntityIDType (0040,0033) missing/empty in ReferencedRequestSequence item " + i,
+                                itemPath);
+                    } else if (!"ISO".equalsIgnoreCase(universalEntityIdType.trim())) {
+                        result.addError("IssuerOfAccessionNumberSequence[0].UniversalEntityIDType (0040,0033) must be 'ISO' but found: " +
+                                universalEntityIdType, itemPath);
+                    }
                 }
             }
 
@@ -217,7 +259,16 @@ public final class MADOProfileUtils {
 
     private static void validateEvidenceContentConsistency(Attributes dataset, ValidationResult result,
                                                           String modulePath, AbstractIODValidator ctx) {
-        // Parameter ctx reserved for future cross-validator functionality
+        @SuppressWarnings("unused")
+        AbstractIODValidator ignoredCtx = ctx;
+
+        // First check if Evidence sequence exists
+        Sequence evidenceSeq = dataset.getSequence(Tag.CurrentRequestedProcedureEvidenceSequence);
+        if (evidenceSeq == null || evidenceSeq.isEmpty()) {
+            result.addError(ValidationMessages.EVIDENCE_SEQUENCE_MISSING + " " +
+                          ValidationMessages.ORPHAN_REFERENCES_DETECTED, modulePath);
+            return;
+        }
 
         Sequence contentSeq = dataset.getSequence(Tag.ContentSequence);
         if (contentSeq == null || contentSeq.isEmpty()) {
@@ -236,16 +287,19 @@ public final class MADOProfileUtils {
             return;
         }
 
-        // Cross-check consistency
+        // Cross-check consistency: Every instance in Content MUST be in Evidence
         for (String uid : contentRefs) {
             if (!evidenceRefs.contains(uid)) {
-                result.addError("SOP Instance UID present in Content but missing from Evidence: " + uid, modulePath);
+                result.addError("SOP Instance UID present in Content but MISSING from Evidence: " + uid + ". " +
+                              "DICOM KOS standard requires ALL referenced instances to be listed in Evidence Sequence.", modulePath);
             }
         }
 
+        // Warn if Evidence has instances not in Content (less critical but worth noting)
         for (String uid : evidenceRefs) {
             if (!contentRefs.contains(uid)) {
-                result.addWarning("SOP Instance UID present in Evidence but not in Content tree: " + uid, modulePath);
+                result.addWarning("SOP Instance UID present in Evidence but not in Content tree: " + uid + ". " +
+                                "This is allowed but unusual - typically Content and Evidence should match.", modulePath);
             }
         }
     }

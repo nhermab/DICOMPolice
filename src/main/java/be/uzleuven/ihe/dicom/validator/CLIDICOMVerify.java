@@ -232,7 +232,18 @@ public class CLIDICOMVerify {
         System.out.println("\nValidation Results:");
         System.out.println(repeat('-', 80));
 
-        ValidationResult result = validator.validate(dataset, verbose, profile);
+        ValidationResult result;
+        if (validator instanceof be.uzleuven.ihe.dicom.validator.validation.iod.AbstractIODValidator) {
+            // Set the active profile for this validation run so static module validators can be profile-aware.
+            be.uzleuven.ihe.dicom.validator.validation.iod.AbstractIODValidator.setActiveProfile(profile);
+            try {
+                result = validator.validate(dataset, verbose, profile);
+            } finally {
+                be.uzleuven.ihe.dicom.validator.validation.iod.AbstractIODValidator.setActiveProfile(null);
+            }
+        } else {
+            result = validator.validate(dataset, verbose, profile);
+        }
 
         // Display results
         if (result.isValid()) {

@@ -1,6 +1,7 @@
 package be.uzleuven.ihe.dicom.validator.validation.tid1600;
 
 import be.uzleuven.ihe.dicom.constants.TID1600Codes;
+import be.uzleuven.ihe.dicom.constants.ValidationMessages;
 import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Sequence;
 import org.dcm4che3.data.Tag;
@@ -23,7 +24,7 @@ public final class TID1600Validator {
 
         Sequence contentSeq = dataset.getSequence(Tag.ContentSequence);
         if (contentSeq == null || contentSeq.isEmpty()) {
-            result.addError("ContentSequence is empty. TID 1600 Image Library requires content items.", modulePath);
+            result.addError(ValidationMessages.TID1600_IMAGE_LIBRARY_EMPTY, modulePath);
             return;
         }
 
