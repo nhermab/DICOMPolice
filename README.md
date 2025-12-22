@@ -9,7 +9,7 @@ Available through **command-line interface**, **web interface**, and **REST API*
 ---
 ## DEMO
 
-online web based demo: [https://ihebelgium.ehealthhub.be/TheDICOMPolice/]
+[online web based demo](https://ihebelgium.ehealthhub.be/TheDICOMPolice/)
 
 ## Quick Start
 
