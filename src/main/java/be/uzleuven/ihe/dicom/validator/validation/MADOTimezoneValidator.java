@@ -1,5 +1,6 @@
 package be.uzleuven.ihe.dicom.validator.validation;
 
+import be.uzleuven.ihe.dicom.constants.ValidationMessages;
 import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Sequence;
 import org.dcm4che3.data.Tag;
@@ -27,8 +28,7 @@ public final class MADOTimezoneValidator {
 
         // Validate timezone format
         if (!isValidTimezoneOffset(manifestTimezone)) {
-            result.addError("TimezoneOffsetFromUTC has invalid format: " + manifestTimezone +
-                          ". Expected format: ±HHMM (e.g., +0100, -0500)", modulePath);
+            result.addError("TimezoneOffsetFromUTC has invalid format: " + manifestTimezone + ". Expected format: ±HHMM (e.g., +0100, -0500)", modulePath);
         }
 
         // Check Evidence sequence for timezone consistency

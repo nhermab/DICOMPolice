@@ -38,7 +38,7 @@ public class KeyObjectContentUtils {
 
         Sequence root = dataset.getSequence(Tag.ContentSequence);
         if (root == null || root.isEmpty()) {
-            result.addError("ContentSequence is missing or empty; KOS must contain at least one referenced object", modulePath);
+            result.addError(ValidationMessages.KOS_CONTENT_SEQUENCE_MISSING, modulePath);
             return;
         }
 
@@ -48,7 +48,7 @@ public class KeyObjectContentUtils {
         }
 
         if (!hasReference) {
-            result.addError("KOS ContentSequence has no IMAGE/COMPOSITE/WAVEFORM reference items (empty manifest)", modulePath);
+            result.addError(ValidationMessages.KOS_NO_REFERENCES, modulePath);
         }
 
         // Validate Document Title Modifiers if applicable
@@ -128,7 +128,7 @@ public class KeyObjectContentUtils {
             boolean allowedByMADOExtension = isMADOProfile(profile) && be.uzleuven.ihe.dicom.constants.DicomConstants.VALUE_TYPE_NUM.equals(valueType);
 
             if (!allowedByKOS && !allowedByMADOExtension) {
-                result.addError("Disallowed ValueType for KOS (TID 2010): " + valueType, itemPath);
+                result.addError(String.format(ValidationMessages.KOS_DISALLOWED_VALUE_TYPE, valueType), itemPath);
             }
         }
 
@@ -157,7 +157,7 @@ public class KeyObjectContentUtils {
                 case DicomConstants.VALUE_TYPE_WAVEFORM:
                     // PurposeOfReferenceCodeSequence is forbidden in KOS TID 2010
                     if (item.contains(Tag.PurposeOfReferenceCodeSequence)) {
-                        result.addError("PurposeOfReferenceCodeSequence (0040,A170) must not be present in KOS references", itemPath);
+                        result.addError(ValidationMessages.KOS_PURPOSE_OF_REFERENCE_FORBIDDEN, itemPath);
                     }
 
                     if (ctx.checkSequenceAttribute(item, Tag.ReferencedSOPSequence, "ReferencedSOPSequence", true, result, itemPath)) {
@@ -173,7 +173,7 @@ public class KeyObjectContentUtils {
                     // NUM is not allowed by base TID 2010, but is allowed by MADO extensions (TID 1600/16XX).
                     // Structural validation only; detailed NUM checks are handled by dedicated TID validators.
                     if (!isMADOProfile(profile)) {
-                        result.addError("Disallowed ValueType for KOS (TID 2010): " + valueType, itemPath);
+                        result.addError(String.format(ValidationMessages.KOS_DISALLOWED_VALUE_TYPE, valueType), itemPath);
                     }
                     break;
                 default:
@@ -222,7 +222,7 @@ public class KeyObjectContentUtils {
     public static void validateConceptNameCodeSequence(Attributes dataset, ValidationResult result, AbstractIODValidator ctx) {
         Sequence seq = dataset.getSequence(Tag.ConceptNameCodeSequence);
         if (seq == null || seq.isEmpty()) {
-            result.addError("ConceptNameCodeSequence is empty", DicomConstants.MODULE_SR_DOCUMENT_CONTENT);
+            result.addError(ValidationMessages.KOS_CONCEPT_NAME_SEQUENCE_EMPTY, DicomConstants.MODULE_SR_DOCUMENT_CONTENT);
             return;
         }
 
@@ -243,7 +243,7 @@ public class KeyObjectContentUtils {
     public static void validateContentTemplateSequence(Attributes dataset, ValidationResult result, AbstractIODValidator ctx) {
         Sequence seq = dataset.getSequence(Tag.ContentTemplateSequence);
         if (seq == null || seq.isEmpty()) {
-            result.addError("ContentTemplateSequence is empty", DicomConstants.MODULE_SR_DOCUMENT_CONTENT);
+            result.addError(ValidationMessages.KOS_CONTENT_TEMPLATE_SEQUENCE_EMPTY, DicomConstants.MODULE_SR_DOCUMENT_CONTENT);
             return;
         }
 
@@ -287,7 +287,7 @@ public class KeyObjectContentUtils {
         // Check ContentSequence for Document Title Modifier items
         Sequence contentSeq = dataset.getSequence(Tag.ContentSequence);
         if (contentSeq == null) {
-            result.addError("Document Title (" + codeValue + ") requires Document Title Modifier but ContentSequence is missing", modulePath);
+            result.addError(String.format(ValidationMessages.KOS_DOCUMENT_TITLE_REQUIRES_MODIFIER, codeValue), modulePath);
             return;
         }
 
@@ -308,7 +308,7 @@ public class KeyObjectContentUtils {
                         // Validate the modifier code itself
                         Sequence conceptCodeSeq = contentItem.getSequence(Tag.ConceptCodeSequence);
                         if (conceptCodeSeq == null || conceptCodeSeq.isEmpty()) {
-                            result.addError("Document Title Modifier found but ConceptCodeSequence is missing", modulePath);
+                            result.addError(ValidationMessages.KOS_MODIFIER_MISSING_CONCEPT_CODE, modulePath);
                         }
                         // Note: Full validation of CID 7011/7012 codes would require a code dictionary
                         break;
@@ -319,11 +319,9 @@ public class KeyObjectContentUtils {
 
         if (!foundModifier) {
             if (requiresQualityModifier) {
-                result.addError("Document Title 'Rejected for Quality Reasons' or 'Quality Issue' requires " +
-                              "at least one Document Title Modifier (" + DicomConstants.CODE_DOCUMENT_TITLE_MODIFIER + ", DCM) with a code from CID 7011", modulePath);
+                result.addError(ValidationMessages.KOS_REJECTED_QUALITY_REQUIRES_MODIFIER, modulePath);
             } else {
-                result.addError("Document Title 'Best In Set' requires at least one Document Title Modifier " +
-                              "(" + DicomConstants.CODE_DOCUMENT_TITLE_MODIFIER + ", DCM) with a code from CID 7012", modulePath);
+                result.addError(ValidationMessages.KOS_BEST_IN_SET_REQUIRES_MODIFIER, modulePath);
             }
         }
     }
@@ -357,8 +355,7 @@ public class KeyObjectContentUtils {
         }
 
         if (descriptionCount > 1) {
-            result.addError("Found " + descriptionCount + " Key Object Description items. " +
-                          "TID 2010 allows at most one Key Object Description (" + DicomConstants.CODE_KEY_OBJECT_DESCRIPTION + ", DCM) text item.", modulePath);
+            result.addError(String.format(ValidationMessages.KOS_KEY_OBJECT_DESCRIPTION_CARDINALITY, descriptionCount), modulePath);
         }
     }
 }

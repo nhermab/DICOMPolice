@@ -1,6 +1,7 @@
 package be.uzleuven.ihe.dicom.validator.validation.iod;
 
 import be.uzleuven.ihe.dicom.constants.DicomConstants;
+import be.uzleuven.ihe.dicom.constants.ValidationMessages;
 import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Sequence;
 import org.dcm4che3.data.Tag;
@@ -143,16 +144,13 @@ public class KeyObjectModuleValidator {
         if (hasReferencedInstances(dataset)) {
             if (!validator.checkRequiredAttribute(dataset, Tag.CurrentRequestedProcedureEvidenceSequence,
                                  "CurrentRequestedProcedureEvidenceSequence", result, modulePath)) {
-                result.addError("CurrentRequestedProcedureEvidenceSequence (0040,A375) is MISSING. " +
-                              "This is required by DICOM standard for KOS objects that reference instances. " +
-                              "Without this, a PACS or Archive will reject this object.", modulePath);
+                result.addError(ValidationMessages.KOS_EVIDENCE_SEQUENCE_MISSING, modulePath);
             }
 
             if (dataset.contains(Tag.CurrentRequestedProcedureEvidenceSequence)) {
                 Sequence evidenceSeq = dataset.getSequence(Tag.CurrentRequestedProcedureEvidenceSequence);
                 if (evidenceSeq == null || evidenceSeq.isEmpty()) {
-                    result.addError("CurrentRequestedProcedureEvidenceSequence is present but empty. " +
-                                  "Must contain at least one study with referenced series/instances.", modulePath);
+                    result.addError(ValidationMessages.KOS_EVIDENCE_SEQUENCE_EMPTY_ERROR, modulePath);
                 } else {
                     SRReferenceUtils.validateCurrentRequestedProcedureEvidenceSequence(dataset, result, modulePath, verbose, validator);
                 }
@@ -177,15 +175,13 @@ public class KeyObjectModuleValidator {
         if (studyUIDs.size() > 1) {
             // Multi-study KOS requires IdenticalDocumentsSequence
             if (!dataset.contains(Tag.IdenticalDocumentsSequence)) {
-                result.addError("KOS references instances from " + studyUIDs.size() +
-                              " studies but IdenticalDocumentsSequence (0040,A525) is missing. " +
-                              "DICOM requires multi-study KOS to list duplicate instances for each study.", modulePath);
+                result.addError(String.format(ValidationMessages.KOS_MULTI_STUDY_MISSING_IDENTICAL_DOCS, studyUIDs.size()), modulePath);
                 return;
             }
 
             Sequence seq = dataset.getSequence(Tag.IdenticalDocumentsSequence);
             if (seq == null || seq.isEmpty()) {
-                result.addError("IdenticalDocumentsSequence is present but empty for multi-study KOS", modulePath);
+                result.addError(ValidationMessages.KOS_IDENTICAL_DOCS_SEQUENCE_EMPTY, modulePath);
                 return;
             }
 
@@ -279,19 +275,18 @@ public class KeyObjectModuleValidator {
             String verificationFlag = dataset.getString(Tag.VerificationFlag);
             if (DicomConstants.VERIFICATION_FLAG_VERIFIED.equals(verificationFlag)) {
                 if (!dataset.contains(Tag.VerifyingObserverSequence)) {
-                    result.addError("VerificationFlag is 'VERIFIED' but VerifyingObserverSequence (0040,A073) is missing. " +
-                                  "A verified KOS must include at least one verifying observer.", modulePath);
+                    result.addError(ValidationMessages.KOS_VERIFICATION_FLAG_MISSING_OBSERVER, modulePath);
                 } else {
                     Sequence seq = dataset.getSequence(Tag.VerifyingObserverSequence);
                     if (seq == null || seq.isEmpty()) {
-                        result.addError("VerifyingObserverSequence is present but empty when VerificationFlag is 'VERIFIED'", modulePath);
+                        result.addError(ValidationMessages.KOS_VERIFYING_OBSERVER_SEQUENCE_EMPTY, modulePath);
                     } else {
                         validateVerifyingObserverSequence(seq, result, modulePath, validator);
                     }
                 }
 
                 if (!dataset.contains(Tag.VerificationDateTime)) {
-                    result.addError("VerificationFlag is 'VERIFIED' but VerificationDateTime (0040,A030) is missing", modulePath);
+                    result.addError(ValidationMessages.KOS_VERIFICATION_FLAG_MISSING_DATETIME, modulePath);
                 }
             }
         }

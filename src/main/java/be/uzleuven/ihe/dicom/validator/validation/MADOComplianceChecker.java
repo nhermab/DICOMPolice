@@ -67,19 +67,12 @@ public final class MADOComplianceChecker {
         Sequence evidenceSeq = dataset.getSequence(Tag.CurrentRequestedProcedureEvidenceSequence);
 
         if (evidenceSeq == null) {
-            result.addError("CRITICAL MADO COMPLIANCE FAILURE:\n" +
-                          "  CurrentRequestedProcedureEvidenceSequence (0040,A375) is MISSING.\n" +
-                          "  Impact: PACS/Archive will reject this KOS object.\n" +
-                          "  Fix: Add Evidence Sequence listing all referenced Study/Series/Instance UIDs.\n" +
-                          "  See: DICOM PS3.3 C.17.6.2.1 Key Object Document Module", modulePath);
+            result.addError("CRITICAL MADO COMPLIANCE FAILURE:\n" + "  CurrentRequestedProcedureEvidenceSequence (0040,A375) is MISSING.\n" + "  Impact: PACS/Archive will reject this KOS object.\n" + "  Fix: Add Evidence Sequence listing all referenced Study/Series/Instance UIDs.\n" + "  See: DICOM PS3.3 C.17.6.2.1 Key Object Document Module", modulePath);
             return;
         }
 
         if (evidenceSeq.isEmpty()) {
-            result.addError("CRITICAL MADO COMPLIANCE FAILURE:\n" +
-                          "  CurrentRequestedProcedureEvidenceSequence is present but EMPTY.\n" +
-                          "  Impact: KOS claims 'no evidence' for this procedure.\n" +
-                          "  Fix: Populate Evidence Sequence with referenced instances.", modulePath);
+            result.addError("CRITICAL MADO COMPLIANCE FAILURE:\n" + "  CurrentRequestedProcedureEvidenceSequence is present but EMPTY.\n" + "  Impact: KOS claims 'no evidence' for this procedure.\n" + "  Fix: Populate Evidence Sequence with referenced instances.", modulePath);
             return;
         }
 
@@ -137,10 +130,7 @@ public final class MADOComplianceChecker {
         Sequence contentSeq = dataset.getSequence(Tag.ContentSequence);
 
         if (contentSeq == null || contentSeq.isEmpty()) {
-            result.addError("MADO COMPLIANCE FAILURE:\n" +
-                          "  ContentSequence is missing/empty.\n" +
-                          "  Expected: TID 1600 Image Library with hierarchical structure.\n" +
-                          "  Fix: Create proper content tree with Library -> Groups -> Entries.", modulePath);
+            result.addError("MADO COMPLIANCE FAILURE:\n" + "  ContentSequence is missing/empty.\n" + "  Expected: TID 1600 Image Library with hierarchical structure.\n" + "  Fix: Create proper content tree with Library -> Groups -> Entries.", modulePath);
             return;
         }
 
@@ -172,16 +162,9 @@ public final class MADOComplianceChecker {
 
         if (!hasImageLibrary) {
             if (hasOnlyFlatCompositeReferences) {
-                result.addError("MADO COMPLIANCE FAILURE:\n" +
-                              "  ContentSequence has flat list of COMPOSITE/IMAGE references.\n" +
-                              "  Expected: TID 1600 hierarchical structure with Image Library container (111028, DCM).\n" +
-                              "  Note: This is standard KOS structure, NOT valid MADO.\n" +
-                              "  Fix: Restructure content as: Root -> Image Library -> Groups -> Entries.", modulePath);
+                result.addError("MADO COMPLIANCE FAILURE:\n" + "  ContentSequence has flat list of COMPOSITE/IMAGE references.\n" + "  Expected: TID 1600 hierarchical structure with Image Library container (111028, DCM).\n" + "  Note: This is standard KOS structure, NOT valid MADO.\n" + "  Fix: Restructure content as: Root -> Image Library -> Groups -> Entries.", modulePath);
             } else {
-                result.addError("MADO COMPLIANCE FAILURE:\n" +
-                              "  ContentSequence contains CONTAINER items but no Image Library (111028, DCM).\n" +
-                              "  Expected: TID 1600 Image Library structure.\n" +
-                              "  Fix: Add Image Library container and organize content hierarchically.", modulePath);
+                result.addError("MADO COMPLIANCE FAILURE:\n" + "  ContentSequence contains CONTAINER items but no Image Library (111028, DCM).\n" + "  Expected: TID 1600 Image Library structure.\n" + "  Fix: Add Image Library container and organize content hierarchically.", modulePath);
             }
         }
     }
@@ -215,19 +198,9 @@ public final class MADOComplianceChecker {
         if (!isManifest && !isManifestWithDesc) {
             // Check if it's a generic KOS title
             if ("113000".equals(codeValue) && "DCM".equals(codingScheme)) {
-                result.addError("MADO COMPLIANCE FAILURE:\n" +
-                              "  Document Title is (113000, DCM, 'Of Interest') - generic KOS title.\n" +
-                              "  MADO requires:\n" +
-                              "    (113030, DCM, 'Manifest') OR\n" +
-                              "    (ddd001, DCM, 'Manifest with Description')\n" +
-                              "  Fix: Change ConceptNameCodeSequence to use MADO manifest title.", modulePath);
+                result.addError("MADO COMPLIANCE FAILURE:\n" + "  Document Title is (113000, DCM, 'Of Interest') - generic KOS title.\n" + "  MADO requires:\n" + "    (113030, DCM, 'Manifest') OR\n" + "    (ddd001, DCM, 'Manifest with Description')\n" + "  Fix: Change ConceptNameCodeSequence to use MADO manifest title.", modulePath);
             } else {
-                result.addError("MADO COMPLIANCE FAILURE:\n" +
-                              "  Document Title: (" + codeValue + ", " + codingScheme + ", '" + codeMeaning + "')\n" +
-                              "  MADO requires:\n" +
-                              "    (113030, DCM, 'Manifest') OR\n" +
-                              "    (ddd001, DCM, 'Manifest with Description')\n" +
-                              "  Fix: Change ConceptNameCodeSequence to use MADO manifest title.", modulePath);
+                result.addError("MADO COMPLIANCE FAILURE:\n" + "  Document Title: (" + codeValue + ", " + codingScheme + ", '" + codeMeaning + "')\n" + "  MADO requires:\n" + "    (113030, DCM, 'Manifest') OR\n" + "    (ddd001, DCM, 'Manifest with Description')\n" + "  Fix: Change ConceptNameCodeSequence to use MADO manifest title.", modulePath);
             }
         } else if (verbose) {
             result.addInfo("Document Title is valid for MADO: (" + codeValue + ", " +
@@ -248,11 +221,7 @@ public final class MADOComplianceChecker {
         // Timezone Offset From UTC (0008,0201) - MANDATORY in MADO
         String timezone = dataset.getString(Tag.TimezoneOffsetFromUTC);
         if (timezone == null || timezone.trim().isEmpty()) {
-            result.addError("MADO COMPLIANCE FAILURE:\n" +
-                          "  TimezoneOffsetFromUTC (0008,0201) is MISSING or empty.\n" +
-                          "  Impact: Time consistency issues across sharing infrastructure.\n" +
-                          "  Fix: Add timezone offset (e.g., '+0100', '-0500', '+0000' for UTC).\n" +
-                          "  Note: Required by MADO to ensure time consistency.", modulePath);
+            result.addError("MADO COMPLIANCE FAILURE:\n" + "  TimezoneOffsetFromUTC (0008,0201) is MISSING or empty.\n" + "  Impact: Time consistency issues across sharing infrastructure.\n" + "  Fix: Add timezone offset (e.g., '+0100', '-0500', '+0000' for UTC).\n" + "  Note: Required by MADO to ensure time consistency.", modulePath);
         } else if (verbose) {
             result.addInfo("Timezone Offset: " + timezone, modulePath);
         }
@@ -260,11 +229,7 @@ public final class MADOComplianceChecker {
         // Institution Name (0008,0080) - MANDATORY in MADO
         String institutionName = dataset.getString(Tag.InstitutionName);
         if (institutionName == null || institutionName.trim().isEmpty()) {
-            result.addError("MADO COMPLIANCE FAILURE:\n" +
-                          "  InstitutionName (0008,0080) is MISSING or empty.\n" +
-                          "  Impact: Cannot trace manifest creator.\n" +
-                          "  Fix: Add institution name.\n" +
-                          "  Note: Required by MADO for provenance tracking.", modulePath);
+            result.addError("MADO COMPLIANCE FAILURE:\n" + "  InstitutionName (0008,0080) is MISSING or empty.\n" + "  Impact: Cannot trace manifest creator.\n" + "  Fix: Add institution name.\n" + "  Note: Required by MADO for provenance tracking.", modulePath);
         } else if (verbose) {
             result.addInfo("Institution Name: " + institutionName, modulePath);
         }
@@ -272,11 +237,7 @@ public final class MADOComplianceChecker {
         // Manufacturer (0008,0070) - MANDATORY in MADO
         String manufacturer = dataset.getString(Tag.Manufacturer);
         if (manufacturer == null || manufacturer.trim().isEmpty()) {
-            result.addError("MADO COMPLIANCE FAILURE:\n" +
-                          "  Manufacturer (0008,0070) is MISSING or empty.\n" +
-                          "  Impact: Cannot identify manifest creation software.\n" +
-                          "  Fix: Add manufacturer/software identifier.\n" +
-                          "  Note: Required by MADO for troubleshooting.", modulePath);
+            result.addError("MADO COMPLIANCE FAILURE:\n" + "  Manufacturer (0008,0070) is MISSING or empty.\n" + "  Impact: Cannot identify manifest creation software.\n" + "  Fix: Add manufacturer/software identifier.\n" + "  Note: Required by MADO for troubleshooting.", modulePath);
         } else if (verbose) {
             result.addInfo("Manufacturer: " + manufacturer, modulePath);
         }
@@ -284,11 +245,7 @@ public final class MADOComplianceChecker {
         // Issuer of Patient ID Qualifiers Sequence (0010,0024) - MANDATORY in MADO
         Sequence qualifiers = dataset.getSequence(Tag.IssuerOfPatientIDQualifiersSequence);
         if (qualifiers == null || qualifiers.isEmpty()) {
-            result.addError("MADO COMPLIANCE FAILURE:\n" +
-                          "  IssuerOfPatientIDQualifiersSequence (0010,0024) is MISSING or empty.\n" +
-                          "  Impact: Patient ID not globally unique.\n" +
-                          "  Fix: Add issuer qualifiers with Universal Entity ID (OID).\n" +
-                          "  Note: Required by MADO for cross-domain patient identification.", modulePath);
+            result.addError("MADO COMPLIANCE FAILURE:\n" + "  IssuerOfPatientIDQualifiersSequence (0010,0024) is MISSING or empty.\n" + "  Impact: Patient ID not globally unique.\n" + "  Fix: Add issuer qualifiers with Universal Entity ID (OID).\n" + "  Note: Required by MADO for cross-domain patient identification.", modulePath);
         } else if (verbose) {
             Attributes first = qualifiers.get(0);
             String universalEntityId = first.getString(Tag.UniversalEntityID);
@@ -315,11 +272,7 @@ public final class MADOComplianceChecker {
         int imageCount = countValueTypes(contentSeq, "IMAGE");
 
         if (compositeCount > 0 && imageCount == 0) {
-            result.addWarning("MADO RECOMMENDATION:\n" +
-                            "  ContentSequence uses ValueType 'COMPOSITE' for image references.\n" +
-                            "  MADO profile recommends 'IMAGE' for better type specificity.\n" +
-                            "  Found " + compositeCount + " COMPOSITE reference(s).\n" +
-                            "  Note: This is acceptable but 'IMAGE' is preferred.", modulePath);
+            result.addWarning("MADO RECOMMENDATION:\n" + "  ContentSequence uses ValueType 'COMPOSITE' for image references.\n" + "  MADO profile recommends 'IMAGE' for better type specificity.\n" + "  Found " + compositeCount + " COMPOSITE reference(s).\n" + "  Note: This is acceptable but 'IMAGE' is preferred.", modulePath);
         } else if (verbose && imageCount > 0) {
             result.addInfo("Content uses IMAGE value type (" + imageCount + " references) - preferred for MADO", modulePath);
         }
@@ -328,8 +281,7 @@ public final class MADOComplianceChecker {
         // MADO places most references under the Image Library container, not necessarily at root.
         int totalReferences = imageCount + compositeCount + countValueTypes(contentSeq, "WAVEFORM");
         if (totalReferences == 0) {
-            result.addWarning("MADO content tree contains no IMAGE/COMPOSITE/WAVEFORM reference items. " +
-                    "This manifest may be empty.", modulePath);
+            result.addWarning("MADO content tree contains no IMAGE/COMPOSITE/WAVEFORM reference items. " + "This manifest may be empty.", modulePath);
         }
     }
 

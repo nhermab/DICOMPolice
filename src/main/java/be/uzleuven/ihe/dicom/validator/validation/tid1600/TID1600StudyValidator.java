@@ -1,6 +1,7 @@
 package be.uzleuven.ihe.dicom.validator.validation.tid1600;
 
 import be.uzleuven.ihe.dicom.constants.TID1600Codes;
+import be.uzleuven.ihe.dicom.constants.ValidationMessages;
 import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Sequence;
 import org.dcm4che3.data.Tag;
@@ -35,7 +36,7 @@ public final class TID1600StudyValidator {
                 hasStudyUID = true;
                 String uidValue = item.getString(Tag.UID);
                 if (uidValue == null || uidValue.trim().isEmpty()) {
-                    result.addError("Study Instance UID content item has no UID value", path);
+                    result.addError(ValidationMessages.TID1600_STUDY_UID_NO_VALUE, path);
                 }
             } else if (TID1600Codes.CODE_TARGET_REGION.equals(codeValue)) {
                 hasTargetRegion = true;
@@ -44,13 +45,13 @@ public final class TID1600StudyValidator {
         }
 
         if (!hasModality) {
-            result.addError("TID 1600 Requirement: Modality (121139, DCM, 'Modality') missing at study level (Type R+)", path);
+            result.addError(ValidationMessages.TID1600_STUDY_MISSING_MODALITY, path);
         }
         if (!hasStudyUID) {
-            result.addError("TID 1600 Requirement: Study Instance UID (ddd011, DCM, 'Study Instance UID') missing at study level (Type R+)", path);
+            result.addError(ValidationMessages.TID1600_STUDY_MISSING_STUDY_UID, path);
         }
         if (!hasTargetRegion) {
-            result.addError("TID 1600 Requirement: Target Region (123014, DCM, 'Target Region') missing at study level (Type R+)", path);
+            result.addError(ValidationMessages.TID1600_STUDY_MISSING_TARGET_REGION, path);
         }
     }
 }

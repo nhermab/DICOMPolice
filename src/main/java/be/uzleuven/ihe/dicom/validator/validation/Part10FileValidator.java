@@ -39,9 +39,7 @@ public final class Part10FileValidator {
         // File must be at least 132 bytes (128 preamble + 4 for "DICM")
         long fileSize = file.length();
         if (fileSize < 132) {
-            result.addError("File is too small to be a valid DICOM Part 10 file. " +
-                          "Must be at least 132 bytes (128-byte preamble + 'DICM' prefix). " +
-                          "Actual size: " + fileSize + " bytes", modulePath);
+            result.addError("File is too small to be a valid DICOM Part 10 file. " + "Must be at least 132 bytes (128-byte preamble + 'DICM' prefix). " + "Actual size: " + fileSize + " bytes", modulePath);
             return;
         }
 
@@ -64,9 +62,7 @@ public final class Part10FileValidator {
                     header[128] & 0xFF, header[129] & 0xFF,
                     header[130] & 0xFF, header[131] & 0xFF);
 
-                result.addError("DICOM Part 10 File Format Violation (V-STR-01): " +
-                              "Bytes 128-131 MUST contain ASCII 'DICM' but found: " + found + ". " +
-                              "This file cannot be recognized as a valid DICOM Part 10 file.", modulePath);
+                result.addError("DICOM Part 10 File Format Violation (V-STR-01): " + "Bytes 128-131 MUST contain ASCII 'DICM' but found: " + found + ". " + "This file cannot be recognized as a valid DICOM Part 10 file.", modulePath);
                 return;
             }
 
@@ -144,9 +140,7 @@ public final class Part10FileValidator {
         if (mediaStorageSOPInstanceUID != null) {
             String sopInstanceUID = dataset.getString(org.dcm4che3.data.Tag.SOPInstanceUID);
             if (sopInstanceUID != null && !mediaStorageSOPInstanceUID.equals(sopInstanceUID)) {
-                result.addError("File Meta Information: MediaStorageSOPInstanceUID (0002,0003) does not match " +
-                              "SOPInstanceUID (0008,0018). Found: " + mediaStorageSOPInstanceUID +
-                              " vs " + sopInstanceUID, modulePath);
+                result.addError("File Meta Information: MediaStorageSOPInstanceUID (0002,0003) does not match " + "SOPInstanceUID (0008,0018). Found: " + mediaStorageSOPInstanceUID + " vs " + sopInstanceUID, modulePath);
             }
         }
 

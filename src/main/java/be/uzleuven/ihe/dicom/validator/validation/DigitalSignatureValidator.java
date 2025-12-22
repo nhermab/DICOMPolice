@@ -33,8 +33,7 @@ public final class DigitalSignatureValidator {
         boolean hasSignature = hasDigitalSignature(dataset);
 
         if (requiresSignature && !hasSignature) {
-            result.addError("Document Title indicates 'Signed Manifest' (113031, DCM) but no Digital Signatures Sequence (FFFA,FFFA) found. " +
-                          "A signed manifest must include at least one digital signature.", modulePath);
+            result.addError("Document Title indicates 'Signed Manifest' (113031, DCM) but no Digital Signatures Sequence (FFFA,FFFA) found. " +"A signed manifest must include at least one digital signature.", modulePath);
             return;
         }
 

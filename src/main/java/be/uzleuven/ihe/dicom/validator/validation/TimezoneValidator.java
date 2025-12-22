@@ -39,8 +39,7 @@ public class TimezoneValidator {
         // Validate format: ±HHMM
         Matcher matcher = TIMEZONE_PATTERN.matcher(timezoneOffset);
         if (!matcher.matches()) {
-            result.addError("TimezoneOffsetFromUTC (0008,0201) has invalid format: " + timezoneOffset +
-                          ". Expected format: ±HHMM (e.g., +0100, -0500)", path);
+            result.addError("TimezoneOffsetFromUTC (0008,0201) has invalid format: " + timezoneOffset + ". Expected format: ±HHMM (e.g., +0100, -0500)", path);
             return;
         }
 
@@ -49,13 +48,11 @@ public class TimezoneValidator {
 
         // Validate ranges
         if (hours > 14 || (hours == 14 && minutes > 0)) {
-            result.addError("TimezoneOffsetFromUTC (0008,0201) has invalid offset: " + timezoneOffset +
-                          ". Hours must be -14 to +14.", path);
+            result.addError("TimezoneOffsetFromUTC (0008,0201) has invalid offset: " + timezoneOffset +". Hours must be -14 to +14.", path);
         }
 
         if (minutes >= 60) {
-            result.addError("TimezoneOffsetFromUTC (0008,0201) has invalid minutes: " + timezoneOffset +
-                          ". Minutes must be 00-59.", path);
+            result.addError("TimezoneOffsetFromUTC (0008,0201) has invalid minutes: " + timezoneOffset + ". Minutes must be 00-59.", path);
         }
 
         result.addInfo("TimezoneOffsetFromUTC present: " + timezoneOffset, path);

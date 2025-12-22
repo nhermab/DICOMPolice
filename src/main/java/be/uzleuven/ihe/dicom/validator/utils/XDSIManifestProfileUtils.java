@@ -1,6 +1,7 @@
 package be.uzleuven.ihe.dicom.validator.utils;
 
 import be.uzleuven.ihe.dicom.constants.DicomConstants;
+import be.uzleuven.ihe.dicom.constants.ValidationMessages;
 import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Sequence;
 import org.dcm4che3.data.Tag;
@@ -75,17 +76,17 @@ public final class XDSIManifestProfileUtils {
             String mapping = item.getString(Tag.MappingResource);
             String tid = item.getString(Tag.TemplateIdentifier);
             if (mapping != null && !EXPECTED_MAPPING_RESOURCE_DCMR.equals(mapping)) {
-                result.addError("ContentTemplateSequence.MappingResource must be '" + EXPECTED_MAPPING_RESOURCE_DCMR + "' for XDS-I manifest", modulePath);
+                result.addError(ValidationMessages.XDSI_TEMPLATE_MAPPING_RESOURCE_WRONG, modulePath);
             }
             if (tid != null && !EXPECTED_TEMPLATE_IDENTIFIER_TID_2010.equals(tid)) {
-                result.addError("ContentTemplateSequence.TemplateIdentifier must be '" + EXPECTED_TEMPLATE_IDENTIFIER_TID_2010 + "' for XDS-I manifest", modulePath);
+                result.addError(ValidationMessages.XDSI_TEMPLATE_IDENTIFIER_WRONG, modulePath);
             }
         }
 
         // For XDS-I, the SR ContentSequence is the manifest tree and must be present and non-empty.
         Sequence contentSeq = dataset.getSequence(Tag.ContentSequence);
         if (contentSeq == null || contentSeq.isEmpty()) {
-            result.addError("XDS-I manifest must contain a non-empty SR ContentSequence (0040,A730)", modulePath);
+            result.addError(ValidationMessages.XDSI_CONTENT_SEQUENCE_MISSING, modulePath);
         }
 
         // Collect + validate SR referenced instances, with duplicate and self-reference checks.
@@ -95,25 +96,25 @@ public final class XDSIManifestProfileUtils {
         Set<String> evidenceRefs = SRReferenceUtils.collectReferencedSOPInstanceUIDsFromEvidence(dataset);
 
         if (srScan.referencedSOPInstanceUIDs.isEmpty() && evidenceRefs.isEmpty()) {
-            result.addError("XDS-I manifest does not reference any SOP instances (no SR IMAGE/COMPOSITE refs and no Evidence refs)", modulePath);
+            result.addError(ValidationMessages.XDSI_NO_INSTANCE_REFERENCES, modulePath);
             return;
         }
 
         // For XDS-I, require SR references to be present (the SR content tree is the manifest)
         if (srScan.referencedSOPInstanceUIDs.isEmpty()) {
-            result.addError("XDS-I manifest has no SR IMAGE/COMPOSITE referenced SOP instances", modulePath);
+            result.addError(ValidationMessages.XDSI_NO_SR_REFERENCES, modulePath);
         }
 
         // Evidence is required if instances are referenced in SR
         if (!srScan.referencedSOPInstanceUIDs.isEmpty() && evidenceRefs.isEmpty()) {
-            result.addError("XDS-I manifest has SR references but CurrentRequestedProcedureEvidenceSequence is empty/missing", modulePath);
+            result.addError(ValidationMessages.XDSI_EVIDENCE_MISSING, modulePath);
         }
 
         // Cross-consistency: require SR refs to be included in Evidence.
         if (!srScan.referencedSOPInstanceUIDs.isEmpty() && !evidenceRefs.isEmpty()) {
             for (String uid : srScan.referencedSOPInstanceUIDs) {
                 if (!evidenceRefs.contains(uid)) {
-                    result.addError("Referenced SOP Instance UID present in SR content but missing from Evidence: " + uid, modulePath);
+                    result.addError(String.format(ValidationMessages.XDSI_ORPHAN_REFERENCE, uid), modulePath);
                 }
             }
 
@@ -137,15 +138,15 @@ public final class XDSIManifestProfileUtils {
     public static void validateForbiddenElements(Attributes dataset, ValidationResult result, String modulePath) {
         // Pixel Data - fundamental prohibition for KOS
         if (dataset.contains(Tag.PixelData)) {
-            result.addError("Pixel Data (7FE0,0010) is present. A KOS Imaging Manifest must not contain Pixel Data.", modulePath);
+            result.addError(ValidationMessages.XDSI_PIXEL_DATA_FORBIDDEN, modulePath);
         }
 
         // Float Pixel Data and Double Float Pixel Data
         if (dataset.contains(Tag.FloatPixelData)) {
-            result.addError("Float Pixel Data (7FE0,0008) is present. KOS must not contain pixel data.", modulePath);
+            result.addError(ValidationMessages.XDSI_FLOAT_PIXEL_DATA_FORBIDDEN, modulePath);
         }
         if (dataset.contains(Tag.DoubleFloatPixelData)) {
-            result.addError("Double Float Pixel Data (7FE0,0009) is present. KOS must not contain pixel data.", modulePath);
+            result.addError(ValidationMessages.XDSI_DOUBLE_FLOAT_PIXEL_DATA_FORBIDDEN, modulePath);
         }
 
         // Overlay Data (60xx,3000)
@@ -161,17 +162,17 @@ public final class XDSIManifestProfileUtils {
 
         // Waveform Data
         if (dataset.contains(Tag.WaveformData)) {
-            result.addError("Waveform Data (5400,1010) is present. KOS must not contain waveform data.", modulePath);
+            result.addError(ValidationMessages.XDSI_WAVEFORM_DATA_FORBIDDEN, modulePath);
         }
 
         // Audio Data
         if (dataset.contains(Tag.AudioSampleData)) {
-            result.addError("Audio Sample Data (003A,0200) is present. KOS must not contain audio data.", modulePath);
+            result.addError(ValidationMessages.XDSI_AUDIO_DATA_FORBIDDEN, modulePath);
         }
 
         // Spectroscopy Data
         if (dataset.contains(Tag.SpectroscopyData)) {
-            result.addError("Spectroscopy Data (5600,0020) is present. KOS must not contain spectroscopy data.", modulePath);
+            result.addError(ValidationMessages.XDSI_SPECTROSCOPY_DATA_FORBIDDEN, modulePath);
         }
 
         // Image-specific modules that should not be in KOS
@@ -268,7 +269,7 @@ public final class XDSIManifestProfileUtils {
         Sequence seq = dataset.getSequence(Tag.ConceptNameCodeSequence);
         if (seq == null || seq.isEmpty()) {
             // SRDocumentContent module will already have flagged this, but we keep profile-level message too.
-            result.addError("ConceptNameCodeSequence is missing/empty; cannot verify XDS-I Manifest title", modulePath);
+            result.addError(ValidationMessages.XDSI_CONCEPT_NAME_MISSING, modulePath);
             return;
         }
 
@@ -278,7 +279,7 @@ public final class XDSIManifestProfileUtils {
         String meaning = item.getString(Tag.CodeMeaning);
 
         if (codeValue != null && FORBIDDEN_IOCM_TITLE_CODE_VALUES.contains(codeValue)) {
-            result.addError("ConceptNameCodeSequence title code indicates an IOCM Rejection Note (CodeValue=" + codeValue + "); this is not allowed for an XDS-I Imaging Manifest", modulePath);
+            result.addError(String.format(ValidationMessages.XDSI_IOCM_REJECTION_FORBIDDEN, codeValue), modulePath);
             return;
         }
 

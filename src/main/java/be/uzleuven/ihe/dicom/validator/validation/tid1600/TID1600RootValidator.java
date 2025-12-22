@@ -2,6 +2,7 @@ package be.uzleuven.ihe.dicom.validator.validation.tid1600;
 
 import be.uzleuven.ihe.dicom.constants.DicomConstants;
 import be.uzleuven.ihe.dicom.constants.TID1600Codes;
+import be.uzleuven.ihe.dicom.constants.ValidationMessages;
 import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Sequence;
 import org.dcm4che3.data.Tag;
@@ -26,15 +27,13 @@ public final class TID1600RootValidator {
     public static boolean validateRootContainer(Attributes dataset, ValidationResult result, String modulePath) {
         String valueType = dataset.getString(Tag.ValueType);
         if (!"CONTAINER".equals(valueType)) {
-            result.addError("MADO Root Container Requirement V-ROOT-01: ValueType (0040,A040) "
-                    + "MUST be 'CONTAINER' but found: " + valueType, modulePath);
+            result.addError(ValidationMessages.TID1600_ROOT_VALUE_TYPE_WRONG, modulePath);
             return false;
         }
 
         Sequence conceptSeq = dataset.getSequence(Tag.ConceptNameCodeSequence);
         if (conceptSeq == null || conceptSeq.isEmpty()) {
-            result.addError("MADO Root Container Requirement V-ROOT-02: ConceptNameCodeSequence "
-                    + "(0040,A043) is missing", modulePath);
+            result.addError(ValidationMessages.TID1600_ROOT_CONCEPT_NAME_WRONG, modulePath);
             return false;
         }
 
@@ -54,9 +53,7 @@ public final class TID1600RootValidator {
 
         String continuity = dataset.getString(Tag.ContinuityOfContent);
         if (!DicomConstants.CONTINUITY_SEPARATE.equals(continuity)) {
-            result.addError("MADO Root Container Requirement V-ROOT-03: ContinuityOfContent (0040,A050) "
-                    + "MUST be 'SEPARATE' (indicating distinct entities, not continuous narrative) "
-                    + "but found: " + continuity, modulePath);
+            result.addError(ValidationMessages.TID1600_ROOT_CONTINUITY_WRONG, modulePath);
         }
 
         return true;

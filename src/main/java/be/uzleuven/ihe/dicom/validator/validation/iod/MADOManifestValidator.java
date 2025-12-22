@@ -102,10 +102,10 @@ public class MADOManifestValidator extends KeyObjectSelectionValidator {
         // SOP Class UID (0008,0016) must be KOS document
         String sopClassUID = dataset.getString(Tag.SOPClassUID);
         if (sopClassUID == null || sopClassUID.trim().isEmpty()) {
-            result.addError("SOPClassUID (0008,0016) is missing/empty. MADO manifest must be a KOS document.", modulePath);
+            result.addError(ValidationMessages.MADO_SOP_CLASS_UID_MISSING, modulePath);
         } else if (!DicomConstants.KEY_OBJECT_SELECTION_SOP_CLASS_UID.equals(sopClassUID.trim())) {
-            result.addError("SOPClassUID (0008,0016) must be Key Object Selection Document Storage (" +
-                    DicomConstants.KEY_OBJECT_SELECTION_SOP_CLASS_UID + ") but found: " + sopClassUID, modulePath);
+            result.addError(String.format(ValidationMessages.MADO_SOP_CLASS_UID_WRONG,
+                    DicomConstants.KEY_OBJECT_SELECTION_SOP_CLASS_UID, sopClassUID), modulePath);
         }
     }
 
@@ -125,8 +125,7 @@ public class MADOManifestValidator extends KeyObjectSelectionValidator {
         // MADO requires robust patient identification
         Sequence qualifiers = dataset.getSequence(Tag.IssuerOfPatientIDQualifiersSequence);
         if (qualifiers == null || qualifiers.isEmpty()) {
-            result.addError("IssuerOfPatientIDQualifiersSequence (0010,0024) is missing/empty. " +
-                    "MADO requires Universal Entity ID for global patient identification.", modulePath);
+            result.addError(ValidationMessages.MADO_ISSUER_PATIENT_ID_QUALIFIERS_MISSING, modulePath);
         } else {
             // Ensure Universal Entity ID (0010,0032) and type ISO (0010,0033) are present
             Attributes first = qualifiers.get(0);
@@ -134,15 +133,13 @@ public class MADOManifestValidator extends KeyObjectSelectionValidator {
             String universalEntityIdType = first.getString(Tag.UniversalEntityIDType);
 
             if (universalEntityId == null || universalEntityId.trim().isEmpty()) {
-                result.addError("IssuerOfPatientIDQualifiersSequence[0].UniversalEntityID (0010,0032) is missing/empty. " +
-                        "Expected an OID for global uniqueness.", modulePath);
+                result.addError(ValidationMessages.MADO_UNIVERSAL_ENTITY_ID_MISSING, modulePath);
             }
             if (universalEntityIdType == null || universalEntityIdType.trim().isEmpty()) {
-                result.addError("IssuerOfPatientIDQualifiersSequence[0].UniversalEntityIDType (0010,0033) is missing/empty. " +
-                        "Expected 'ISO'.", modulePath);
+                result.addError(ValidationMessages.MADO_UNIVERSAL_ENTITY_ID_TYPE_MISSING, modulePath);
             } else if (!"ISO".equalsIgnoreCase(universalEntityIdType.trim())) {
-                result.addError("IssuerOfPatientIDQualifiersSequence[0].UniversalEntityIDType (0010,0033) must be 'ISO' but found: " +
-                        universalEntityIdType, modulePath);
+                result.addError(String.format(ValidationMessages.MADO_UNIVERSAL_ENTITY_ID_TYPE_WRONG,
+                        universalEntityIdType), modulePath);
             }
         }
 
@@ -168,42 +165,40 @@ public class MADOManifestValidator extends KeyObjectSelectionValidator {
         // Study Date & Time SHALL be present
         String studyDate = dataset.getString(Tag.StudyDate);
         if (studyDate == null || studyDate.trim().isEmpty()) {
-            result.addError("StudyDate (0008,0020) is missing/empty. MADO requires Study Date.", modulePath);
+            result.addError(ValidationMessages.MADO_STUDY_DATE_MISSING, modulePath);
         }
         String studyTime = dataset.getString(Tag.StudyTime);
         if (studyTime == null || studyTime.trim().isEmpty()) {
-            result.addError("StudyTime (0008,0030) is missing/empty. MADO requires Study Time.", modulePath);
+            result.addError(ValidationMessages.MADO_STUDY_TIME_MISSING, modulePath);
         }
 
         // Accession Number SHALL be present; if multiple accession numbers exist, it SHALL be empty.
         String accessionNumber = dataset.getString(Tag.AccessionNumber);
         if (accessionNumber == null) {
             // Type 2 in DICOM, but the MADO checklist says SHALL be present
-            result.addError("AccessionNumber (0008,0050) is missing. MADO requires Accession Number (or empty if multiple via ReferencedRequestSequence).", modulePath);
+            result.addError(ValidationMessages.MADO_ACCESSION_NUMBER_MISSING, modulePath);
         }
 
         // If multiple ReferencedRequestSequence items exist, accession should be empty
         Sequence refRequestSeq = dataset.getSequence(Tag.ReferencedRequestSequence);
         if (refRequestSeq != null && refRequestSeq.size() > 1) {
             if (accessionNumber != null && !accessionNumber.trim().isEmpty()) {
-                result.addError("AccessionNumber (0008,0050) must be empty when multiple requests/accessions are present (ReferencedRequestSequence has " +
-                        refRequestSeq.size() + " items).", modulePath);
+                result.addError(String.format(ValidationMessages.MADO_ACCESSION_NUMBER_NOT_EMPTY_WITH_MULTIPLE_REQUESTS,
+                        refRequestSeq.size()), modulePath);
             }
         }
 
         // If Accession Number present and non-empty, require Issuer
         if (accessionNumber != null && !accessionNumber.trim().isEmpty()) {
             if (!dataset.contains(Tag.IssuerOfAccessionNumberSequence)) {
-                result.addError("AccessionNumber is present but IssuerOfAccessionNumberSequence (0008,0051) " +
-                        "is missing. MADO requires issuer for accession numbers.", modulePath);
+                result.addError(ValidationMessages.MADO_ISSUER_ACCESSION_INCONSISTENT, modulePath);
             }
         }
 
         // If AccessionNumber attribute is present (even blank), issuer is conditionally required (RC+).
         // Note: ReferencedRequestSequence has its own stricter issuer checks per item.
         if (dataset.contains(Tag.AccessionNumber) && !dataset.contains(Tag.IssuerOfAccessionNumberSequence)) {
-            result.addError("AccessionNumber attribute is present but IssuerOfAccessionNumberSequence (0008,0051) is missing. " +
-                    "MADO requires issuer information when an accession domain is used.", modulePath);
+            result.addError(ValidationMessages.MADO_ISSUER_ACCESSION_MISSING, modulePath);
         }
     }
 
@@ -251,7 +246,7 @@ public class MADOManifestValidator extends KeyObjectSelectionValidator {
     private void validateMADODocumentTitle(Attributes dataset, ValidationResult result, String modulePath) {
         Sequence seq = dataset.getSequence(Tag.ConceptNameCodeSequence);
         if (seq == null || seq.isEmpty()) {
-            result.addError("ConceptNameCodeSequence is missing. MADO requires document title.", modulePath);
+            result.addError(ValidationMessages.MADO_CONCEPT_NAME_SEQUENCE_MISSING, modulePath);
             return;
         }
 

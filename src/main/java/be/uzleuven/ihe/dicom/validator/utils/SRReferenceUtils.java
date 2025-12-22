@@ -6,6 +6,7 @@ import org.dcm4che3.data.Tag;
 import be.uzleuven.ihe.dicom.validator.validation.iod.AbstractIODValidator;
 import be.uzleuven.ihe.dicom.validator.model.ValidationResult;
 import be.uzleuven.ihe.dicom.constants.DicomConstants;
+import be.uzleuven.ihe.dicom.constants.ValidationMessages;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -49,7 +50,7 @@ public class SRReferenceUtils {
             // For XDS-I, top-level relationship should be CONTAINS.
             String rel = item.getString(Tag.RelationshipType);
             if (rel != null && !DicomConstants.RELATIONSHIP_CONTAINS.equals(rel)) {
-                result.addError("Top-level ContentSequence item RelationshipType must be CONTAINS for XDS-I manifest; found: " + rel, itemPath);
+                result.addError(String.format(ValidationMessages.SR_RELATIONSHIP_TYPE_MUST_BE_CONTAINS, rel), itemPath);
             }
 
             scanSRReferencesRecursive(item, itemPath, selfSOPInstanceUID, scan, result, ctx, allowDuplicateReferencedSOPInstanceUIDs);
@@ -89,12 +90,12 @@ public class SRReferenceUtils {
                         String uid = sopInst.trim();
 
                         if (selfSOPInstanceUID != null && selfSOPInstanceUID.equals(uid)) {
-                            result.addError("Manifest references itself (ReferencedSOPInstanceUID equals this KOS SOPInstanceUID)", refPath);
+                            result.addError(ValidationMessages.SR_SELF_REFERENCE_FORBIDDEN, refPath);
                         }
 
                         if (!scan.referencedSOPInstanceUIDs.add(uid)) {
                             if (!allowDuplicateReferencedSOPInstanceUIDs) {
-                                result.addError("Duplicate referenced SOP Instance UID in SR ContentSequence: " + uid, refPath);
+                                result.addError(String.format(ValidationMessages.SR_DUPLICATE_REFERENCE, uid), refPath);
                             }
                         }
                     }
@@ -175,10 +176,9 @@ public class SRReferenceUtils {
         if (retrieveURL != null && !retrieveURL.isEmpty()) {
             // Check if it's a well-formed URL
             if (!retrieveURL.matches("^https?://.*")) {
-                result.addError("Retrieve URL (0008,1190) must be a valid absolute URL starting with http:// or https://. " +
-                              "Found: " + retrieveURL, itemPath);
+                result.addError(String.format(ValidationMessages.SR_RETRIEVE_URL_INVALID, retrieveURL), itemPath);
             } else if (retrieveURL.contains(" ")) {
-                result.addError("Retrieve URL (0008,1190) contains spaces which are not allowed in URLs", itemPath);
+                result.addError(ValidationMessages.SR_RETRIEVE_URL_CONTAINS_SPACES, itemPath);
             } else {
                 result.addInfo("Retrieve URL present for WADO-RS retrieval: " + retrieveURL, itemPath);
             }
@@ -201,8 +201,7 @@ public class SRReferenceUtils {
         // Validate Retrieve Location UID if present
         if (retrieveLocationUID != null && !retrieveLocationUID.isEmpty()) {
             if (!retrieveLocationUID.matches("^[0-9.]+$") || retrieveLocationUID.length() > 64) {
-                result.addError("Retrieve Location UID (0040,E011) is invalid. " +
-                              "Must be a valid UID format (digits and dots, max 64 chars)", itemPath);
+                result.addError(ValidationMessages.SR_RETRIEVE_LOCATION_UID_INVALID, itemPath);
             }
         }
 

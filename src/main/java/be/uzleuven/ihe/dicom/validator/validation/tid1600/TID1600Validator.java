@@ -38,8 +38,7 @@ public final class TID1600Validator {
         }
 
         if (!foundImageLibrary) {
-            result.addError("MADO Approach 2 Requirement: Image Library container (111028, DCM, 'Image Library') " +
-                    "not found in ContentSequence.", modulePath);
+            result.addError(ValidationMessages.TID1600_APPROACH2_MISSING_IMAGE_LIBRARY, modulePath);
         }
 
         TID1600StudyValidator.validateStudyLevelAttributes(contentSeq, result, modulePath, verbose);

@@ -40,8 +40,7 @@ public final class MADOAppendixBValidator {
 
         Sequence evidenceSeq = dataset.getSequence(Tag.CurrentRequestedProcedureEvidenceSequence);
         if (evidenceSeq == null || evidenceSeq.isEmpty()) {
-            result.addError("CurrentRequestedProcedureEvidenceSequence is missing. " +
-                          "Appendix B format requires evidence sequence with extended attributes.", modulePath);
+            result.addError("CurrentRequestedProcedureEvidenceSequence is missing. " + "Appendix B format requires evidence sequence with extended attributes.", modulePath);
             return;
         }
 
@@ -95,8 +94,7 @@ public final class MADOAppendixBValidator {
         // V-ALT-01: Modality - Type 1 (Required)
         String modality = seriesItem.getString(Tag.Modality);
         if (modality == null || modality.trim().isEmpty()) {
-            result.addError("Appendix B Requirement V-ALT-01: Modality (0008,0060) is Type 1 (Required) " +
-                          "in ReferencedSeriesSequence but is missing", path);
+            result.addError("Appendix B Requirement V-ALT-01: Modality (0008,0060) is Type 1 (Required) " + "in ReferencedSeriesSequence but is missing", path);
         } else if (verbose) {
             result.addInfo("Series Modality: " + modality, path);
         }
@@ -104,8 +102,7 @@ public final class MADOAppendixBValidator {
         // V-ALT-01: Series Instance UID - Type 1 (Required)
         String seriesUID = seriesItem.getString(Tag.SeriesInstanceUID);
         if (seriesUID == null || seriesUID.trim().isEmpty()) {
-            result.addError("Appendix B Requirement V-ALT-01: SeriesInstanceUID (0020,000E) is Type 1 (Required) " +
-                          "in ReferencedSeriesSequence but is missing", path);
+            result.addError("Appendix B Requirement V-ALT-01: SeriesInstanceUID (0020,000E) is Type 1 (Required) " + "in ReferencedSeriesSequence but is missing", path);
         }
 
         // V-ALT-01: Retrieve Location UID - Type R+ (Required if available)
@@ -177,15 +174,13 @@ public final class MADOAppendixBValidator {
         // V-ALT-02: Referenced SOP Class UID - Type 1 (Required)
         String sopClassUID = sopItem.getString(Tag.ReferencedSOPClassUID);
         if (sopClassUID == null || sopClassUID.trim().isEmpty()) {
-            result.addError("Appendix B Requirement V-ALT-02: ReferencedSOPClassUID (0008,1150) is Type 1 (Required) " +
-                          "in ReferencedSOPSequence but is missing", path);
+            result.addError("Appendix B Requirement V-ALT-02: ReferencedSOPClassUID (0008,1150) is Type 1 (Required) " + "in ReferencedSOPSequence but is missing", path);
         }
 
         // V-ALT-02: Referenced SOP Instance UID - Type 1 (Required)
         String sopInstanceUID = sopItem.getString(Tag.ReferencedSOPInstanceUID);
         if (sopInstanceUID == null || sopInstanceUID.trim().isEmpty()) {
-            result.addError("Appendix B Requirement V-ALT-02: ReferencedSOPInstanceUID (0008,1155) is Type 1 (Required) " +
-                          "in ReferencedSOPSequence but is missing", path);
+            result.addError("Appendix B Requirement V-ALT-02: ReferencedSOPInstanceUID (0008,1155) is Type 1 (Required) " + "in ReferencedSOPSequence but is missing", path);
         }
 
         // V-ALT-02: Instance Number - Type 3 (Optional)

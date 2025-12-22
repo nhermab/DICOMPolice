@@ -3,6 +3,7 @@ package be.uzleuven.ihe.dicom.validator.validation.iod;
 import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.VR;
 import be.uzleuven.ihe.dicom.validator.model.ValidationResult;
+import be.uzleuven.ihe.dicom.constants.ValidationMessages;
 
 /**
  * Base class for IOD validators providing common validation utilities.
@@ -51,7 +52,7 @@ public abstract class AbstractIODValidator implements IODValidator {
     public boolean checkRequiredAttribute(Attributes dataset, int tag, String attributeName,
                                           ValidationResult result, String path) {
         if (!dataset.contains(tag)) {
-            result.addError("Missing required attribute: " + attributeName + " " + tagString(tag), path);
+            result.addError(String.format(ValidationMessages.IOD_MISSING_REQUIRED_ATTRIBUTE, attributeName, tagString(tag)), path);
             return false;
         }
 
@@ -59,7 +60,7 @@ public abstract class AbstractIODValidator implements IODValidator {
         if (vr == VR.SQ) {
             org.dcm4che3.data.Sequence seq = dataset.getSequence(tag);
             if (seq == null || seq.isEmpty()) {
-                result.addError("Required attribute is empty: " + attributeName + " " + tagString(tag), path);
+                result.addError(String.format(ValidationMessages.IOD_REQUIRED_ATTRIBUTE_EMPTY, attributeName, tagString(tag)), path);
                 return false;
             }
             return true;
@@ -68,7 +69,7 @@ public abstract class AbstractIODValidator implements IODValidator {
         // Use getString to determine emptiness for non-sequence value representations.
         String sval = dataset.getString(tag);
         if (sval == null || sval.isEmpty()) {
-            result.addError("Required attribute is empty: " + attributeName + " " + tagString(tag), path);
+            result.addError(String.format(ValidationMessages.IOD_REQUIRED_ATTRIBUTE_EMPTY, attributeName, tagString(tag)), path);
             return false;
         }
         return true;
@@ -80,7 +81,7 @@ public abstract class AbstractIODValidator implements IODValidator {
     public boolean checkType2Attribute(Attributes dataset, int tag, String attributeName,
                                          ValidationResult result, String path) {
         if (!dataset.contains(tag)) {
-            result.addError("Missing Type 2 attribute: " + attributeName + " " + tagString(tag), path);
+            result.addError(String.format(ValidationMessages.IOD_MISSING_TYPE2_ATTRIBUTE, attributeName, tagString(tag)), path);
             return false;
         }
         return true;
@@ -92,7 +93,7 @@ public abstract class AbstractIODValidator implements IODValidator {
     public boolean checkConditionalAttribute(Attributes dataset, int tag, String attributeName,
                                                boolean conditionMet, ValidationResult result, String path) {
         if (conditionMet && !dataset.contains(tag)) {
-            result.addError("Missing conditional attribute: " + attributeName + " " + tagString(tag), path);
+            result.addError(String.format(ValidationMessages.IOD_MISSING_CONDITIONAL_ATTRIBUTE, attributeName, tagString(tag)), path);
             return false;
         }
         return true;
@@ -105,13 +106,13 @@ public abstract class AbstractIODValidator implements IODValidator {
                                       String expectedValue, ValidationResult result, String path) {
         String value = dataset.getString(tag);
         if (value == null) {
-            result.addError("Attribute " + attributeName + " " + tagString(tag) + " is null", path);
+            result.addError(String.format(ValidationMessages.IOD_ATTRIBUTE_NULL, attributeName, tagString(tag)), path);
             return false;
         }
 
         if (!value.equals(expectedValue)) {
-            result.addError("Attribute " + attributeName + " " + tagString(tag) +
-                          " has incorrect value. Expected: " + expectedValue + ", Found: " + value, path);
+            result.addError(String.format(ValidationMessages.IOD_STRING_VALUE_MISMATCH,
+                    attributeName, tagString(tag), value, expectedValue), path);
             return false;
         }
 
@@ -134,8 +135,8 @@ public abstract class AbstractIODValidator implements IODValidator {
             }
         }
 
-        result.addError("Attribute " + attributeName + " " + tagString(tag) +
-                       " has invalid enumerated value: " + value, path);
+        result.addError(String.format(ValidationMessages.IOD_ENUMERATED_VALUE_INVALID,
+                attributeName, tagString(tag), value, String.join(", ", validValues)), path);
         return false;
     }
 
@@ -151,26 +152,22 @@ public abstract class AbstractIODValidator implements IODValidator {
 
         // UID validation: must contain only digits and dots, no trailing dot
         if (!uid.matches("^[0-9.]+$")) {
-            result.addError("Invalid UID format in " + attributeName + " " + tagString(tag) +
-                          ": " + uid + " (must contain only digits and dots)", path);
+            result.addError(String.format(ValidationMessages.IOD_UID_FORMAT_INVALID, attributeName, tagString(tag), uid), path);
             return false;
         }
 
         if (uid.endsWith(".")) {
-            result.addError("Invalid UID in " + attributeName + " " + tagString(tag) +
-                          ": " + uid + " (cannot end with dot)", path);
+            result.addError(String.format(ValidationMessages.IOD_UID_FORMAT_INVALID, attributeName, tagString(tag), uid + " (cannot end with dot)"), path);
             return false;
         }
 
         if (uid.startsWith(".")) {
-            result.addError("Invalid UID in " + attributeName + " " + tagString(tag) +
-                          ": " + uid + " (cannot start with dot)", path);
+            result.addError(String.format(ValidationMessages.IOD_UID_STARTS_WITH_ZERO, attributeName, tagString(tag), uid + " (cannot start with dot)"), path);
             return false;
         }
 
         if (uid.contains("..")) {
-            result.addError("Invalid UID in " + attributeName + " " + tagString(tag) +
-                          ": " + uid + " (cannot contain consecutive dots)", path);
+            result.addError(String.format(ValidationMessages.IOD_UID_EMPTY_COMPONENT, attributeName, tagString(tag), uid + " (cannot contain consecutive dots)"), path);
             return false;
         }
 
@@ -178,13 +175,11 @@ public abstract class AbstractIODValidator implements IODValidator {
         String[] components = uid.split("\\.");
         for (String component : components) {
             if (component.isEmpty()) {
-                result.addError("Invalid UID in " + attributeName + " " + tagString(tag) +
-                              ": " + uid + " (empty component)", path);
+                result.addError(String.format(ValidationMessages.IOD_UID_EMPTY_COMPONENT, attributeName, tagString(tag), uid), path);
                 return false;
             }
             if (component.length() > 1 && component.startsWith("0")) {
-                result.addWarning("UID component in " + attributeName + " " + tagString(tag) +
-                                " has leading zero: " + component, path);
+                result.addError(String.format(ValidationMessages.IOD_UID_COMPONENT_STARTS_WITH_ZERO, attributeName, tagString(tag), uid), path);
             }
         }
 
@@ -198,15 +193,15 @@ public abstract class AbstractIODValidator implements IODValidator {
                                             boolean required, ValidationResult result, String path) {
         if (!dataset.contains(tag)) {
             if (required) {
-                result.addError("Missing required sequence: " + attributeName + " " + tagString(tag), path);
+                result.addError(String.format(ValidationMessages.IOD_MISSING_REQUIRED_SEQUENCE, attributeName, tagString(tag)), path);
                 return false;
             }
             return true;
         }
 
         if (dataset.getSequence(tag) == null) {
-            result.addError("Attribute " + attributeName + " " + tagString(tag) +
-                          " is not a sequence", path);
+            VR vr = org.dcm4che3.data.ElementDictionary.vrOf(tag, dataset.getPrivateCreator(tag));
+            result.addError(String.format(ValidationMessages.IOD_SEQUENCE_WRONG_VR, attributeName, tagString(tag), vr), path);
             return false;
         }
 

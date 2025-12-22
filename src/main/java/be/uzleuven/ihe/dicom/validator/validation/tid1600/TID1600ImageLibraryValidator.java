@@ -2,6 +2,7 @@ package be.uzleuven.ihe.dicom.validator.validation.tid1600;
 
 import be.uzleuven.ihe.dicom.constants.CodeConstants;
 import be.uzleuven.ihe.dicom.constants.TID1600Codes;
+import be.uzleuven.ihe.dicom.constants.ValidationMessages;
 import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Sequence;
 import org.dcm4che3.data.Tag;
@@ -20,9 +21,7 @@ public final class TID1600ImageLibraryValidator {
                                                      String path, boolean verbose) {
         Sequence contentSeq = container.getSequence(Tag.ContentSequence);
         if (contentSeq == null || contentSeq.isEmpty()) {
-            result.addError("TID 1600 Image Library container has no content items. " +
-                          "Expected: CONTAINER items for Image Library Groups (one per series), " +
-                          "each containing IMAGE/COMPOSITE entries.", path);
+            result.addError(ValidationMessages.TID1600_CONTAINER_NO_CONTENT, path);
             return;
         }
 
@@ -59,8 +58,7 @@ public final class TID1600ImageLibraryValidator {
         }
 
         if (groupCount == 0 && entryCount == 0) {
-            result.addError("TID 1600 Image Library is empty. Must contain at least one Image Library Group " +
-                          "(CONTAINER) or Image Library Entry (IMAGE/COMPOSITE).", path);
+            result.addError(ValidationMessages.TID1600_IMAGE_LIBRARY_EMPTY, path);
         }
 
         if (verbose && groupCount > 0) {
@@ -84,9 +82,7 @@ public final class TID1600ImageLibraryValidator {
                                                   String path, boolean verbose) {
         Sequence contentSeq = group.getSequence(Tag.ContentSequence);
         if (contentSeq == null || contentSeq.isEmpty()) {
-            result.addError("TID 1600 Image Library Group has no content items. " +
-                          "Expected: Series metadata (Modality, Series Date/Time, Description, Number, UID) " +
-                          "followed by IMAGE/COMPOSITE entries for each instance.", path);
+            result.addError(ValidationMessages.TID1600_GROUP_NO_CONTENT, path);
             return;
         }
 
@@ -135,32 +131,25 @@ public final class TID1600ImageLibraryValidator {
 
         // Report missing required metadata
         if (!hasModality) {
-            result.addError("TID 1600 Image Library Group missing Modality (121139, DCM, \"Modality\"). " +
-                          "Type R+ (required by MADO profile). This is critical for filtering and search.", path);
+            result.addError(ValidationMessages.TID1600_GROUP_MISSING_MODALITY, path);
         }
         if (!hasSeriesDate) {
-            result.addError("TID 1600 Image Library Group missing Series Date (ddd003, DCM, \"Series Date\"). " +
-                          "Type R+ (required by MADO profile).", path);
+            result.addError(ValidationMessages.TID1600_GROUP_MISSING_SERIES_DATE, path);
         }
         if (!hasSeriesTime) {
-            result.addError("TID 1600 Image Library Group missing Series Time (ddd004, DCM, \"Series Time\"). " +
-                          "Type R+ (required by MADO profile).", path);
+            result.addError(ValidationMessages.TID1600_GROUP_MISSING_SERIES_TIME, path);
         }
         if (!hasSeriesDescription) {
-            result.addError("TID 1600 Image Library Group missing Series Description (ddd002, DCM, \"Series Description\"). " +
-                          "Type R+ (required by MADO profile).", path);
+            result.addError(ValidationMessages.TID1600_GROUP_MISSING_SERIES_DESCRIPTION, path);
         }
         if (!hasSeriesNumber) {
-            result.addError("TID 1600 Image Library Group missing Series Number (ddd005, DCM, \"Series Number\"). " +
-                          "Type R+ (required by MADO profile).", path);
+            result.addError(ValidationMessages.TID1600_GROUP_MISSING_SERIES_NUMBER, path);
         }
         if (!hasSeriesUID) {
-            result.addError("TID 1600 Image Library Group missing Series Instance UID (ddd006, DCM, \"Series Instance UID\"). " +
-                          "Type R+ (required by MADO profile). This is critical for retrieving the correct series.", path);
+            result.addError(ValidationMessages.TID1600_GROUP_MISSING_SERIES_UID, path);
         }
         if (!hasNumberOfSeriesRelatedInstances) {
-            result.addError("TID 1600 Image Library Group missing Number of Series Related Instances (ddd013, DCM). " +
-                          "Type R+ (required by MADO profile).", path);
+            result.addError(ValidationMessages.TID1600_GROUP_MISSING_SERIES_RELATED_INSTANCES, path);
         }
 
         if (imageEntryCount == 0) {
@@ -182,13 +171,11 @@ public final class TID1600ImageLibraryValidator {
 
         Sequence refSOPSeq = entry.getSequence(Tag.ReferencedSOPSequence);
         if (refSOPSeq == null || refSOPSeq.isEmpty()) {
-            result.addError("TID 1600 Image Library Entry has no ReferencedSOPSequence. " +
-                          "Each entry must reference a specific SOP Instance (image).", path);
+            result.addError(ValidationMessages.TID1600_ENTRY_NO_REFERENCED_SOP, path);
             return;
         }
         if (refSOPSeq.size() != 1) {
-            result.addError("TID 1600 Image Library Entry ReferencedSOPSequence must contain exactly 1 item, found " +
-                    refSOPSeq.size() + ".", path);
+            result.addError(String.format(ValidationMessages.TID1600_ENTRY_REFSOPMULTIPLE, refSOPSeq.size()), path);
         }
 
         Attributes refSOP = SRContentTreeUtils.firstItem(refSOPSeq);
@@ -196,10 +183,10 @@ public final class TID1600ImageLibraryValidator {
         String sopInstanceUID = refSOP.getString(Tag.ReferencedSOPInstanceUID);
 
         if (sopClassUID == null || sopClassUID.trim().isEmpty()) {
-            result.addError("ReferencedSOPSequence missing ReferencedSOPClassUID", path);
+            result.addError(ValidationMessages.TID1600_ENTRY_MISSING_SOP_CLASS_UID, path);
         }
         if (sopInstanceUID == null || sopInstanceUID.trim().isEmpty()) {
-            result.addError("ReferencedSOPSequence missing ReferencedSOPInstanceUID", path);
+            result.addError(ValidationMessages.TID1600_ENTRY_MISSING_SOP_INSTANCE_UID, path);
         }
 
         Sequence contentSeq = entry.getSequence(Tag.ContentSequence);
@@ -224,7 +211,7 @@ public final class TID1600ImageLibraryValidator {
                         // Treat TEXT/UT as acceptable string carriers.
                         String vt = item.getString(Tag.ValueType);
                         if (vt != null && !("TEXT".equals(vt) || "UT".equals(vt))) {
-                            result.addError("Instance Number concept item must use ValueType TEXT (or UT in dumps), found: " + vt, path);
+                            result.addError(String.format(ValidationMessages.TID1600_ENTRY_INSTANCE_NUMBER_WRONG_VT, vt), path);
                         }
                     } else if (TID1600Codes.CODE_KOS_TITLE.equals(codeValue)) {
                         validateKOSReference(entry, result, path);
@@ -233,17 +220,15 @@ public final class TID1600ImageLibraryValidator {
             }
 
             if (!hasInstanceNumber) {
-                result.addError("Instance Number (ddd012, DCM) missing for Image Library Entry. Type R+ (required by MADO).", path);
+                result.addError(ValidationMessages.TID1600_ENTRY_MISSING_INSTANCE_NUMBER_REQUIRED, path);
             }
 
             if (TID1600Rules.isMultiframeSOP(sopClassUID) && !hasNumberOfFrames) {
-                result.addError("Number of Frames (121140, DCM) missing for multiframe SOP Class: " +
-                        sopClassUID + ". Type C+ (conditionally required by MADO).", path);
+                result.addError(String.format(ValidationMessages.TID1600_ENTRY_MISSING_NUMBER_OF_FRAMES_MULTIFRAME, sopClassUID), path);
             }
         } else {
             // For MADO, instance-level metadata is expected (R+). Treat empty nested content as an error.
-            result.addError("TID 1600 Image Library Entry missing required instance-level metadata (ContentSequence). " +
-                    "MADO requires at least Instance Number (ddd012, DCM) and conditionally Number of Frames.", path);
+            result.addError(ValidationMessages.TID1600_ENTRY_MISSING_METADATA_CONTENT, path);
             if (verbose) {
                 result.addInfo("Image Library Entry has no nested metadata (this is standard KOS style, but not sufficient for MADO)", path);
             }
@@ -273,10 +258,10 @@ public final class TID1600ImageLibraryValidator {
         }
 
         if (!hasKOSTitle) {
-            result.addError("KOS reference missing KOS Title Code (ddd008, DCM). Type R+", path);
+            result.addError(ValidationMessages.TID1600_KOS_MISSING_TITLE_CODE, path);
         }
         if (!hasSOPInstanceUIDs) {
-            result.addError("KOS reference missing SOP Instance UIDs (ddd007, DCM). Type R+", path);
+            result.addError(ValidationMessages.TID1600_KOS_MISSING_SOP_UIDS, path);
         }
     }
 
@@ -334,8 +319,8 @@ public final class TID1600ImageLibraryValidator {
 
         if (hasKeyObjectDesc) {
             if (!hasKeyTitleCode) {
-                result.addError("TID 16XX Requirement V-DESC-02: Key Object Description present but "
-                        + "missing required Title Code from CID 7010 (e.g., 'For Surgery', 'Tumor Tracking')", path);
+                result.addError(String.format(ValidationMessages.TID1600_KEY_DESCRIPTION_MISMATCH,
+                        "missing required Title Code from CID 7010 (e.g., 'For Surgery', 'Tumor Tracking')"), path);
             }
 
             if (referencedUID == null) {

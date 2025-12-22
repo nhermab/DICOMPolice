@@ -33,9 +33,7 @@ public class EvidenceOrphanValidator {
         }
 
         if (evidenceInstanceUIDs.isEmpty()) {
-            result.addError("ContentSequence references instances, but " +
-                          "CurrentRequestedProcedureEvidenceSequence is empty or missing. " +
-                          "All referenced instances must be listed in Evidence.", path);
+            result.addError("ContentSequence references instances, but " + "CurrentRequestedProcedureEvidenceSequence is empty or missing. " + "All referenced instances must be listed in Evidence.", path);
             return;
         }
 
@@ -47,11 +45,7 @@ public class EvidenceOrphanValidator {
             result.addInfo("All " + contentInstanceUIDs.size() +
                           " instance(s) in ContentSequence are properly listed in Evidence", path);
         } else {
-            result.addError("ORPHAN REFERENCES DETECTED: " + orphans.size() +
-                          " instance(s) are referenced in ContentSequence but NOT in " +
-                          "CurrentRequestedProcedureEvidenceSequence. XDS consumers use the Evidence " +
-                          "list to build retrieval batches and will fail to retrieve these orphan instances. " +
-                          "Orphan UIDs: " + orphans, path);
+            result.addError("ORPHAN REFERENCES DETECTED: " + orphans.size() + " instance(s) are referenced in ContentSequence but NOT in " + "CurrentRequestedProcedureEvidenceSequence. XDS consumers use the Evidence " + "list to build retrieval batches and will fail to retrieve these orphan instances. " + "Orphan UIDs: " + orphans, path);
         }
 
         // Also check reverse - instances in Evidence but not in Content (less critical but worth noting)
@@ -59,10 +53,7 @@ public class EvidenceOrphanValidator {
         unreferenced.removeAll(contentInstanceUIDs);
 
         if (!unreferenced.isEmpty()) {
-            result.addWarning("Evidence sequence contains " + unreferenced.size() +
-                            " instance(s) not referenced in ContentSequence. " +
-                            "While not an error, this may indicate unused evidence. " +
-                            "UIDs: " + unreferenced, path);
+            result.addWarning("Evidence sequence contains " + unreferenced.size() + " instance(s) not referenced in ContentSequence. " + "While not an error, this may indicate unused evidence. " + "UIDs: " + unreferenced, path);
         }
     }
 

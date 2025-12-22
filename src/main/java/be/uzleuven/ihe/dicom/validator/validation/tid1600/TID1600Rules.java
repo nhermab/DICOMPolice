@@ -1,5 +1,6 @@
 package be.uzleuven.ihe.dicom.validator.validation.tid1600;
 
+import be.uzleuven.ihe.dicom.constants.ValidationMessages;
 import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Sequence;
 import org.dcm4che3.data.Tag;
@@ -26,7 +27,7 @@ public final class TID1600Rules {
         String csd = code.getString(Tag.CodingSchemeDesignator);
 
         if (codeValue == null || codeValue.trim().isEmpty()) {
-            result.addError("Target Region code has no CodeValue", path);
+            result.addError(ValidationMessages.TID1600_TARGET_REGION_NO_CODE_VALUE, path);
         }
         if (!"SNM".equals(csd) && !"FMA".equals(csd) && !"SCT".equals(csd)) {
             result.addInfo("Target Region uses CodingSchemeDesignator: " + csd

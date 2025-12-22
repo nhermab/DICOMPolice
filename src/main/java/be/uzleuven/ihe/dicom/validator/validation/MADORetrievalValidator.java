@@ -215,8 +215,7 @@ public final class MADORetrievalValidator {
 
         // Validate UID format (must be valid DICOM UID/OID)
         if (!isValidUID(uid)) {
-            result.addError("Retrieve Location UID has invalid format: " + uid +
-                          ". Must be valid DICOM UID (OID format).", path);
+            result.addError("Retrieve Location UID has invalid format: " + uid + ". Must be valid DICOM UID (OID format).", path);
         }
 
         if (uid.length() > 64) {

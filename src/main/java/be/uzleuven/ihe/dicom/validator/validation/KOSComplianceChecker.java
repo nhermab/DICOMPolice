@@ -54,19 +54,12 @@ public final class KOSComplianceChecker {
         Sequence evidenceSeq = dataset.getSequence(Tag.CurrentRequestedProcedureEvidenceSequence);
 
         if (evidenceSeq == null) {
-            result.addError("CRITICAL KOS COMPLIANCE FAILURE:\n" +
-                          "  CurrentRequestedProcedureEvidenceSequence (0040,A375) is MISSING.\n" +
-                          "  Impact: PACS/Archive will reject this KOS object.\n" +
-                          "  Requirement: DICOM PS3.3 C.17.6.2.1 - Type 1C (required when instances are referenced).\n" +
-                          "  Fix: Add Evidence Sequence listing all referenced Study/Series/Instance UIDs.", modulePath);
+            result.addError("CRITICAL KOS COMPLIANCE FAILURE:\n" + "  CurrentRequestedProcedureEvidenceSequence (0040,A375) is MISSING.\n" + "  Impact: PACS/Archive will reject this KOS object.\n" + "  Requirement: DICOM PS3.3 C.17.6.2.1 - Type 1C (required when instances are referenced).\n" + "  Fix: Add Evidence Sequence listing all referenced Study/Series/Instance UIDs.", modulePath);
             return;
         }
 
         if (evidenceSeq.isEmpty()) {
-            result.addError("CRITICAL KOS COMPLIANCE FAILURE:\n" +
-                          "  CurrentRequestedProcedureEvidenceSequence is present but EMPTY.\n" +
-                          "  Impact: KOS claims 'no evidence' - will be rejected or misinterpreted.\n" +
-                          "  Fix: Populate Evidence Sequence with all referenced instances.", modulePath);
+            result.addError("CRITICAL KOS COMPLIANCE FAILURE:\n" + "  CurrentRequestedProcedureEvidenceSequence is present but EMPTY.\n" + "  Impact: KOS claims 'no evidence' - will be rejected or misinterpreted.\n" + "  Fix: Populate Evidence Sequence with all referenced instances.", modulePath);
             return;
         }
 

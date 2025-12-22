@@ -5,6 +5,7 @@ import org.dcm4che3.data.Sequence;
 import org.dcm4che3.data.Tag;
 import be.uzleuven.ihe.dicom.validator.model.ValidationResult;
 import be.uzleuven.ihe.dicom.constants.DicomConstants;
+import be.uzleuven.ihe.dicom.constants.ValidationMessages;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -151,7 +152,7 @@ public final class MADOContentUtils {
             String evidenceStudyUID = studyItem.getString(Tag.StudyInstanceUID);
 
             if (evidenceStudyUID == null) {
-                result.addError("Study Instance UID missing in Evidence sequence item " + studyIdx, modulePath);
+                result.addError(String.format(ValidationMessages.STUDY_UID_MISSING_EVIDENCE, studyIdx), modulePath);
                 continue;
             }
 
@@ -167,8 +168,7 @@ public final class MADOContentUtils {
                 String seriesUID = seriesItem.getString(Tag.SeriesInstanceUID);
 
                 if (seriesUID == null) {
-                    result.addError("Series Instance UID missing in Evidence study " + studyIdx +
-                                  ", series " + seriesIdx, modulePath);
+                    result.addError(String.format(ValidationMessages.SERIES_UID_MISSING_EVIDENCE, studyIdx, seriesIdx), modulePath);
                     continue;
                 }
 
@@ -192,7 +192,7 @@ public final class MADOContentUtils {
                 for (Attributes sopItem : sopSeq) {
                     String instanceUID = sopItem.getString(Tag.ReferencedSOPInstanceUID);
                     if (instanceUID == null) {
-                        result.addError("SOP Instance UID missing in Evidence", modulePath);
+                        result.addError(ValidationMessages.SOP_INSTANCE_UID_MISSING_EVIDENCE, modulePath);
                         continue;
                     }
 

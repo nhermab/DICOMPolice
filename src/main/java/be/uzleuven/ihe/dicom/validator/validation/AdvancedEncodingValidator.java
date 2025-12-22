@@ -1,5 +1,6 @@
 package be.uzleuven.ihe.dicom.validator.validation;
 
+import be.uzleuven.ihe.dicom.constants.ValidationMessages;
 import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Tag;
 import org.dcm4che3.data.VR;
@@ -137,8 +138,7 @@ public class AdvancedEncodingValidator {
         }
 
         if (hasUTF8 && hasOthers) {
-            result.addError("SpecificCharacterSet (0008,0005) contains ISO_IR 192 (UTF-8) " +
-                          "combined with other character sets. UTF-8 must be the only value.", path);
+            result.addError(ValidationMessages.UTF8_COMBINED_WITH_OTHER_CHARSETS, path);
         }
     }
 
@@ -174,9 +174,8 @@ public class AdvancedEncodingValidator {
 
                 if (hasEscapeSequence) {
                     if (declaredISO2022.isEmpty()) {
-                        result.addError("Attribute " + attributeName + " " + tagString(tag) +
-                                      " contains escape sequences (0x1B) but no ISO 2022 character set " +
-                                      "is declared in SpecificCharacterSet (0008,0005)", path);
+                        result.addError(String.format(ValidationMessages.ESCAPE_SEQUENCES_WITHOUT_ISO2022,
+                                attributeName, tagString(tag)), path);
                     } else {
                         // Found escape sequences and ISO 2022 is declared - this is expected
                         // A full implementation would parse the actual escape sequences
@@ -206,16 +205,15 @@ public class AdvancedEncodingValidator {
                     // but dcm4che typically handles this. We check if the UID string has trailing space
                     String uidValue = dataset.getString(tag);
                     if (uidValue != null && uidValue.endsWith(" ")) {
-                        result.addError("UID attribute " + attributeName + " " + tagString(tag) +
-                                      " is incorrectly padded with SPACE (0x20). UIDs must be padded " +
-                                      "with NULL (0x00) if odd length.", path);
+                        result.addError(String.format(ValidationMessages.UID_PADDED_WITH_SPACE,
+                                attributeName, tagString(tag)), path);
                     }
                 }
 
                 // Check for space padding in the byte array (last byte)
                 if (bytes.length > 0 && bytes[bytes.length - 1] == SPACE_BYTE) {
-                    result.addError("UID attribute " + attributeName + " " + tagString(tag) +
-                                  " has SPACE byte (0x20) padding. UIDs must be padded with NULL (0x00).", path);
+                    result.addError(String.format(ValidationMessages.UID_HAS_SPACE_PADDING,
+                            attributeName, tagString(tag)), path);
                 }
             }
         });
@@ -236,9 +234,8 @@ public class AdvancedEncodingValidator {
 
                 // Check if padded with NULL instead of SPACE
                 if (bytes.length > 0 && bytes[bytes.length - 1] == NULL_BYTE) {
-                    result.addError("Text attribute " + attributeName + " " + tagString(tag) +
-                                  " (" + vr + ") is padded with NULL (0x00). " +
-                                  "Text VRs must be padded with SPACE (0x20).", path);
+                    result.addError(String.format(ValidationMessages.TEXT_PADDED_WITH_NULL,
+                            attributeName, tagString(tag), vr), path);
                 }
             }
         });
