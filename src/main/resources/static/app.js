@@ -1,6 +1,6 @@
 /**
- * DICOM Validator Web Application
- * UZ Leuven - Medical Imaging Department
+ * The DICOM Police - KOS and MADO Gazelle Validator
+ * UZ Leuven - Universitaire Ziekenhuizen Leuven
  */
 
 // Configuration
@@ -38,10 +38,47 @@ const metadataSection = document.getElementById('metadata-section');
 const resultStatus = document.getElementById('result-status');
 const errorMessage = document.getElementById('error-message');
 
+/**
+ * Normalize profile identifier across backend shapes.
+ */
+function getProfileIdentifier(profile) {
+  return profile && (profile.profileID || profile.profileId || profile.id);
+}
+
+/**
+ * Sync `selectedProfile` + description from the current <select> value.
+ * This avoids relying on a 'change' event (which may fire before listeners are attached).
+ */
+function syncSelectedProfileFromSelect() {
+  const selectedId = profileSelect?.value;
+  if (!selectedId) {
+    selectedProfile = null;
+    profileDescription.textContent = 'Select a validation profile to see details';
+    return;
+  }
+
+  selectedProfile = profiles.find(p => String(getProfileIdentifier(p)) === String(selectedId)) || null;
+
+  if (!selectedProfile) {
+    profileDescription.textContent = 'Select a validation profile to see details';
+    return;
+  }
+
+  if (selectedProfile.profileName) {
+    profileDescription.textContent = selectedProfile.profileName;
+  } else if (selectedProfile.description) {
+    profileDescription.textContent = selectedProfile.description;
+  } else {
+    profileDescription.textContent = `Profile: ${selectedProfile.profileName || selectedProfile.name || selectedProfile.profileID || selectedProfile.profileId}`;
+  }
+}
+
 // Initialize Application
 document.addEventListener('DOMContentLoaded', async () => {
   await loadProfiles();
   setupEventListeners();
+  // Ensure we have a selectedProfile even if the default selection happened before listeners were attached.
+  syncSelectedProfileFromSelect();
   // Ensure the validate button state matches any default-selected profile.
   updateValidateButton();
 });
@@ -78,14 +115,12 @@ function populateProfileSelect() {
 
   profiles.forEach(profile => {
     const option = document.createElement('option');
-    // Backend returns profileID/profileName (PascalCase ID). Keep fallbacks for older shapes.
-    option.value = profile.profileID || profile.profileId || profile.id;
-    option.textContent = profile.profileName || profile.name || profile.profileID || profile.profileId || profile.id;
-    option.dataset.profile = JSON.stringify(profile);
+    const profileId = getProfileIdentifier(profile);
+    option.value = profileId;
+    option.textContent = profile.profileName || profile.name || profileId;
     profileSelect.appendChild(option);
   });
 
-  // Set MADO as default if available
   const madoProfile = profiles.find(p => {
     const name = (p.profileName || p.name || '').toUpperCase();
     const id = (p.profileID || p.profileId || p.id || '').toUpperCase();
@@ -93,13 +128,12 @@ function populateProfileSelect() {
   });
 
   if (madoProfile) {
-    const madoId = madoProfile.profileID || madoProfile.profileId || madoProfile.id;
+    const madoId = getProfileIdentifier(madoProfile);
     profileSelect.value = madoId;
-    // Trigger change event to update selected profile
-    profileSelect.dispatchEvent(new Event('change'));
   }
 
-  // After populating (and possibly default-selecting), sync button state.
+  // Make sure state reflects whatever is currently selected, even if listeners aren't attached yet.
+  syncSelectedProfileFromSelect();
   updateValidateButton();
 }
 
@@ -134,32 +168,9 @@ function setupEventListeners() {
  * Handle profile selection change
  */
 function handleProfileChange(e) {
-  const selectedOption = e.target.selectedOptions[0];
-
-  if (!selectedOption || !selectedOption.value) {
-    selectedProfile = null;
-    profileDescription.textContent = 'Select a validation profile to see details';
-    updateValidateButton();
-    return;
-  }
-
-  try {
-    selectedProfile = JSON.parse(selectedOption.dataset.profile);
-
-    // Update description
-    if (selectedProfile.profileName) {
-      profileDescription.textContent = selectedProfile.profileName;
-    } else if (selectedProfile.description) {
-      profileDescription.textContent = selectedProfile.description;
-    } else {
-      profileDescription.textContent = `Profile: ${selectedProfile.profileName || selectedProfile.name || selectedProfile.profileID || selectedProfile.profileId}`;
-    }
-
-    updateValidateButton();
-  } catch (error) {
-    console.error('Error parsing profile data:', error);
-    selectedProfile = null;
-  }
+  // Single source of truth: current select value.
+  syncSelectedProfileFromSelect();
+  updateValidateButton();
 }
 
 /**
