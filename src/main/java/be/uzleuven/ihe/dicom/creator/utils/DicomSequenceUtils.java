@@ -1,10 +1,10 @@
-package be.uzleuven.ihe.dicom.creator;
+package be.uzleuven.ihe.dicom.creator.utils;
 
 import org.dcm4che3.data.*;
 
 import java.util.List;
 
-import static be.uzleuven.ihe.dicom.creator.DicomCreatorUtils.randomInt;
+import static be.uzleuven.ihe.dicom.creator.utils.DicomCreatorUtils.randomInt;
 
 /**
  * Utility methods for populating DICOM sequences (Evidence, Referenced Request, etc.).

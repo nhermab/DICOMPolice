@@ -100,10 +100,10 @@ public class MADOManifestValidator extends KeyObjectSelectionValidator {
         String modulePath = "Header";
 
         // SOP Class UID (0008,0016) must be KOS document
-        String sopClassUID = dataset.getString(Tag.SOPClassUID);
-        if (sopClassUID == null || sopClassUID.trim().isEmpty()) {
+        String sopClassUID = normalizedUID(dataset.getString(Tag.SOPClassUID));
+        if (sopClassUID == null || sopClassUID.isEmpty()) {
             result.addError(ValidationMessages.MADO_SOP_CLASS_UID_MISSING, modulePath);
-        } else if (!DicomConstants.KEY_OBJECT_SELECTION_SOP_CLASS_UID.equals(sopClassUID.trim())) {
+        } else if (!DicomConstants.KEY_OBJECT_SELECTION_SOP_CLASS_UID.equals(sopClassUID)) {
             result.addError(String.format(ValidationMessages.MADO_SOP_CLASS_UID_WRONG,
                     DicomConstants.KEY_OBJECT_SELECTION_SOP_CLASS_UID, sopClassUID), modulePath);
         }

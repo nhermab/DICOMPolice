@@ -1,4 +1,4 @@
-package be.uzleuven.ihe.dicom.creator;
+package be.uzleuven.ihe.dicom.creator.samples;
 
 import be.uzleuven.ihe.dicom.creator.evil.EVILKOSCreator;
 import be.uzleuven.ihe.dicom.creator.evil.EVILMADOCreator;
@@ -8,7 +8,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Locale;
 
-import static be.uzleuven.ihe.dicom.creator.DicomCreatorUtils.writeDicomFile;
+import static be.uzleuven.ihe.dicom.creator.utils.DicomCreatorUtils.writeDicomFile;
 
 /**
  * Bulk sample producer.
@@ -23,8 +23,8 @@ import static be.uzleuven.ihe.dicom.creator.DicomCreatorUtils.writeDicomFile;
  * - Guarantees unique filenames (timestamp + counter).
  *
  * Usage:
- *   java be.uzleuven.ihe.dicom.creator.ExampleProducer 2000
- *   java be.uzleuven.ihe.dicom.creator.ExampleProducer 2000 C:\\path\\to\\workspace
+ *   java be.uzleuven.ihe.dicom.creator.samples.ExampleProducer 2000
+ *   java be.uzleuven.ihe.dicom.creator.samples.ExampleProducer 2000 C:\\path\\to\\workspace
  */
 public class ExampleProducer {
 

@@ -235,4 +235,14 @@ public abstract class AbstractIODValidator implements IODValidator {
         String seqPath = buildPath(parentPath, sequenceName);
         return seqPath + "[" + (itemNumber + 1) + "]";
     }
+
+    /**
+     * Normalizes a UID string retrieved from a dataset.
+     *
+     * DICOM UI values can be padded; if padding isn't handled consistently, strict equals()
+     * comparisons may fail and validator selection can incorrectly return null.
+     */
+    protected static String normalizedUID(String uid) {
+        return uid == null ? null : uid.trim();
+    }
 }

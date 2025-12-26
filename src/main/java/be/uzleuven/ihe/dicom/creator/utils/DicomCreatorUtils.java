@@ -1,4 +1,4 @@
-package be.uzleuven.ihe.dicom.creator;
+package be.uzleuven.ihe.dicom.creator.utils;
 
 import org.dcm4che3.data.*;
 import org.dcm4che3.io.DicomOutputStream;
@@ -157,7 +157,19 @@ public class DicomCreatorUtils {
      * Writes DICOM dataset to file in Part 10 format with specified transfer syntax.
      */
     public static void writeDicomFile(File file, Attributes dataset, String transferSyntax) throws IOException {
+        // Defensive: ensure core identity tags are present and consistent before writing.
+        // This helps catch logic faults where SOPClassUID gets overwritten late.
+        String sopClassUid = dataset.getString(Tag.SOPClassUID);
+        String sopInstanceUid = dataset.getString(Tag.SOPInstanceUID);
+        if (sopClassUid == null || sopClassUid.trim().isEmpty()) {
+            throw new IllegalStateException("Cannot write DICOM: SOPClassUID is missing");
+        }
+        if (sopInstanceUid == null || sopInstanceUid.trim().isEmpty()) {
+            throw new IllegalStateException("Cannot write DICOM: SOPInstanceUID is missing");
+        }
+
         try (DicomOutputStream dos = new DicomOutputStream(file)) {
+            // File Meta is derived from SOPClassUID/SOPInstanceUID; create it at the last moment.
             dos.writeDataset(dataset.createFileMetaInformation(transferSyntax), dataset);
         }
     }

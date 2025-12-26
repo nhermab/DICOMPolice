@@ -1,7 +1,7 @@
 package be.uzleuven.ihe.service;
 
-import be.uzleuven.ihe.dicom.creator.IHEKOSSampleCreator;
-import be.uzleuven.ihe.dicom.creator.IHEMADOSampleCreator;
+import be.uzleuven.ihe.dicom.creator.samples.IHEKOSSampleCreator;
+import be.uzleuven.ihe.dicom.creator.samples.IHEMADOSampleCreator;
 import be.uzleuven.ihe.dicom.validator.CLIDICOMVerify;
 import be.uzleuven.ihe.dicom.validator.model.ValidationResult;
 import be.uzleuven.ihe.service.models.*;

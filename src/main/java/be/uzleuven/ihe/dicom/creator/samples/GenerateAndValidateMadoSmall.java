@@ -1,4 +1,4 @@
-package be.uzleuven.ihe.dicom.creator;
+package be.uzleuven.ihe.dicom.creator.samples;
 
 import be.uzleuven.ihe.dicom.validator.CLIDICOMVerify;
 

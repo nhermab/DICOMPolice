@@ -1,4 +1,4 @@
-package be.uzleuven.ihe.dicom.creator;
+package be.uzleuven.ihe.dicom.creator.samples;
 
 import be.uzleuven.ihe.dicom.constants.DicomConstants;
 import org.dcm4che3.data.*;
@@ -8,9 +8,9 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
-import static be.uzleuven.ihe.dicom.creator.DicomCreatorUtils.*;
-import static be.uzleuven.ihe.dicom.creator.DicomSequenceUtils.*;
-import static be.uzleuven.ihe.dicom.creator.SRContentItemUtils.*;
+import static be.uzleuven.ihe.dicom.creator.utils.DicomCreatorUtils.*;
+import static be.uzleuven.ihe.dicom.creator.utils.DicomSequenceUtils.*;
+import static be.uzleuven.ihe.dicom.creator.utils.SRContentItemUtils.*;
 import static be.uzleuven.ihe.dicom.constants.CodeConstants.*;
 
 public class IHEKOSSampleCreator {

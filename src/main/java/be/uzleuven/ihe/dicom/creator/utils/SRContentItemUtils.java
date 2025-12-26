@@ -1,8 +1,8 @@
-package be.uzleuven.ihe.dicom.creator;
+package be.uzleuven.ihe.dicom.creator.utils;
 
 import org.dcm4che3.data.*;
 
-import static be.uzleuven.ihe.dicom.creator.DicomCreatorUtils.code;
+import static be.uzleuven.ihe.dicom.creator.utils.DicomCreatorUtils.code;
 
 /**
  * Utility methods for creating SR content items.

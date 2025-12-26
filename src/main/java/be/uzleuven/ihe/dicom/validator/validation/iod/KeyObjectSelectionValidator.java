@@ -29,7 +29,7 @@ public class KeyObjectSelectionValidator extends AbstractIODValidator {
 
     @Override
     public boolean canValidate(Attributes dataset) {
-        String sopClassUID = dataset.getString(Tag.SOPClassUID);
+        String sopClassUID = normalizedUID(dataset.getString(Tag.SOPClassUID));
         return KOS_SOP_CLASS_UID.equals(sopClassUID);
     }
 
