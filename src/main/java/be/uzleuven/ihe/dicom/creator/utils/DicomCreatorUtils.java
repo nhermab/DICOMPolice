@@ -16,6 +16,68 @@ public class DicomCreatorUtils {
 
     private static final SecureRandom RND = new SecureRandom();
 
+    // --- UID Utilities ---
+
+    /**
+     * Normalizes a DICOM UID so that no component starts with leading zeros,
+     * unless the component is exactly "0" (DICOM PS3.5 §6.2).
+     * <p>
+     * Example: "...061159.1.005.002" -> "...61159.1.5.2"
+     * </p>
+     * <p>
+     * Note: only call this for UIDs you generate locally. Do not rewrite UIDs
+     * originating from external systems.
+     * </p>
+     */
+    public static String normalizeUidNoLeadingZeros(String uid) {
+        if (uid == null) return null;
+        String trimmed = uid.trim();
+        if (trimmed.isEmpty()) return uid;
+
+        String[] parts = trimmed.split("\\.");
+        boolean changed = false;
+        for (int i = 0; i < parts.length; i++) {
+            String p = parts[i];
+            if (p == null) continue;
+            String t = p.trim();
+            if (t.isEmpty()) continue;
+
+            // Only numeric UID components are expected. If not numeric, keep as-is.
+            boolean numeric = true;
+            for (int c = 0; c < t.length(); c++) {
+                char ch = t.charAt(c);
+                if (ch < '0' || ch > '9') {
+                    numeric = false;
+                    break;
+                }
+            }
+            if (!numeric) continue;
+
+            if (t.length() > 1 && t.charAt(0) == '0') {
+                int firstNonZero = 0;
+                while (firstNonZero < t.length() && t.charAt(firstNonZero) == '0') {
+                    firstNonZero++;
+                }
+                String normalized = (firstNonZero == t.length()) ? "0" : t.substring(firstNonZero);
+                if (!normalized.equals(t)) {
+                    parts[i] = normalized;
+                    changed = true;
+                }
+            }
+        }
+
+        if (!changed) return trimmed;
+        return String.join(".", parts);
+    }
+
+    /**
+     * Generates a UID using dcm4che and normalizes it so it never contains
+     * components with leading zeros.
+     */
+    public static String createNormalizedUid() {
+        return normalizeUidNoLeadingZeros(org.dcm4che3.util.UIDUtils.createUID());
+    }
+
     // --- Date/Time Utilities ---
 
     public static String todayYYYYMMDD() {
@@ -168,9 +230,33 @@ public class DicomCreatorUtils {
             throw new IllegalStateException("Cannot write DICOM: SOPInstanceUID is missing");
         }
 
+        // Final safety net: keep generated outputs PS3.5 §6.2-compliant.
+        normalizeCoreUidsInPlace(dataset);
+
         try (DicomOutputStream dos = new DicomOutputStream(file)) {
             // File Meta is derived from SOPClassUID/SOPInstanceUID; create it at the last moment.
             dos.writeDataset(dataset.createFileMetaInformation(transferSyntax), dataset);
+        }
+    }
+
+    private static void normalizeCoreUidsInPlace(Attributes dataset) {
+        // Only normalize the manifest's own SOP Instance UID.
+        // Study/Series UIDs can be externally sourced (e.g., from PACS) and must not be rewritten.
+        normalizeUidTag(dataset, Tag.SOPInstanceUID);
+
+        // These are commonly present in image objects; harmless on KO too if absent.
+        // (Kept as-is to avoid rewriting external UIDs in query-derived manifests.)
+        normalizeUidTag(dataset, Tag.FrameOfReferenceUID);
+        normalizeUidTag(dataset, Tag.SynchronizationFrameOfReferenceUID);
+    }
+
+    private static void normalizeUidTag(Attributes dataset, int tag) {
+        if (dataset == null) return;
+        String v = dataset.getString(tag);
+        if (v == null || v.trim().isEmpty()) return;
+        String normalized = normalizeUidNoLeadingZeros(v);
+        if (!v.equals(normalized)) {
+            dataset.setString(tag, VR.UI, normalized);
         }
     }
 

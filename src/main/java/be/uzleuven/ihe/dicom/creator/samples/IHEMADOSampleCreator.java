@@ -2,7 +2,6 @@ package be.uzleuven.ihe.dicom.creator.samples;
 
 import be.uzleuven.ihe.dicom.constants.DicomConstants;
 import org.dcm4che3.data.*;
-import org.dcm4che3.util.UIDUtils;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -292,7 +291,7 @@ public class IHEMADOSampleCreator {
 
     private static Attributes createMADOAttributes(SimulatedStudy study) {
         Attributes d = new Attributes();
-        String manifestSOPUid = UIDUtils.createUID();
+        String manifestSOPUid = createNormalizedUid();
 
         String studyDate = now("yyyyMMdd");
         String studyTime = now("HHmmss");
@@ -301,7 +300,7 @@ public class IHEMADOSampleCreator {
         d.setString(Tag.SOPClassUID, VR.UI, UID.KeyObjectSelectionDocumentStorage);
         d.setString(Tag.SOPInstanceUID, VR.UI, manifestSOPUid);
         d.setString(Tag.StudyInstanceUID, VR.UI, study.studyInstanceUID);
-        d.setString(Tag.SeriesInstanceUID, VR.UI, UIDUtils.createUID());
+        d.setString(Tag.SeriesInstanceUID, VR.UI, createNormalizedUid());
         d.setString(Tag.Modality, VR.CS, "KO");
         d.setInt(Tag.SeriesNumber, VR.IS, 999); // Manifest Series
         d.setInt(Tag.InstanceNumber, VR.IS, 1);
@@ -602,7 +601,7 @@ public class IHEMADOSampleCreator {
 
         SimulatedStudy study = new SimulatedStudy();
         study.options = options;
-        study.studyInstanceUID = UIDUtils.createUID();
+        study.studyInstanceUID = createNormalizedUid();
 
         int seriesCount = Math.max(1, options.seriesCount);
 
@@ -624,7 +623,7 @@ public class IHEMADOSampleCreator {
             String modality = pickModality(options.modalityPool, s);
             String desc = "Series " + (s + 1) + " " + modality;
 
-            SimulatedSeries series = new SimulatedSeries(UIDUtils.createUID(), modality, desc);
+            SimulatedSeries series = new SimulatedSeries(createNormalizedUid(), modality, desc);
 
             int seriesLeft = nonKinSeriesCount - s;
 
@@ -659,12 +658,11 @@ public class IHEMADOSampleCreator {
 
             // Generate instances.
             for (int i = 0; i < sfTake; i++) {
-                series.addInstance(sopClassForSingleFrame(modality), UIDUtils.createUID(), false);
+                series.addInstance(sopClassForSingleFrame(modality), createNormalizedUid(), false);
             }
 
             for (int i = 0; i < mfTake; i++) {
-                // Enhanced CT used as multiframe proxy.
-                series.addInstance(UID.EnhancedCTImageStorage, UIDUtils.createUID(), false);
+                series.addInstance(UID.EnhancedCTImageStorage, createNormalizedUid(), false);
             }
 
             remainingSf = Math.max(0, remainingSf - sfTake);
@@ -674,8 +672,8 @@ public class IHEMADOSampleCreator {
 
         // Add KIN series at the end if requested.
         if (options.includeKIN) {
-            SimulatedSeries kin = new SimulatedSeries(UIDUtils.createUID(), "KO", "Key Images");
-            kin.addInstance(UID.KeyObjectSelectionDocumentStorage, UIDUtils.createUID(), true);
+            SimulatedSeries kin = new SimulatedSeries(createNormalizedUid(), "KO", "Key Images");
+            kin.addInstance(UID.KeyObjectSelectionDocumentStorage, createNormalizedUid(), true);
             study.addSeries(kin);
             study.kinSeries = kin;
         }
@@ -684,10 +682,10 @@ public class IHEMADOSampleCreator {
         if (!study.seriesList.isEmpty() && (remainingSf > 0 || remainingMf > 0)) {
             SimulatedSeries first = study.seriesList.get(0);
             for (int i = 0; i < remainingSf; i++) {
-                first.addInstance(sopClassForSingleFrame(first.modality), UIDUtils.createUID(), false);
+                first.addInstance(sopClassForSingleFrame(first.modality), createNormalizedUid(), false);
             }
             for (int i = 0; i < remainingMf; i++) {
-                first.addInstance(UID.EnhancedCTImageStorage, UIDUtils.createUID(), false);
+                first.addInstance(UID.EnhancedCTImageStorage, createNormalizedUid(), false);
             }
         }
 

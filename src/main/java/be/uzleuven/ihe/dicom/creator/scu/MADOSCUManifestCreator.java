@@ -1,7 +1,6 @@
 package be.uzleuven.ihe.dicom.creator.scu;
 
 import org.dcm4che3.data.*;
-import org.dcm4che3.util.UIDUtils;
 
 import java.io.File;
 import java.io.IOException;
@@ -116,7 +115,7 @@ public class MADOSCUManifestCreator extends SCUManifestCreator {
         Attributes mado = new Attributes();
 
         // File Meta Information
-        String sopInstanceUID = UIDUtils.createUID();
+        String sopInstanceUID = createNormalizedUid();
         // MADO manifests are Key Object Selection Documents (KO), not SR.
         // Using Comprehensive SR here breaks downstream validators and the Part 10 Media Storage SOP Class.
         mado.setString(Tag.SOPClassUID, VR.UI, UID.KeyObjectSelectionDocumentStorage);
@@ -131,7 +130,7 @@ public class MADOSCUManifestCreator extends SCUManifestCreator {
         mado.setString(Tag.PatientID, VR.LO, patientID);
         mado.setString(Tag.PatientName, VR.PN, patientName);
         mado.setString(Tag.PatientBirthDate, VR.DA, studyAttrs.getString(Tag.PatientBirthDate, ""));
-        mado.setString(Tag.PatientSex, VR.CS, studyAttrs.getString(Tag.PatientSex, "O"));
+        mado.setString(Tag.PatientSex, VR.CS, SCUManifestCreator.normalizePatientSex(studyAttrs.getString(Tag.PatientSex, "O")));
 
         // IssuerOfPatientID - XDS-I.b recommendation
         String issuerOfPatientID = studyAttrs.getString(Tag.IssuerOfPatientID, defaults.patientIdIssuerLocalNamespace);
@@ -149,13 +148,17 @@ public class MADOSCUManifestCreator extends SCUManifestCreator {
         String studyTime = studyAttrs.getString(Tag.StudyTime, "");
         String accessionNumber = studyAttrs.getString(Tag.AccessionNumber, "");
 
+        // Some archives return invalid UID components that start with '0' (e.g. ...061159... or ...002).
+        // When writing a manifest, ensure the output file remains standards-compliant.
+        String normalizedStudyInstanceUID = normalizeUidNoLeadingZeros(studyInstanceUID);
+
         // MADO requires AccessionNumber to be present (Type R+) even if PACS didn't return it.
         // Use a safe placeholder if missing.
         if (accessionNumber == null || accessionNumber.trim().isEmpty()) {
             accessionNumber = "ACC-" + java.util.UUID.randomUUID().toString().substring(0, 8).toUpperCase();
         }
 
-        mado.setString(Tag.StudyInstanceUID, VR.UI, studyInstanceUID);
+        mado.setString(Tag.StudyInstanceUID, VR.UI, normalizedStudyInstanceUID);
         mado.setString(Tag.StudyDate, VR.DA, studyDate);
         mado.setString(Tag.StudyTime, VR.TM, studyTime);
         mado.setString(Tag.ReferringPhysicianName, VR.PN,
@@ -170,7 +173,7 @@ public class MADOSCUManifestCreator extends SCUManifestCreator {
         addAccessionNumberIssuer(mado, defaults.accessionNumberIssuerOid);
 
         // SR Document Series Module
-        String seriesInstanceUID = UIDUtils.createUID();
+        String seriesInstanceUID = createNormalizedUid();
         mado.setString(Tag.SeriesInstanceUID, VR.UI, seriesInstanceUID);
         mado.setString(Tag.SeriesNumber, VR.IS, "1");
         // For Key Object Selection documents the modality must be KO.
@@ -221,14 +224,15 @@ public class MADOSCUManifestCreator extends SCUManifestCreator {
         // Evidence Sequence (CurrentRequestedProcedureEvidenceSequence)
         Sequence evidenceSeq = mado.newSequence(Tag.CurrentRequestedProcedureEvidenceSequence, 1);
         Attributes studyItem = new Attributes();
-        studyItem.setString(Tag.StudyInstanceUID, VR.UI, studyInstanceUID);
+        studyItem.setString(Tag.StudyInstanceUID, VR.UI, normalizedStudyInstanceUID);
 
         Sequence refSeriesSeq = studyItem.newSequence(Tag.ReferencedSeriesSequence, allSeries.size());
 
         for (SeriesData sd : allSeries) {
             Attributes seriesItem = new Attributes();
             String serUID = sd.seriesAttrs.getString(Tag.SeriesInstanceUID);
-            seriesItem.setString(Tag.SeriesInstanceUID, VR.UI, serUID);
+            String normalizedSerUID = normalizeUidNoLeadingZeros(serUID);
+            seriesItem.setString(Tag.SeriesInstanceUID, VR.UI, normalizedSerUID);
 
             // MADO Appendix B: Modality at series level (Type 1)
             String modality = sd.seriesAttrs.getString(Tag.Modality, "OT");
@@ -238,8 +242,8 @@ public class MADOSCUManifestCreator extends SCUManifestCreator {
             seriesItem.setString(Tag.RetrieveLocationUID, VR.UI, defaults.retrieveLocationUid);
 
             // Build WADO-RS URL
-            String wadoUrl = defaults.wadoRsBaseUrl + "/" + studyInstanceUID +
-                "/series/" + serUID;
+            String wadoUrl = defaults.wadoRsBaseUrl + "/" + normalizedStudyInstanceUID +
+                "/series/" + normalizedSerUID;
             seriesItem.setString(Tag.RetrieveURL, VR.UR, wadoUrl);
 
             Sequence refSOPSeq = seriesItem.newSequence(Tag.ReferencedSOPSequence, sd.instances.size());
@@ -249,7 +253,8 @@ public class MADOSCUManifestCreator extends SCUManifestCreator {
                 sopItem.setString(Tag.ReferencedSOPClassUID, VR.UI,
                     instAttrs.getString(Tag.SOPClassUID));
                 sopItem.setString(Tag.ReferencedSOPInstanceUID, VR.UI,
-                    instAttrs.getString(Tag.SOPInstanceUID));
+                    normalizeUidNoLeadingZeros(instAttrs.getString(Tag.SOPInstanceUID)));
+
 
                 // MADO Appendix B: Add NumberOfFrames if multiframe
                 String numFrames = instAttrs.getString(Tag.NumberOfFrames);
@@ -287,7 +292,7 @@ public class MADOSCUManifestCreator extends SCUManifestCreator {
         issuerAcc.setString(Tag.UniversalEntityIDType, VR.CS, "ISO");
         issuerAccSeq.add(issuerAcc);
 
-        reqItem.setString(Tag.StudyInstanceUID, VR.UI, studyInstanceUID);
+        reqItem.setString(Tag.StudyInstanceUID, VR.UI, normalizedStudyInstanceUID);
         reqItem.setString(Tag.RequestedProcedureID, VR.SH, "RP001");
         reqItem.setString(Tag.PlacerOrderNumberImagingServiceRequest, VR.LO, "PO001");
         reqItem.setString(Tag.FillerOrderNumberImagingServiceRequest, VR.LO, "FO001");
@@ -310,7 +315,7 @@ public class MADOSCUManifestCreator extends SCUManifestCreator {
 
         // Study Instance UID (already present)
         contentSeq.add(createUIDRefItem(be.uzleuven.ihe.dicom.constants.DicomConstants.RELATIONSHIP_CONTAINS,
-            CODE_STUDY_INSTANCE_UID, SCHEME_DCM, MEANING_STUDY_INSTANCE_UID, studyInstanceUID));
+            CODE_STUDY_INSTANCE_UID, SCHEME_DCM, MEANING_STUDY_INSTANCE_UID, normalizedStudyInstanceUID));
 
         // Provide a sensible default target region to satisfy R+ requirement.
         contentSeq.add(createCodeItem(be.uzleuven.ihe.dicom.constants.DicomConstants.RELATIONSHIP_CONTAINS,
@@ -329,7 +334,7 @@ public class MADOSCUManifestCreator extends SCUManifestCreator {
         // TID 1600 Study-level requirements under the Image Library container as well.
         libContent.add(createCodeItem("HAS ACQ CONTEXT", CODE_MODALITY, SCHEME_DCM, MEANING_MODALITY,
             code(studyModality, SCHEME_DCM, studyModality)));
-        libContent.add(createUIDRefItem("HAS ACQ CONTEXT", CODE_STUDY_INSTANCE_UID, SCHEME_DCM, MEANING_STUDY_INSTANCE_UID, studyInstanceUID));
+        libContent.add(createUIDRefItem("HAS ACQ CONTEXT", CODE_STUDY_INSTANCE_UID, SCHEME_DCM, MEANING_STUDY_INSTANCE_UID, normalizedStudyInstanceUID));
         libContent.add(createCodeItem("HAS ACQ CONTEXT", CODE_TARGET_REGION, SCHEME_DCM, MEANING_TARGET_REGION,
             code(CODE_REGION_ABDOMEN, SCHEME_SRT, MEANING_REGION_ABDOMEN)));
 
@@ -350,10 +355,19 @@ public class MADOSCUManifestCreator extends SCUManifestCreator {
             String seriesDate = sd.seriesAttrs.getString(Tag.SeriesDate, studyDate);
             String seriesTime = sd.seriesAttrs.getString(Tag.SeriesTime, studyTime);
 
+            String normalizedSeriesUid = normalizeUidNoLeadingZeros(seriesUid);
+
+            // SR TEXT ValueType has Type 1 TextValue (0040,A160): it must be present and non-empty.
+            // Some archives omit SeriesDescription (0008,103E); keep the content tree valid by using a
+            // deterministic fallback rather than emitting an empty TextValue.
+            if (seriesDescription == null || seriesDescription.trim().isEmpty()) {
+                seriesDescription = "(no Series Description)";
+            }
+
             // TID 1602 series-level metadata
             groupSeq.add(createCodeItem("HAS ACQ CONTEXT", CODE_MODALITY, SCHEME_DCM, MEANING_MODALITY,
                 code(seriesModality, SCHEME_DCM, seriesModality)));
-            groupSeq.add(createUIDRefItem("HAS ACQ CONTEXT", CODE_SERIES_INSTANCE_UID, SCHEME_DCM, MEANING_SERIES_INSTANCE_UID, seriesUid));
+            groupSeq.add(createUIDRefItem("HAS ACQ CONTEXT", CODE_SERIES_INSTANCE_UID, SCHEME_DCM, MEANING_SERIES_INSTANCE_UID, normalizedSeriesUid));
             groupSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_SERIES_DESCRIPTION, SCHEME_DCM, MEANING_SERIES_DESCRIPTION, seriesDescription));
             groupSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_SERIES_DATE, SCHEME_DCM, MEANING_SERIES_DATE, seriesDate));
             groupSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_SERIES_TIME, SCHEME_DCM, MEANING_SERIES_TIME, seriesTime));
@@ -374,12 +388,31 @@ public class MADOSCUManifestCreator extends SCUManifestCreator {
                     Sequence refSop = entry.newSequence(Tag.ReferencedSOPSequence, 1);
                     Attributes refItem = new Attributes();
                     refItem.setString(Tag.ReferencedSOPClassUID, VR.UI, instAttrs.getString(Tag.SOPClassUID));
-                    refItem.setString(Tag.ReferencedSOPInstanceUID, VR.UI, instAttrs.getString(Tag.SOPInstanceUID));
+                    refItem.setString(Tag.ReferencedSOPInstanceUID, VR.UI, normalizeUidNoLeadingZeros(instAttrs.getString(Tag.SOPInstanceUID)));
                     refSop.add(refItem);
 
                     Sequence entryContent = entry.newSequence(Tag.ContentSequence, 10);
                     entryContent.add(createTextItem("HAS ACQ CONTEXT", CODE_INSTANCE_NUMBER, SCHEME_DCM,
                         MEANING_INSTANCE_NUMBER, Integer.toString(instanceNumberCounter++)));
+
+                    // MADO TID 1601: Number of Frames (121140, DCM) is conditionally required when
+                    // the referenced SOP Class is multiframe.
+                    String sopClassUID = instAttrs.getString(Tag.SOPClassUID);
+                    if (be.uzleuven.ihe.dicom.validator.validation.tid1600.TID1600Rules.isMultiframeSOP(sopClassUID)) {
+                        String numFramesStr = instAttrs.getString(Tag.NumberOfFrames);
+                        if (numFramesStr != null) {
+                            numFramesStr = numFramesStr.trim();
+                        }
+                        if (numFramesStr != null && !numFramesStr.isEmpty()) {
+                            try {
+                                int numFrames = Integer.parseInt(numFramesStr);
+                                entryContent.add(createNumericItem("HAS ACQ CONTEXT", CODE_NUMBER_OF_FRAMES, SCHEME_DCM,
+                                    MEANING_NUMBER_OF_FRAMES, numFrames));
+                            } catch (NumberFormatException ignore) {
+                                // Keep the manifest valid; omission will be caught by validator if required.
+                            }
+                        }
+                    }
 
                     groupSeq.add(entry);
                 }

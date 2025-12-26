@@ -7,12 +7,16 @@ import org.dcm4che3.net.*;
 import org.dcm4che3.net.pdu.AAssociateRQ;
 import org.dcm4che3.net.pdu.PresentationContext;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+
+import static be.uzleuven.ihe.dicom.creator.utils.DicomCreatorUtils.writeDicomFile;
+import be.uzleuven.ihe.dicom.creator.scu.streaming.ManifestStreamWriter;
 
 /**
  * Base class for SCU (Service Class User) manifest creators.
@@ -279,6 +283,10 @@ public abstract class SCUManifestCreator {
             remote.setHostname(defaults.remoteHost);
             remote.setPort(defaults.remotePort);
 
+            // Configure timeouts
+            conn.setConnectTimeout(defaults.connectTimeout);
+            conn.setResponseTimeout(defaults.responseTimeout);
+
             // Create association request
             AAssociateRQ rq = new AAssociateRQ();
             rq.setCallingAET(defaults.callingAET);
@@ -334,6 +342,17 @@ public abstract class SCUManifestCreator {
     }
 
     /**
+     * Public/CLI-friendly entrypoint for performing an arbitrary C-FIND with custom keys.
+     *
+     * This is intentionally a thin wrapper around the internal implementation so higher-level
+     * query services can add search modes (accessionNumber, patientID, studyDate, ...)
+     * without duplicating DIMSE boilerplate.
+     */
+    public CFindResult performCFindPublic(Attributes keys) throws IOException {
+        return performCFind(keys);
+    }
+
+    /**
      * Apply default metadata to attributes that are missing from C-FIND response.
      * Subclasses should call this to ensure compliance with IHE requirements.
      */
@@ -368,8 +387,102 @@ public abstract class SCUManifestCreator {
     }
 
     /**
+     * Normalizes PatientSex (0010,0040) to valid DICOM enumerated values.
+     *
+     * Valid values are: M, F, O, or empty.
+     * Some upstream systems use non-standard values (e.g. 'W').
+     */
+    protected static String normalizePatientSex(String patientSex) {
+        if (patientSex == null) {
+            return "";
+        }
+        String s = patientSex.trim().toUpperCase();
+        if (s.isEmpty()) {
+            return "";
+        }
+        if ("M".equals(s) || "F".equals(s) || "O".equals(s)) {
+            return s;
+        }
+        // Common non-standard mappings
+        if ("W".equals(s)) { // woman
+            return "F";
+        }
+        if ("MAN".equals(s) || "MALE".equals(s)) {
+            return "M";
+        }
+        if ("WOMAN".equals(s) || "FEMALE".equals(s)) {
+            return "F";
+        }
+        // Fallback for unknown/unsupported values
+        return "O";
+    }
+
+    /**
+     * Saves a generated manifest to a DICOM Part-10 file.
+     *
+     * Subclasses previously duplicated this method; keeping it here avoids CLI downcasts.
+     */
+    public void saveToFile(Attributes manifest, File outputFile) throws IOException {
+        writeDicomFile(outputFile, manifest);
+    }
+
+    /**
      * Creates a manifest (KOS or MADO) from C-FIND results.
      * To be implemented by subclasses.
      */
     public abstract Attributes createManifest(String studyInstanceUid, String patientId) throws IOException;
+
+    /**
+     * Stream study/series/instance metadata to a writer, avoiding large in-memory lists.
+     *
+     * This is intended for huge PACS crawls where building an entire manifest dataset in memory
+     * per study could exhaust heap.
+     */
+    public void streamStudy(String studyInstanceUid, String patientId, ManifestStreamWriter writer) throws IOException {
+        // Step 1: Query study
+        CFindResult studyResult = findStudy(studyInstanceUid, patientId);
+        if (!studyResult.isSuccess() || studyResult.getMatches().isEmpty()) {
+            throw new IOException("Study not found: " + studyInstanceUid +
+                ". Error: " + studyResult.getErrorMessage());
+        }
+
+        Attributes studyAttrs = studyResult.getMatches().get(0);
+        applyDefaults(studyAttrs);
+        writer.openStudy(studyAttrs);
+
+        // Step 2: Query series
+        CFindResult seriesResult = findSeries(studyInstanceUid, null);
+        if (!seriesResult.isSuccess() || seriesResult.getMatches().isEmpty()) {
+            throw new IOException("No series found for study: " + studyInstanceUid);
+        }
+
+        // Step 3: For each series, query instances and stream them immediately
+        for (Attributes seriesAttrs : seriesResult.getMatches()) {
+            // Series-level responses from most PACS won't echo StudyInstanceUID, but our writer
+            // benefits from it for indexing.
+            seriesAttrs.setString(Tag.StudyInstanceUID, VR.UI, studyInstanceUid);
+
+            writer.openSeries(seriesAttrs);
+
+            String seriesInstanceUid = seriesAttrs.getString(Tag.SeriesInstanceUID);
+            if (seriesInstanceUid == null || seriesInstanceUid.trim().isEmpty()) {
+                writer.closeSeries();
+                continue;
+            }
+
+            CFindResult instanceResult = findInstances(studyInstanceUid, seriesInstanceUid);
+            if (instanceResult.isSuccess() && !instanceResult.getMatches().isEmpty()) {
+                for (Attributes instAttrs : instanceResult.getMatches()) {
+                    // Ensure identifiers are present in the instance record.
+                    instAttrs.setString(Tag.StudyInstanceUID, VR.UI, studyInstanceUid);
+                    instAttrs.setString(Tag.SeriesInstanceUID, VR.UI, seriesInstanceUid);
+                    writer.writeInstance(instAttrs);
+                }
+            }
+
+            writer.closeSeries();
+        }
+
+        writer.closeStudy();
+    }
 }

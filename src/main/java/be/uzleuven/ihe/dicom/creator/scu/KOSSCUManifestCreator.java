@@ -1,7 +1,6 @@
 package be.uzleuven.ihe.dicom.creator.scu;
 
 import org.dcm4che3.data.*;
-import org.dcm4che3.util.UIDUtils;
 
 import java.io.File;
 import java.io.IOException;
@@ -115,7 +114,7 @@ public class KOSSCUManifestCreator extends SCUManifestCreator {
         Attributes kos = new Attributes();
 
         // File Meta Information
-        String sopInstanceUID = UIDUtils.createUID();
+        String sopInstanceUID = createNormalizedUid();
         kos.setString(Tag.SOPClassUID, VR.UI, UID.KeyObjectSelectionDocumentStorage);
         kos.setString(Tag.SOPInstanceUID, VR.UI, sopInstanceUID);
 
@@ -128,7 +127,7 @@ public class KOSSCUManifestCreator extends SCUManifestCreator {
         kos.setString(Tag.PatientID, VR.LO, patientID);
         kos.setString(Tag.PatientName, VR.PN, patientName);
         kos.setString(Tag.PatientBirthDate, VR.DA, studyAttrs.getString(Tag.PatientBirthDate, ""));
-        kos.setString(Tag.PatientSex, VR.CS, studyAttrs.getString(Tag.PatientSex, "O"));
+        kos.setString(Tag.PatientSex, VR.CS, SCUManifestCreator.normalizePatientSex(studyAttrs.getString(Tag.PatientSex, "O")));
 
         // Add Patient ID Issuer with OID (IHE requirement)
         String issuerOfPatientID = studyAttrs.getString(Tag.IssuerOfPatientID, defaults.patientIdIssuerLocalNamespace);
@@ -141,7 +140,11 @@ public class KOSSCUManifestCreator extends SCUManifestCreator {
         String studyTime = studyAttrs.getString(Tag.StudyTime, "");
         String accessionNumber = studyAttrs.getString(Tag.AccessionNumber, "");
 
-        kos.setString(Tag.StudyInstanceUID, VR.UI, studyInstanceUID);
+        // Some datasets contain invalid UID components that start with '0' (e.g. ...061159... or ...002).
+        // When writing a manifest, we must ensure the resulting KOS is standards-compliant.
+        String normalizedStudyInstanceUID = normalizeUidNoLeadingZeros(studyInstanceUID);
+
+        kos.setString(Tag.StudyInstanceUID, VR.UI, normalizedStudyInstanceUID);
         kos.setString(Tag.StudyDate, VR.DA, studyDate);
         kos.setString(Tag.StudyTime, VR.TM, studyTime);
         kos.setString(Tag.ReferringPhysicianName, VR.PN,
@@ -157,7 +160,7 @@ public class KOSSCUManifestCreator extends SCUManifestCreator {
         }
 
         // SR Document Series Module
-        String seriesInstanceUID = UIDUtils.createUID();
+        String seriesInstanceUID = createNormalizedUid();
         kos.setString(Tag.SeriesInstanceUID, VR.UI, seriesInstanceUID);
         kos.setString(Tag.SeriesNumber, VR.IS, "1");
         kos.setString(Tag.Modality, VR.CS, "KO");
@@ -195,7 +198,7 @@ public class KOSSCUManifestCreator extends SCUManifestCreator {
         conceptNameCodeSeq.add(code(CODE_MANIFEST, SCHEME_DCM, MEANING_MANIFEST));
 
         // ReferencedRequestSequence - Type 2 (required to be present, can be empty)
-        populateReferencedRequestSequenceWithIssuer(kos, studyInstanceUID, accessionNumber, defaults.accessionNumberIssuerOid);
+        populateReferencedRequestSequenceWithIssuer(kos, normalizedStudyInstanceUID, accessionNumber, defaults.accessionNumberIssuerOid);
 
         // SR Document Content Module - Root level attributes
         kos.setString(Tag.ValueType, VR.CS, "CONTAINER");
@@ -208,21 +211,22 @@ public class KOSSCUManifestCreator extends SCUManifestCreator {
         // Evidence Sequence (CurrentRequestedProcedureEvidenceSequence)
         Sequence evidenceSeq = kos.newSequence(Tag.CurrentRequestedProcedureEvidenceSequence, 1);
         Attributes studyItem = new Attributes();
-        studyItem.setString(Tag.StudyInstanceUID, VR.UI, studyInstanceUID);
+        studyItem.setString(Tag.StudyInstanceUID, VR.UI, normalizedStudyInstanceUID);
 
         Sequence refSeriesSeq = studyItem.newSequence(Tag.ReferencedSeriesSequence, allSeries.size());
 
         for (SeriesData sd : allSeries) {
             Attributes seriesItem = new Attributes();
             String serUID = sd.seriesAttrs.getString(Tag.SeriesInstanceUID);
-            seriesItem.setString(Tag.SeriesInstanceUID, VR.UI, serUID);
+            String normalizedSerUID = normalizeUidNoLeadingZeros(serUID);
+            seriesItem.setString(Tag.SeriesInstanceUID, VR.UI, normalizedSerUID);
 
             // Add retrieval information (XDS-I.b requirement)
             seriesItem.setString(Tag.RetrieveLocationUID, VR.UI, defaults.retrieveLocationUid);
 
             // Build WADO-RS URL
-            String wadoUrl = defaults.wadoRsBaseUrl + "/" + studyInstanceUID +
-                "/series/" + serUID;
+            String wadoUrl = defaults.wadoRsBaseUrl + "/" + normalizedStudyInstanceUID +
+                "/series/" + normalizedSerUID;
             seriesItem.setString(Tag.RetrieveURL, VR.UR, wadoUrl);
 
             Sequence refSOPSeq = seriesItem.newSequence(Tag.ReferencedSOPSequence, sd.instances.size());
@@ -232,7 +236,7 @@ public class KOSSCUManifestCreator extends SCUManifestCreator {
                 sopItem.setString(Tag.ReferencedSOPClassUID, VR.UI,
                     instAttrs.getString(Tag.SOPClassUID));
                 sopItem.setString(Tag.ReferencedSOPInstanceUID, VR.UI,
-                    instAttrs.getString(Tag.SOPInstanceUID));
+                    normalizeUidNoLeadingZeros(instAttrs.getString(Tag.SOPInstanceUID)));
                 refSOPSeq.add(sopItem);
             }
 
@@ -250,7 +254,7 @@ public class KOSSCUManifestCreator extends SCUManifestCreator {
                 Attributes imageRef = createImageItem("CONTAINS",
                     code(CODE_IMAGE, SCHEME_DCM, MEANING_IMAGE),
                     instAttrs.getString(Tag.SOPClassUID),
-                    instAttrs.getString(Tag.SOPInstanceUID)
+                    normalizeUidNoLeadingZeros(instAttrs.getString(Tag.SOPInstanceUID))
                 );
                 contentSeq.add(imageRef);
             }

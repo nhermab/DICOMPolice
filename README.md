@@ -28,7 +28,7 @@ mvn spring-boot:run
 java -cp target\DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.validator.CLIDICOMVerify your-file.dcm
 
 # Generate a sample KOS file
-java -cp target\DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.creator.IHEKOSSampleCreator
+java -cp target\DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.creator.samples.IHEKOSSampleCreator
 ```
 
 ---
@@ -57,6 +57,7 @@ java -cp target\DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.creator.IHE
 
 ### Sample Generation
 - ✅ **Valid Sample Creators**: Generate compliant IHE KOS and MADO manifests for testing
+- ✅ **API sample generation**: The REST API can also generate+validate a sample if you omit `inputs` in the request body
 - 🎲 **EVIL Generators**: Create intentionally malformed files with controlled randomness
   - 20% chance of missing required elements
   - 5% chance of explicit corruptions
@@ -181,17 +182,73 @@ java -cp target\DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.validator.C
 
 Generated samples are written to the current working directory.
 
+#### SCU manifest creation (query a PACS via C-FIND)
+
+In addition to generating synthetic sample files, DICOMPolice can also act as a **DICOM SCU** (Query/Retrieve client) to **query a PACS using Study Root C-FIND** and create a manifest based on the returned metadata:
+
+- **KOS (IHE XDS-I.b Imaging Manifest)**: `be.uzleuven.ihe.dicom.creator.scu.KOSSCUManifestCreator`
+- **MADO (Manifest with Description / TID 1600 Image Library)**: `be.uzleuven.ihe.dicom.creator.scu.MADOSCUManifestCreator`
+
+This does **not** download DICOM objects. It builds a KOS/MADO document that references the study/series/instances and populates retrieval information (e.g. WADO-RS `RetrieveURL`) based on the provided `-wado` base URL.
+
+**Prerequisites**
+- The remote archive must support **Study Root Query/Retrieve Information Model - FIND (C-FIND)**.
+- AE titles/host/port must match the remote PACS configuration.
+
+**Command-line options (both KOS and MADO)**
+
+- `-study <StudyInstanceUID>` (required)
+- `-pid <PatientID>` (optional; if omitted, the creator queries without a PatientID constraint)
+- Connection:
+  - `-aec <CalledAET>` (default: `ORTHANC`)
+  - `-aet <CallingAET>` (default: `DICOMPOLICE`)
+  - `-host <hostname>` (default: `localhost`)
+  - `-port <port>` (default: `4242`)
+- Output:
+  - `-out <output.dcm>` (default: `KOS_FROM_SCU.dcm` / `MADO_FROM_SCU.dcm`)
+- Defaults injected when the PACS doesn’t return required IHE/MADO metadata:
+  - `-issuer <PatientIDIssuerOID>` (default: `1.2.3.4.5.6.7.8.9`)
+  - `-accissuer <AccessionIssuerOID>` (default: `1.2.3.4.5.6.7.8.10`)
+  - `-repouid <RetrieveLocationUID>` (default: `1.2.3.4.5.6.7.8.9.10`)
+  - `-wado <WADOBaseURL>` (default: `https://pacs.example.org/dicom-web/studies`)
+
+**Create a KOS from a PACS (C-FIND)**
+
+```cmd
+java -cp target\DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.creator.scu.KOSSCUManifestCreator -study <StudyInstanceUID> -pid <PatientID> -aec <CalledAET> -aet <CallingAET> -host <host> -port <port> -wado https://pacs.example.org/dicom-web/studies -out KOS_FROM_SCU.dcm
+```
+
+**Create a MADO from a PACS (C-FIND)**
+
+```cmd
+java -cp target\DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.creator.scu.MADOSCUManifestCreator -study <StudyInstanceUID> -pid <PatientID> -aec <CalledAET> -aet <CallingAET> -host <host> -port <port> -wado https://pacs.example.org/dicom-web/studies -out MADO_FROM_SCU.dcm
+```
+
+**Runnable code example**
+
+There is also a small Java runner you can execute (hardcoded example settings inside):
+
+```cmd
+java -cp target\DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.creator.scu.SCUExample kos
+java -cp target\DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.creator.scu.SCUExample mado
+```
+
+**Notes / limitations**
+- Retrieval URLs are constructed as: `{wadoBase}/{StudyUID}/series/{SeriesUID}`. Real PACS deployments may use different URL schemes.
+- For MADO, if the PACS does not return an `AccessionNumber`, the creator generates a placeholder `ACC-<random>` to satisfy MADO requirements.
+- Very large studies can be slow because the CLI creators query all series and instances and keep them in memory.
+
 #### IHE XDS-I.b KOS samples
 
 ```cmd
 REM Create a single KOS sample (default behavior: random sizes)
-java -cp target\DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.creator.IHEKOSSampleCreator
+java -cp target\DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.creator.samples.IHEKOSSampleCreator
 
 REM Create deterministic default-size samples
-java -cp target\DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.creator.IHEKOSSampleCreator --default-sizes
+java -cp target\DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.creator.samples.IHEKOSSampleCreator --default-sizes
 
 REM Create N samples
-java -cp target\DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.creator.IHEKOSSampleCreator 10
+java -cp target\DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.creator.samples.IHEKOSSampleCreator 10
 ```
 
 Notes:
@@ -201,13 +258,13 @@ Notes:
 
 ```cmd
 REM Create a single MADO sample (default behavior: random sizes)
-java -cp target\DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.creator.IHEMADOSampleCreator
+java -cp target\DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.creator.samples.IHEMADOSampleCreator
 
 REM Create deterministic default-size samples (aligned to KOS defaults)
-java -cp target\DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.creator.IHEMADOSampleCreator --default-sizes
+java -cp target\DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.creator.samples.IHEMADOSampleCreator --default-sizes
 
 REM Create N samples
-java -cp target\DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.creator.IHEMADOSampleCreator 10
+java -cp target\DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.creator.samples.IHEMADOSampleCreator 10
 ```
 
 #### Helper “generate + validate” runners
@@ -215,8 +272,8 @@ java -cp target\DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.creator.IHE
 For quick local development runs, the repo includes small runners that generate a file and immediately validate it:
 
 ```cmd
-java -cp target\DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.creator.GenerateAndValidateKOS
-java -cp target\DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.creator.GenerateAndValidateMado
+java -cp target\DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.creator.samples.GenerateAndValidateKOS
+java -cp target\DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.creator.samples.GenerateAndValidateMado
 ```
 
 ### EVIL (intentionally broken) generators
@@ -269,7 +326,21 @@ The REST API is available at `/validation/v2` when the web server is running.
 - `IHEXDSIManifest` - IHE XDS-I.b Key Object Selection
 - `IHEMADO` - MADO Manifest with Descriptors
 
-### Example Usage
+### Generate + validate a sample (no input file)
+
+If you omit the `inputs` array in the request body, the service will generate a compliant sample (KOS or MADO), validate it, and return the report.
+
+```cmd
+curl -X POST http://localhost:8080/validation/v2/validate ^
+  -H "Content-Type: application/json" ^
+  -d "{\"validationProfileId\":\"IHE.RAD.MADO\"}"
+```
+
+### Example: list profiles
+
+```cmd
+curl -X GET http://localhost:8080/validation/v2/profiles -H "Accept: application/json"
+```
 
 See [API_README.md](API_README.md) for complete API documentation, request/response formats, and integration examples.
 

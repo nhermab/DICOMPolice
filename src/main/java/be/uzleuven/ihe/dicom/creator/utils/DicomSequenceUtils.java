@@ -5,6 +5,7 @@ import org.dcm4che3.data.*;
 import java.util.List;
 
 import static be.uzleuven.ihe.dicom.creator.utils.DicomCreatorUtils.randomInt;
+import static be.uzleuven.ihe.dicom.creator.utils.DicomCreatorUtils.createNormalizedUid;
 
 /**
  * Utility methods for populating DICOM sequences (Evidence, Referenced Request, etc.).
@@ -69,8 +70,7 @@ public class DicomSequenceUtils {
 
         Sequence refSeries = studyItem.newSequence(Tag.ReferencedSeriesSequence, 1);
         Attributes seriesItem = new Attributes();
-        String actualSeriesUID = seriesInstanceUID != null ? seriesInstanceUID :
-                                 org.dcm4che3.util.UIDUtils.createUID();
+        String actualSeriesUID = seriesInstanceUID != null ? seriesInstanceUID : createNormalizedUid();
         seriesItem.setString(Tag.SeriesInstanceUID, VR.UI, actualSeriesUID);
 
         // Per IHE XDS-I.b DICOM Retrieve by WADO-RS Option:
@@ -114,4 +114,3 @@ public class DicomSequenceUtils {
         issuerAccSeq.add(issuerAcc);
     }
 }
-

@@ -2,7 +2,6 @@ package be.uzleuven.ihe.dicom.creator.samples;
 
 import be.uzleuven.ihe.dicom.constants.DicomConstants;
 import org.dcm4che3.data.*;
-import org.dcm4che3.util.UIDUtils;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -217,7 +216,7 @@ public class IHEKOSSampleCreator {
 
         // --- SOP Common ---
         d.setString(Tag.SOPClassUID, VR.UI, UID.KeyObjectSelectionDocumentStorage);
-        String kosSopInstanceUid = UIDUtils.createUID();
+        String kosSopInstanceUid = createNormalizedUid();
         d.setString(Tag.SOPInstanceUID, VR.UI, kosSopInstanceUid);
 
         // --- Patient IE (Patient Module: Type 2 in DICOM, but we populate) ---
@@ -233,7 +232,7 @@ public class IHEKOSSampleCreator {
         d.setString(Tag.PatientSex, VR.CS, randomFrom("M", "F", "O"));
 
         // --- Study IE (General Study) ---
-        String studyInstanceUid = UIDUtils.createUID();
+        String studyInstanceUid = createNormalizedUid();
         d.setString(Tag.StudyInstanceUID, VR.UI, studyInstanceUid);
         d.setString(Tag.StudyID, VR.SH, String.format("%04d", 1 + randomInt(9999)));
         d.setString(Tag.StudyDate, VR.DA, todayYYYYMMDD());
@@ -248,7 +247,7 @@ public class IHEKOSSampleCreator {
 
         // --- Series IE (Key Object Document Series) ---
         d.setString(Tag.Modality, VR.CS, "KO");
-        d.setString(Tag.SeriesInstanceUID, VR.UI, UIDUtils.createUID());
+        d.setString(Tag.SeriesInstanceUID, VR.UI, createNormalizedUid());
         d.setInt(Tag.SeriesNumber, VR.IS, 1 + randomInt(99));
         // Type 2 sequence: include empty item to satisfy "present" semantics.
         d.newSequence(Tag.ReferencedPerformedProcedureStepSequence, 1).add(new Attributes());
@@ -342,7 +341,7 @@ public class IHEKOSSampleCreator {
         int idx = 0;
         for (int s = 0; s < resolvedSeriesCount; s++) {
             Attributes seriesItem = new Attributes();
-            String seriesInstanceUID = UIDUtils.createUID();
+            String seriesInstanceUID = createNormalizedUid();
             seriesItem.setString(Tag.SeriesInstanceUID, VR.UI, seriesInstanceUID);
 
             // CRITICAL XDS-I.b REQUIREMENT: Retrieve Location UID (0040,E011)
@@ -398,7 +397,7 @@ public class IHEKOSSampleCreator {
             }
 
             sop.setString(Tag.ReferencedSOPClassUID, VR.UI, sopClass);
-            sop.setString(Tag.ReferencedSOPInstanceUID, VR.UI, UIDUtils.createUID());
+            sop.setString(Tag.ReferencedSOPInstanceUID, VR.UI, createNormalizedUid());
             sops.add(sop);
         }
 
