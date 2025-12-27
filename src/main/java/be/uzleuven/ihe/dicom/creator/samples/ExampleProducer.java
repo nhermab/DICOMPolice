@@ -12,7 +12,6 @@ import static be.uzleuven.ihe.dicom.creator.utils.DicomCreatorUtils.writeDicomFi
 
 /**
  * Bulk sample producer.
- *
  * Contract:
  * - Creates N files for each category:
  *   - GOOD KOS  -> ./GOODKOS
@@ -21,7 +20,6 @@ import static be.uzleuven.ihe.dicom.creator.utils.DicomCreatorUtils.writeDicomFi
  *   - EVIL MADO -> ./BADMADO
  * - Keeps the existing random-generation behavior by delegating to the existing creators.
  * - Guarantees unique filenames (timestamp + counter).
- *
  * Usage:
  *   java be.uzleuven.ihe.dicom.creator.samples.ExampleProducer 2000
  *   java be.uzleuven.ihe.dicom.creator.samples.ExampleProducer 2000 C:\\path\\to\\workspace
@@ -46,8 +44,7 @@ public class ExampleProducer {
 
         produceGoodKos(perTypeCount, goodKosDir, runId);
         produceGoodMado(perTypeCount, goodMadoDir, runId);
-        //produceEvilKos(perTypeCount, evilKosDir, runId);
-        //produceEvilMado(perTypeCount, evilMadoDir, runId);
+
 
         System.out.println("Done. Produced " + perTypeCount + " files each into:\n" +
                 "  " + goodKosDir.getAbsolutePath() + "\n" +

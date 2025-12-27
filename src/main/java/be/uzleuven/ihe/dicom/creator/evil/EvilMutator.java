@@ -6,7 +6,6 @@ import org.dcm4che3.data.VR;
 
 /**
  * Applies small corruptions to a DICOM dataset.
- *
  * The goal isn't to crash dcm4che, but to violate profile/spec expectations in realistic ways.
  */
 public final class EvilMutator {

@@ -11,11 +11,9 @@ import java.io.IOException;
 /**
  * Validator for DICOM Part 10 File Format compliance.
  * Validates the 128-byte preamble, "DICM" prefix, and file structure.
- *
  * Per MADO Requirements V-STR-01:
  * - File MUST begin with 128-byte preamble (typically null bytes)
  * - Bytes 128-131 MUST contain ASCII "DICM"
- *
  * This validator operates directly on the file before dataset parsing.
  */
 public final class Part10FileValidator {
@@ -92,7 +90,6 @@ public final class Part10FileValidator {
     /**
      * Validate that File Meta Information Group (0002) is present and correct.
      * This is called after dataset parsing but checks File Meta compliance.
-     *
      * Per MADO Requirements V-STR-02:
      * - Media Storage SOP Class UID (0002,0002) MUST equal Key Object Selection UID
      * - Transfer Syntax UID (0002,0010) SHOULD be Explicit VR Little Endian

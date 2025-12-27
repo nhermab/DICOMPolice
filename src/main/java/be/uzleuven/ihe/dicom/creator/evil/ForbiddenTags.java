@@ -6,11 +6,9 @@ import org.dcm4che3.data.VR;
 
 /**
  * Forbidden DICOM tags for KOS and MADO manifests.
- *
  * These tags are explicitly disallowed in KOS/MADO specifications because:
  * - KOS is a lightweight manifest document (not an image)
  * - Should not contain pixel data, acquisition parameters, or image-specific attributes
- *
  * Reference: XDSIManifestProfileUtils.validateForbiddenElements()
  */
 public final class ForbiddenTags {

@@ -8,7 +8,6 @@ import java.nio.charset.StandardCharsets;
 
 /**
  * NDJSON writer for huge PACS crawls.
- *
  * Writes one JSON object per line with a lightweight schema.
  * This keeps memory usage near-constant.
  */

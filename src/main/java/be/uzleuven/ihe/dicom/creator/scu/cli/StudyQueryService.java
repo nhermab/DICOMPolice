@@ -1,5 +1,6 @@
 package be.uzleuven.ihe.dicom.creator.scu.cli;
 
+import be.uzleuven.ihe.dicom.creator.scu.CFindResult;
 import be.uzleuven.ihe.dicom.creator.scu.SCUManifestCreator;
 import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Tag;
@@ -16,7 +17,6 @@ import java.util.function.Consumer;
 
 /**
  * Centralizes all query patterns needed by the CLI.
- *
  * This is intentionally conservative and uses only STUDY level queries to
  * resolve StudyInstanceUIDs.
  */
@@ -59,7 +59,6 @@ public class StudyQueryService {
 
     /**
      * Resolve studies and emit each {@link StudyDescriptor} to the provided consumer as soon as it is discovered.
-     *
      * This avoids holding the full list of studies in memory AND allows incremental output generation during
      * long-running crawls.
      */
@@ -307,7 +306,7 @@ public class StudyQueryService {
     }
 
     private List<Attributes> creatorCFind(Attributes keys) throws IOException {
-        SCUManifestCreator.CFindResult r = creator.performCFindPublic(keys);
+        CFindResult r = creator.performCFindPublic(keys);
         if (!r.isSuccess()) {
             throw new IOException(r.getErrorMessage() != null ? r.getErrorMessage() : "C-FIND failed");
         }

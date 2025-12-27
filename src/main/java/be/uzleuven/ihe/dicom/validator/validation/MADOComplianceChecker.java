@@ -8,10 +8,8 @@ import be.uzleuven.ihe.dicom.constants.ValidationMessages;
 
 /**
  * MADO Compliance Checker - validates the critical requirements based on IHE MADO Profile.
- *
  * This validator performs a high-level compliance check focusing on the most common
  * issues that cause MADO KOS objects to be rejected:
- *
  * 1. Missing Evidence Sequence (CurrentRequestedProcedureEvidenceSequence)
  * 2. Incorrect Content Structure (flat list vs TID 1600 hierarchy)
  * 3. Wrong Document Title (generic KOS title vs MADO "Manifest")

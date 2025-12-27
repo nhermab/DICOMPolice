@@ -16,7 +16,6 @@ import static be.uzleuven.ihe.dicom.constants.CodeConstants.*;
 /**
  * EVIL generator: creates MADO (manifest with description) documents that randomly omit creation steps
  * or inject wrong tags/values.
- *
  * This is intentionally isolated from the normal generators.
  */
 public class EVILMADOCreator {

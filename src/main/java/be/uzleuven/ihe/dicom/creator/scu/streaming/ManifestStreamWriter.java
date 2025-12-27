@@ -7,7 +7,6 @@ import java.io.IOException;
 
 /**
  * Streaming sink for SCU study/series/instance traversal.
- *
  * Implementations should write data incrementally and avoid keeping large lists in memory.
  */
 public interface ManifestStreamWriter extends Closeable {

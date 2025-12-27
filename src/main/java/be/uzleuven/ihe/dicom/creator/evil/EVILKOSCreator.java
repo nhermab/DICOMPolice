@@ -15,7 +15,6 @@ import static be.uzleuven.ihe.dicom.constants.CodeConstants.*;
 
 /**
  * EVIL generator: creates KOS documents that randomly omit creation steps or inject wrong tags/values.
- *
  * This is intentionally isolated from the normal generators.
  */
 public class EVILKOSCreator {
@@ -214,7 +213,6 @@ public class EVILKOSCreator {
     /**
      * Create a mismatched Content Tree list to violate the DICOM/IHE XDS-I spec.
      * The spec requires: "ALL instances in Evidence MUST appear in Content Tree"
-     *
      * This method creates various types of mismatches:
      * - Fewer instances in Content Tree (missing some from Evidence)
      * - More instances in Content Tree (has extras not in Evidence)

@@ -79,7 +79,6 @@ public final class MADOProfileUtils {
 
     /**
      * Detect which MADO approach is used (cascading decision tree).
-     *
      * Per MADO Requirements Section 7.1:
      * 1. Scan SR Content Tree for (111028, DCM, "Image Library")
      * 2. If found: Execute Path A (Approach 2)

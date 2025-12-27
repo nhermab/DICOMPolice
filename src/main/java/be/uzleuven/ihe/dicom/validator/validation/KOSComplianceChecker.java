@@ -8,7 +8,6 @@ import be.uzleuven.ihe.dicom.constants.ValidationMessages;
 
 /**
  * KOS Compliance Checker - validates critical requirements for standard KOS objects.
- *
  * This validator ensures that KOS objects meet the fundamental DICOM requirements,
  * particularly the Evidence Sequence which is often overlooked but critical.
  */

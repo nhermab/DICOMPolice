@@ -75,7 +75,6 @@ public class KeyObjectContentUtils {
 
     /**
      * Validate KOS content for a specific profile.
-     *
      * Today this is used to support MADO, which extends TID 2010 with TID 1600/16XX where additional
      * ValueTypes (notably NUM) are allowed inside the Image Library subtree.
      */

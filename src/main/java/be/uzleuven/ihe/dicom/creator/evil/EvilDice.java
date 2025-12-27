@@ -6,7 +6,6 @@ import java.util.Random;
 
 /**
  * Random decision helper for EVIL generators.
- *
  * Intentionally isolated in the .evil package so it can't affect normal generators.
  */
 public final class EvilDice {

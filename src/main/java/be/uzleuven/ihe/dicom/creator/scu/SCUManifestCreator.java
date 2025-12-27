@@ -3,17 +3,9 @@ package be.uzleuven.ihe.dicom.creator.scu;
 import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Tag;
 import org.dcm4che3.data.VR;
-import org.dcm4che3.net.*;
-import org.dcm4che3.net.pdu.AAssociateRQ;
-import org.dcm4che3.net.pdu.PresentationContext;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 
 import static be.uzleuven.ihe.dicom.creator.utils.DicomCreatorUtils.writeDicomFile;
 import be.uzleuven.ihe.dicom.creator.scu.streaming.ManifestStreamWriter;
@@ -25,142 +17,8 @@ import be.uzleuven.ihe.dicom.creator.scu.streaming.ManifestStreamWriter;
  */
 public abstract class SCUManifestCreator {
 
-    /**
-     * Configuration for default metadata values when C-FIND responses lack certain attributes.
-     * These defaults are essential for IHE XDS-I.b compliance.
-     */
-    public static class DefaultMetadata {
-        /** Default Patient ID Issuer OID (for IssuerOfPatientIDQualifiersSequence) */
-        public String patientIdIssuerOid = "1.2.3.4.5.6.7.8.9";
-
-        /** Default Accession Number Issuer OID (for IssuerOfAccessionNumberSequence) */
-        public String accessionNumberIssuerOid = "1.2.3.4.5.6.7.8.10";
-
-        /** Default Retrieve Location UID (Repository UID for XDS-I.b) */
-        public String retrieveLocationUid = "1.2.3.4.5.6.7.8.9.10";
-
-        /** Default WADO-RS base URL for retrieval */
-        public String wadoRsBaseUrl = "https://pacs.example.org/dicom-web/studies";
-
-        /** Default Institution Name */
-        public String institutionName = "IHE Demo Hospital";
-
-        /** Default Local Namespace (if IssuerOfPatientID is just a text value) */
-        public String patientIdIssuerLocalNamespace = "HOSPITAL_A";
-
-        /** AE Title of the SCU (this application) */
-        public String callingAET = "DICOMPOLICE";
-
-        /** AE Title of the SCP (remote PACS) */
-        public String calledAET = "ORTHANC";
-
-        /** Hostname or IP of the remote SCP */
-        public String remoteHost = "localhost";
-
-        /** Port of the remote SCP */
-        public int remotePort = 4242;
-
-        /** Connection timeout in milliseconds */
-        public int connectTimeout = 5000;
-
-        /** Response timeout in milliseconds */
-        public int responseTimeout = 10000;
-
-        public DefaultMetadata withPatientIdIssuerOid(String oid) {
-            this.patientIdIssuerOid = oid;
-            return this;
-        }
-
-        public DefaultMetadata withAccessionNumberIssuerOid(String oid) {
-            this.accessionNumberIssuerOid = oid;
-            return this;
-        }
-
-        public DefaultMetadata withRetrieveLocationUid(String uid) {
-            this.retrieveLocationUid = uid;
-            return this;
-        }
-
-        public DefaultMetadata withWadoRsBaseUrl(String url) {
-            this.wadoRsBaseUrl = url;
-            return this;
-        }
-
-        public DefaultMetadata withInstitutionName(String name) {
-            this.institutionName = name;
-            return this;
-        }
-
-        public DefaultMetadata withPatientIdIssuerLocalNamespace(String namespace) {
-            this.patientIdIssuerLocalNamespace = namespace;
-            return this;
-        }
-
-        public DefaultMetadata withCallingAET(String aet) {
-            this.callingAET = aet;
-            return this;
-        }
-
-        public DefaultMetadata withCalledAET(String aet) {
-            this.calledAET = aet;
-            return this;
-        }
-
-        public DefaultMetadata withRemoteHost(String host) {
-            this.remoteHost = host;
-            return this;
-        }
-
-        public DefaultMetadata withRemotePort(int port) {
-            this.remotePort = port;
-            return this;
-        }
-
-        public DefaultMetadata withConnectTimeout(int timeout) {
-            this.connectTimeout = timeout;
-            return this;
-        }
-
-        public DefaultMetadata withResponseTimeout(int timeout) {
-            this.responseTimeout = timeout;
-            return this;
-        }
-    }
-
-    /**
-     * Represents the result of a C-FIND query.
-     */
-    public static class CFindResult {
-        private final List<Attributes> matches = new ArrayList<>();
-        private boolean success = false;
-        private String errorMessage = null;
-
-        public List<Attributes> getMatches() {
-            return matches;
-        }
-
-        public void addMatch(Attributes attrs) {
-            matches.add(attrs);
-        }
-
-        public boolean isSuccess() {
-            return success;
-        }
-
-        public void setSuccess(boolean success) {
-            this.success = success;
-        }
-
-        public String getErrorMessage() {
-            return errorMessage;
-        }
-
-        public void setErrorMessage(String errorMessage) {
-            this.errorMessage = errorMessage;
-        }
-    }
-
     protected final DefaultMetadata defaults;
+    private final CFindService cFindService;
 
     public SCUManifestCreator() {
         this(new DefaultMetadata());
@@ -168,6 +26,7 @@ public abstract class SCUManifestCreator {
 
     public SCUManifestCreator(DefaultMetadata defaults) {
         this.defaults = defaults;
+        this.cFindService = new CFindService(defaults);
     }
 
     /**
@@ -179,28 +38,8 @@ public abstract class SCUManifestCreator {
      * @throws IOException if network communication fails
      */
     public CFindResult findStudy(String studyInstanceUid, String patientId) throws IOException {
-        Attributes keys = new Attributes();
-        keys.setString(Tag.QueryRetrieveLevel, VR.CS, "STUDY");
-        keys.setString(Tag.StudyInstanceUID, VR.UI, studyInstanceUid);
-
-        if (patientId != null && !patientId.trim().isEmpty()) {
-            keys.setString(Tag.PatientID, VR.LO, patientId);
-        } else {
-            keys.setNull(Tag.PatientID, VR.LO);
-        }
-
-        // Return attributes we need for manifest creation
-        keys.setNull(Tag.PatientName, VR.PN);
-        keys.setNull(Tag.PatientBirthDate, VR.DA);
-        keys.setNull(Tag.PatientSex, VR.CS);
-        keys.setNull(Tag.StudyDate, VR.DA);
-        keys.setNull(Tag.StudyTime, VR.TM);
-        keys.setNull(Tag.StudyDescription, VR.LO);
-        keys.setNull(Tag.AccessionNumber, VR.SH);
-        keys.setNull(Tag.ReferringPhysicianName, VR.PN);
-        keys.setNull(Tag.StudyID, VR.SH);
-
-        return performCFind(keys);
+        Attributes keys = CFindQueryBuilder.buildStudyQuery(studyInstanceUid, patientId);
+        return cFindService.performCFind(keys);
     }
 
     /**
@@ -212,24 +51,8 @@ public abstract class SCUManifestCreator {
      * @throws IOException if network communication fails
      */
     public CFindResult findSeries(String studyInstanceUid, String seriesInstanceUid) throws IOException {
-        Attributes keys = new Attributes();
-        keys.setString(Tag.QueryRetrieveLevel, VR.CS, "SERIES");
-        keys.setString(Tag.StudyInstanceUID, VR.UI, studyInstanceUid);
-
-        if (seriesInstanceUid != null && !seriesInstanceUid.trim().isEmpty()) {
-            keys.setString(Tag.SeriesInstanceUID, VR.UI, seriesInstanceUid);
-        } else {
-            keys.setNull(Tag.SeriesInstanceUID, VR.UI);
-        }
-
-        // Return attributes for series
-        keys.setNull(Tag.Modality, VR.CS);
-        keys.setNull(Tag.SeriesNumber, VR.IS);
-        keys.setNull(Tag.SeriesDescription, VR.LO);
-        keys.setNull(Tag.SeriesDate, VR.DA);
-        keys.setNull(Tag.SeriesTime, VR.TM);
-
-        return performCFind(keys);
+        Attributes keys = CFindQueryBuilder.buildSeriesQuery(studyInstanceUid, seriesInstanceUid);
+        return cFindService.performCFind(keys);
     }
 
     /**
@@ -241,115 +64,18 @@ public abstract class SCUManifestCreator {
      * @throws IOException if network communication fails
      */
     public CFindResult findInstances(String studyInstanceUid, String seriesInstanceUid) throws IOException {
-        Attributes keys = new Attributes();
-        keys.setString(Tag.QueryRetrieveLevel, VR.CS, "IMAGE");
-        keys.setString(Tag.StudyInstanceUID, VR.UI, studyInstanceUid);
-        keys.setString(Tag.SeriesInstanceUID, VR.UI, seriesInstanceUid);
-
-        // Return attributes for instances
-        keys.setNull(Tag.SOPInstanceUID, VR.UI);
-        keys.setNull(Tag.SOPClassUID, VR.UI);
-        keys.setNull(Tag.InstanceNumber, VR.IS);
-        keys.setNull(Tag.NumberOfFrames, VR.IS);
-        keys.setNull(Tag.Rows, VR.US);
-        keys.setNull(Tag.Columns, VR.US);
-
-        return performCFind(keys);
-    }
-
-    /**
-     * Performs the actual C-FIND network operation.
-     */
-    private CFindResult performCFind(Attributes keys) throws IOException {
-        CFindResult result = new CFindResult();
-
-        Device device = new Device("dicompolice-scu");
-        Connection conn = new Connection();
-        device.addConnection(conn);
-
-        ApplicationEntity ae = new ApplicationEntity(defaults.callingAET);
-        device.addApplicationEntity(ae);
-        ae.addConnection(conn);
-
-        // Create executor services
-        ExecutorService executorService = Executors.newSingleThreadExecutor();
-        ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
-        device.setExecutor(executorService);
-        device.setScheduledExecutor(scheduledExecutorService);
-
-        try {
-            // Configure remote connection
-            Connection remote = new Connection();
-            remote.setHostname(defaults.remoteHost);
-            remote.setPort(defaults.remotePort);
-
-            // Configure timeouts
-            conn.setConnectTimeout(defaults.connectTimeout);
-            conn.setResponseTimeout(defaults.responseTimeout);
-
-            // Create association request
-            AAssociateRQ rq = new AAssociateRQ();
-            rq.setCallingAET(defaults.callingAET);
-            rq.setCalledAET(defaults.calledAET);
-
-            // Add presentation context for Study Root Query/Retrieve
-            rq.addPresentationContext(
-                    new PresentationContext(1,
-                            org.dcm4che3.data.UID.StudyRootQueryRetrieveInformationModelFind,
-                            org.dcm4che3.data.UID.ImplicitVRLittleEndian));
-
-            // Open association
-            Association as = ae.connect(remote, rq);
-
-            // Perform C-FIND
-            DimseRSPHandler rspHandler = new DimseRSPHandler(as.nextMessageID()) {
-                @Override
-                public void onDimseRSP(Association as, Attributes cmd, Attributes data) {
-                    super.onDimseRSP(as, cmd, data);
-                    int status = cmd.getInt(Tag.Status, -1);
-
-                    // Pending status means we have data
-                    if (status == Status.Pending && data != null) {
-                        result.addMatch(new Attributes(data));
-                    }
-                }
-            };
-
-            as.cfind(org.dcm4che3.data.UID.StudyRootQueryRetrieveInformationModelFind,
-                    0, // priority
-                    keys,
-                    null, // TSuid
-                    rspHandler);
-
-            // Wait for response
-            as.waitForOutstandingRSP();
-
-            // Release association
-            as.release();
-
-            result.setSuccess(true);
-
-        } catch (Exception e) {
-            result.setSuccess(false);
-            result.setErrorMessage("C-FIND failed: " + e.getMessage());
-            throw new IOException("C-FIND operation failed", e);
-        } finally {
-            executorService.shutdown();
-            scheduledExecutorService.shutdown();
-        }
-
-        return result;
+        Attributes keys = CFindQueryBuilder.buildInstanceQuery(studyInstanceUid, seriesInstanceUid);
+        return cFindService.performCFind(keys);
     }
 
     /**
      * Public/CLI-friendly entrypoint for performing an arbitrary C-FIND with custom keys.
-     *
      * This is intentionally a thin wrapper around the internal implementation so higher-level
      * query services can add search modes (accessionNumber, patientID, studyDate, ...)
      * without duplicating DIMSE boilerplate.
      */
     public CFindResult performCFindPublic(Attributes keys) throws IOException {
-        return performCFind(keys);
+        return cFindService.performCFind(keys);
     }
 
     /**
@@ -357,69 +83,20 @@ public abstract class SCUManifestCreator {
      * Subclasses should call this to ensure compliance with IHE requirements.
      */
     protected void applyDefaults(Attributes attrs) {
-        // Patient ID Issuer - essential for IHE XDS-I.b
-        if (!attrs.contains(Tag.IssuerOfPatientID) ||
-            attrs.getString(Tag.IssuerOfPatientID, "").trim().isEmpty()) {
-            attrs.setString(Tag.IssuerOfPatientID, VR.LO, defaults.patientIdIssuerLocalNamespace);
-        }
-
-        // Institution Name
-        if (!attrs.contains(Tag.InstitutionName) ||
-            attrs.getString(Tag.InstitutionName, "").trim().isEmpty()) {
-            attrs.setString(Tag.InstitutionName, VR.LO, defaults.institutionName);
-        }
-
-        // Study Date - if missing, use current date
-        if (!attrs.contains(Tag.StudyDate) ||
-            attrs.getString(Tag.StudyDate, "").trim().isEmpty()) {
-            String currentDate = new java.text.SimpleDateFormat("yyyyMMdd")
-                    .format(new java.util.Date());
-            attrs.setString(Tag.StudyDate, VR.DA, currentDate);
-        }
-
-        // Study Time - if missing, use current time
-        if (!attrs.contains(Tag.StudyTime) ||
-            attrs.getString(Tag.StudyTime, "").trim().isEmpty()) {
-            String currentTime = new java.text.SimpleDateFormat("HHmmss.SSSSSS")
-                    .format(new java.util.Date());
-            attrs.setString(Tag.StudyTime, VR.TM, currentTime);
-        }
+        MetadataApplier.applyDefaults(attrs, defaults);
     }
 
     /**
      * Normalizes PatientSex (0010,0040) to valid DICOM enumerated values.
-     *
      * Valid values are: M, F, O, or empty.
      * Some upstream systems use non-standard values (e.g. 'W').
      */
     protected static String normalizePatientSex(String patientSex) {
-        if (patientSex == null) {
-            return "";
-        }
-        String s = patientSex.trim().toUpperCase();
-        if (s.isEmpty()) {
-            return "";
-        }
-        if ("M".equals(s) || "F".equals(s) || "O".equals(s)) {
-            return s;
-        }
-        // Common non-standard mappings
-        if ("W".equals(s)) { // woman
-            return "F";
-        }
-        if ("MAN".equals(s) || "MALE".equals(s)) {
-            return "M";
-        }
-        if ("WOMAN".equals(s) || "FEMALE".equals(s)) {
-            return "F";
-        }
-        // Fallback for unknown/unsupported values
-        return "O";
+        return MetadataApplier.normalizePatientSex(patientSex);
     }
 
     /**
      * Saves a generated manifest to a DICOM Part-10 file.
-     *
      * Subclasses previously duplicated this method; keeping it here avoids CLI downcasts.
      */
     public void saveToFile(Attributes manifest, File outputFile) throws IOException {
@@ -434,7 +111,6 @@ public abstract class SCUManifestCreator {
 
     /**
      * Stream study/series/instance metadata to a writer, avoiding large in-memory lists.
-     *
      * This is intended for huge PACS crawls where building an entire manifest dataset in memory
      * per study could exhaust heap.
      */

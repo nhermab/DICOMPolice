@@ -6,7 +6,6 @@ import java.io.File;
 
 /**
  * Example usage of SCU manifest creators.
- *
  * This class demonstrates how to query a DICOM archive and create
  * KOS or MADO manifests from the retrieved metadata.
  */
@@ -19,7 +18,7 @@ public class SCUExample {
         System.out.println("=== Creating KOS Manifest from PACS Query ===\n");
 
         // Configure connection and defaults
-        SCUManifestCreator.DefaultMetadata defaults = new SCUManifestCreator.DefaultMetadata()
+        DefaultMetadata defaults = new DefaultMetadata()
             .withCallingAET("DICOMPOLICE")
             .withCalledAET("ORTHANC")
             .withRemoteHost("172.20.240.184")
@@ -59,7 +58,7 @@ public class SCUExample {
         System.out.println("=== Creating MADO Manifest from PACS Query ===\n");
 
         // Configure connection and defaults
-        SCUManifestCreator.DefaultMetadata defaults = new SCUManifestCreator.DefaultMetadata()
+        DefaultMetadata defaults = new DefaultMetadata()
             .withCallingAET("DICOMPOLICE")
             .withCalledAET("ORTHANC")
             .withRemoteHost("172.20.240.184")
@@ -94,10 +93,8 @@ public class SCUExample {
 
     /**
      * Main method - runs both examples if PACS is available.
-     *
      * Usage:
      *   java -cp DICOMPolice.jar be.uzleuven.ihe.dicom.creator.scu.SCUExample
-     *
      * Or run individual examples:
      *   java -cp DICOMPolice.jar be.uzleuven.ihe.dicom.creator.scu.SCUExample kos
      *   java -cp DICOMPolice.jar be.uzleuven.ihe.dicom.creator.scu.SCUExample mado

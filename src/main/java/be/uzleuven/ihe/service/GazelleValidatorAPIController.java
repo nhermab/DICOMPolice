@@ -2,6 +2,7 @@ package be.uzleuven.ihe.service;
 
 import be.uzleuven.ihe.dicom.creator.samples.IHEKOSSampleCreator;
 import be.uzleuven.ihe.dicom.creator.samples.IHEMADOSampleCreator;
+import be.uzleuven.ihe.dicom.creator.model.MADOOptions;
 import be.uzleuven.ihe.dicom.validator.CLIDICOMVerify;
 import be.uzleuven.ihe.dicom.validator.model.ValidationResult;
 import be.uzleuven.ihe.service.models.*;
@@ -98,6 +99,7 @@ public class GazelleValidatorAPIController {
             }
 
             ValidationResult validationResult = CLIDICOMVerify.validateFile(tempFile, "IHEXDSIManifest");
+            //noinspection ResultOfMethodCallIgnored
             tempFile.delete();
 
             convertValidationResultToReport(validationResult, report);
@@ -111,6 +113,7 @@ public class GazelleValidatorAPIController {
         }
 
         ValidationResult validationResult = CLIDICOMVerify.validateFile(tempFile, "IHEXDSIManifest");
+        //noinspection ResultOfMethodCallIgnored
         tempFile.delete();
 
         convertValidationResultToReport(validationResult, report);
@@ -122,7 +125,7 @@ public class GazelleValidatorAPIController {
 
         Attributes attrs;
         if (request.getInputs() == null || request.getInputs().isEmpty()) {
-            IHEMADOSampleCreator.Options options = new IHEMADOSampleCreator.Options();
+            MADOOptions options = new MADOOptions();
             attrs = IHEMADOSampleCreator.createMADOFromOptions(options);
 
             Input generatedInput = new Input();
@@ -139,6 +142,7 @@ public class GazelleValidatorAPIController {
             }
 
             ValidationResult validationResult = CLIDICOMVerify.validateFile(tempFile, "IHEMADO");
+            //noinspection ResultOfMethodCallIgnored
             tempFile.delete();
 
             convertValidationResultToReport(validationResult, report);
@@ -152,6 +156,7 @@ public class GazelleValidatorAPIController {
         }
 
         ValidationResult validationResult = CLIDICOMVerify.validateFile(tempFile, "IHEMADO");
+        //noinspection ResultOfMethodCallIgnored
         tempFile.delete();
 
         convertValidationResultToReport(validationResult, report);

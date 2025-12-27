@@ -8,11 +8,9 @@ import be.uzleuven.ihe.dicom.constants.ValidationMessages;
 
 /**
  * Validator for MADO Appendix B format (Alternative Approach 1).
- *
  * Appendix B extends the standard Hierarchical SOP Instance Reference Macro
  * with additional Data Elements at Series and Instance levels, avoiding
  * the deep nesting of SR templates (TID 1600).
- *
  * Per MADO Requirements Section 3.3:
  * - Extension to Hierarchical Series Reference Macro (Section B.2)
  * - Extension to Hierarchical SOP Instance Reference Macro (Section B.1)
@@ -82,7 +80,6 @@ public final class MADOAppendixBValidator {
 
     /**
      * Validate series-level attributes per Appendix B Section B.2.
-     *
      * Requirement V-ALT-01: The following attributes MUST be present:
      * - Modality (0008,0060): Type 1 (Required)
      * - Series Instance UID (0020,000E): Type 1 (Required)
@@ -161,7 +158,6 @@ public final class MADOAppendixBValidator {
 
     /**
      * Validate instance-level attributes per Appendix B Section B.1.
-     *
      * Requirement V-ALT-02: The following attributes MUST be validated:
      * - Referenced SOP Class UID (0008,1150): Type 1 (Required)
      * - Referenced SOP Instance UID (0008,1155): Type 1 (Required)

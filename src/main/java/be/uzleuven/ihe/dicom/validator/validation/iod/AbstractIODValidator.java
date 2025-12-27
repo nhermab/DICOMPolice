@@ -14,7 +14,6 @@ public abstract class AbstractIODValidator implements IODValidator {
 
     /**
      * Active profile for the current validation run.
-     *
      * Some module validators are implemented as static helpers and do not receive the profile name.
      * We keep the profile in a ThreadLocal so code can stay backwards compatible while allowing
      * profile-specific relaxations (e.g., MADO extends TID 2010 with TID 1600 allowing NUM items).
@@ -44,7 +43,6 @@ public abstract class AbstractIODValidator implements IODValidator {
 
     /**
      * Check if a required attribute is present and non-empty.
-     *
      * Note: Sequence (SQ) attributes do not have a string value; using getString(tag)
      * returns null even if the sequence has items. For SQ, we treat "non-empty" as
      * "sequence exists and has at least one item".
@@ -238,7 +236,6 @@ public abstract class AbstractIODValidator implements IODValidator {
 
     /**
      * Normalizes a UID string retrieved from a dataset.
-     *
      * DICOM UI values can be padded; if padding isn't handled consistently, strict equals()
      * comparisons may fail and validator selection can incorrectly return null.
      */

@@ -45,6 +45,8 @@ import be.uzleuven.ihe.dicom.validator.validation.iod.IODValidator;
 import be.uzleuven.ihe.dicom.validator.model.ValidationResult;
 import be.uzleuven.ihe.dicom.validator.validation.Part10FileValidator;
 import be.uzleuven.ihe.dicom.validator.validation.iod.IODValidatorFactory;
+import be.uzleuven.ihe.dicom.validator.cli.CLIVerifyOptions;
+import be.uzleuven.ihe.dicom.validator.cli.CLIVerifyParser;
 
 import java.io.File;
 import java.io.IOException;
@@ -58,48 +60,28 @@ import java.util.List;
 public class CLIDICOMVerify {
 
     public static void main(String[] args) {
-        // Manual, dependency-free argument parsing
-        boolean showHelp = false;
-        boolean verbose = false;
-        boolean newFormat = false;
-        String profile = null;
-        List<String> files = new ArrayList<>();
+        try {
+            CLIVerifyOptions options = CLIVerifyParser.parse(args);
 
-        for (int i = 0; i < args.length; i++) {
-            String a = args[i];
-            if ("-h".equals(a) || "--help".equals(a)) {
-                showHelp = true;
-                break;
-            } else if ("-v".equals(a) || "--verbose".equals(a)) {
-                verbose = true;
-            } else if ("--new-format".equals(a)) {
-                newFormat = true;
-            } else if (a.startsWith("--profile=")) {
-                profile = a.substring("--profile=".length());
-            } else if ("--profile".equals(a)) {
-                if (i + 1 < args.length) {
-                    profile = args[++i];
-                } else {
-                    System.err.println("Error: --profile requires a value");
-                    printHelp();
-                    System.exit(1);
-                }
-            } else if (a.startsWith("-")) {
-                System.err.println("Unknown option: " + a);
-                printHelp();
-                System.exit(1);
-            } else {
-                files.add(a);
+            if (options.isShowHelp() || !options.hasFiles()) {
+                CLIVerifyParser.printHelp();
+                System.exit(0);
             }
-        }
 
-        if (showHelp || files.isEmpty()) {
-            printHelp();
-            System.exit(0);
-        }
+            int exitCode = processFiles(options);
+            System.exit(exitCode);
 
+        } catch (IllegalArgumentException e) {
+            System.err.println("Error: " + e.getMessage());
+            CLIVerifyParser.printHelp();
+            System.exit(1);
+        }
+    }
+
+    private static int processFiles(CLIVerifyOptions options) {
         int exitCode = 0;
-        for (String filePath : files) {
+
+        for (String filePath : options.getFiles()) {
             File file = new File(filePath);
 
             if (!file.exists()) {
@@ -115,42 +97,20 @@ public class CLIDICOMVerify {
             }
 
             try {
-                int result = validateFile(file, verbose, newFormat, profile);
+                int result = validateFile(file, options.isVerbose(), options.isNewFormat(), options.getProfile());
                 if (result != 0) {
                     exitCode = result;
                 }
             } catch (Exception e) {
                 System.err.println("Error validating file " + filePath + ": " + e.getMessage());
-                if (verbose) {
+                if (options.isVerbose()) {
                     e.printStackTrace(System.err);
                 }
                 exitCode = 1;
             }
         }
 
-        System.exit(exitCode);
-    }
-
-    private static void printHelp() {
-        System.out.println("Usage: CLIDICOMVerify [options] <dicom-file> [<dicom-file> ...]");
-        System.out.println();
-        System.out.println("Options:");
-        System.out.println("  -h, --help           Display this help message");
-        System.out.println("  -v, --verbose        Verbose output with detailed validation messages");
-        System.out.println("      --new-format     Use new format for error messages");
-        System.out.println("      --profile <name> Validation profile:");
-        System.out.println("                         IHEXDSIManifest - XDS-I.b KOS Manifest");
-        System.out.println("                         IHEMADO         - MADO Manifest with Description");
-        System.out.println();
-        System.out.println("Examples:");
-        System.out.println("  CLIDICOMVerify kos.dcm");
-        System.out.println("  CLIDICOMVerify -v kos.dcm");
-        System.out.println("  CLIDICOMVerify --profile IHEXDSIManifest kos.dcm");
-        System.out.println("  CLIDICOMVerify --profile IHEMADO mado_manifest.dcm");
-        System.out.println();
-        System.out.println("Exit codes:");
-        System.out.println("  0 - All validations passed");
-        System.out.println("  1 - Validation errors found or file access errors");
+        return exitCode;
     }
 
     private static int validateFile(File file, boolean verbose, boolean newFormat, String profile)

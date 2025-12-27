@@ -10,7 +10,6 @@ import be.uzleuven.ihe.dicom.constants.ValidationMessages;
  * Validator for DICOM Digital Signatures.
  * Performs structural validation of Digital Signatures Sequence (FFFA,FFFA).
  * Does NOT perform cryptographic validation - only checks presence and structure.
- *
  * Per DICOM PS3.15 and IHE XDS-I.b requirements.
  */
 public final class DigitalSignatureValidator {

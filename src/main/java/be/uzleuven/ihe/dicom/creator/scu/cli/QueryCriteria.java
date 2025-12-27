@@ -7,7 +7,6 @@ import java.util.List;
 
 /**
  * Criteria used to identify studies for which we want to generate manifests.
- *
  * Rules of thumb:
  * - If studyInstanceUID is provided, it uniquely identifies a single study.
  * - accessionNumber is usually unique-ish but can still match multiple.

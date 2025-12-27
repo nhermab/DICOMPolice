@@ -39,11 +39,7 @@ public class DicomSequenceUtils {
         item.setString(Tag.AccessionNumber, VR.SH, accessionNumber);
 
         // Add issuer
-        Sequence issuerAccSeq = item.newSequence(Tag.IssuerOfAccessionNumberSequence, 1);
-        Attributes issuerAcc = new Attributes();
-        issuerAcc.setString(Tag.UniversalEntityID, VR.UT, issuerOID);
-        issuerAcc.setString(Tag.UniversalEntityIDType, VR.CS, "ISO");
-        issuerAccSeq.add(issuerAcc);
+        addAccessionNumberIssuer(item, issuerOID);
 
         item.setString(Tag.PlacerOrderNumberImagingServiceRequest, VR.LO,
                       "PLACER-ORDER-" + (1000 + randomInt(9000)));

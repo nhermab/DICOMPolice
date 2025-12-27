@@ -42,13 +42,11 @@ public class IHEKOSSampleCreator {
 
     /**
      * Generation knobs for the KOS size/shape.
-     *
      * Contract:
      * - evidenceSeriesCount controls how many series appear in Evidence (CurrentRequestedProcedureEvidenceSequence)
      * - sopInstanceCount controls how many SOP references appear overall (distributed across series)
      * - modalities is the pool used to assign SOPClassUIDs (and impacts variety)
      * - multiframe toggles using Enhanced CT storage for some/all references
-     *
      * IMPORTANT: Per DICOM/IHE XDS-I specification, ALL instances in the Evidence Sequence MUST
      * appear in the SR Content Tree. The keyImageCount parameter is deprecated and ignored.
      */
@@ -120,7 +118,7 @@ public class IHEKOSSampleCreator {
         int count = 1;
         boolean useRandomSizes = true; // preserve historical behavior unless overridden
 
-        if (args != null && args.length > 0) {
+        if (args != null) {
             for (String a : args) {
                 if (a == null) continue;
                 String token = a.trim();
@@ -169,7 +167,6 @@ public class IHEKOSSampleCreator {
      * - sopInstanceCount: 10-10000
      * - evidenceSeriesCount: 1-30 (but <= sopInstanceCount)
      * - modalities: 1-4 different types
-     *
      * Note: ALL instances are included in the content tree per DICOM/IHE spec.
      */
     public static Options generateRandomOptions() {
@@ -192,9 +189,7 @@ public class IHEKOSSampleCreator {
             UID.SecondaryCaptureImageStorage
         };
         String[] selectedModalities = new String[modalityCount];
-        for (int i = 0; i < modalityCount; i++) {
-            selectedModalities[i] = allModalities[i];
-        }
+        System.arraycopy(allModalities, 0, selectedModalities, 0, modalityCount);
         options.modalities = selectedModalities;
 
         // Random multiframe setting (50% chance)
