@@ -101,15 +101,6 @@ public class IHEKOSSampleCreator {
             this.keyImageCount = v;
             return this;
         }
-
-        /**
-         * @deprecated Always returns sopInstanceCount since all instances must be in content tree per spec.
-         */
-        @Deprecated
-        private int resolvedKeyImageCount() {
-            // Per DICOM/IHE spec: ALL instances in Evidence MUST be in Content Tree
-            return sopInstanceCount;
-        }
     }
 
 
@@ -283,7 +274,7 @@ public class IHEKOSSampleCreator {
         populateEvidenceMultiSeries(d, studyInstanceUid, referencedSops, options.evidenceSeriesCount);
 
         // Content tree: build only from the same SOPs that appear in Evidence.
-        populateContentTree(d, referencedSops, options.resolvedKeyImageCount());
+        populateContentTree(d, referencedSops);
 
         // Small extras that are commonly present
         d.setString(Tag.SpecificCharacterSet, VR.CS, "ISO_IR 100");
@@ -291,10 +282,6 @@ public class IHEKOSSampleCreator {
         return d;
     }
 
-    // Backwards-compat shim: keep signature used nowhere else but safe.
-    private static Attributes createRandomIHEKOS() {
-        return createRandomIHEKOS(defaultOptions());
-    }
 
     /**
      * Populate the SR Content Tree with ALL instances from the Evidence Sequence.
@@ -303,11 +290,9 @@ public class IHEKOSSampleCreator {
      *
      * @param d The dataset to populate
      * @param referencedSops List of ALL SOP instances from Evidence
-     * @param imageItemCount Deprecated parameter, ignored (kept for backward compatibility)
      */
-    private static void populateContentTree(Attributes d, List<Attributes> referencedSops, int imageItemCount) {
+    private static void populateContentTree(Attributes d, List<Attributes> referencedSops) {
         // Per spec: ALL instances in Evidence must be in Content Tree
-        // The imageItemCount parameter is ignored
         int actualCount = referencedSops.size();
         Sequence content = d.newSequence(Tag.ContentSequence, actualCount);
 

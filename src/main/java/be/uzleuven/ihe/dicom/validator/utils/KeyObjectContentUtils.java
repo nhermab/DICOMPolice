@@ -92,9 +92,6 @@ public class KeyObjectContentUtils {
         }
     }
 
-    public static void validateContentSequence(Attributes dataset, ValidationResult result, AbstractIODValidator ctx) {
-        validateContentSequence(dataset, result, ctx, null);
-    }
 
     private static boolean isMADOProfile(String profile) {
         if (profile == null || profile.isEmpty()) {
@@ -198,10 +195,7 @@ public class KeyObjectContentUtils {
         ctx.checkRequiredAttribute(codeItem, Tag.CodeMeaning, "CodeMeaning", result, itemPath);
     }
 
-    private static void validateContentSequenceItem(Attributes parent, ValidationResult result,
-                                                    String parentPath, AbstractIODValidator ctx) {
-        validateContentSequenceItem(parent, result, parentPath, ctx, null);
-    }
+
 
     private static void validateContentSequenceItem(Attributes parent, ValidationResult result,
                                                     String parentPath, AbstractIODValidator ctx, String profile) {

@@ -127,10 +127,13 @@ public class MADOSCUManifestCreator extends SCUManifestCreator {
         configureSRRootAttributes(mado);
 
         // Evidence Sequence
+        // NOTE: dcm4che does not allow the same Attributes item to be contained by multiple Sequences.
+        // The previous implementation built the evidence sequence on a temporary Attributes, then
+        // addAll()'d the items into the real dataset, which can trigger:
+        //   "Item already contained by Sequence".
+        // Build directly on the target dataset instead.
         MADOEvidenceBuilder evidenceBuilder = new MADOEvidenceBuilder(defaults, normalizedStudyInstanceUID, allSeries);
-        Sequence evidenceSeq = evidenceBuilder.buildEvidenceSequence();
-        mado.newSequence(Tag.CurrentRequestedProcedureEvidenceSequence, evidenceSeq.size())
-            .addAll(evidenceSeq);
+        evidenceBuilder.populateEvidenceSequence(mado);
 
         // ReferencedRequestSequence
         buildReferencedRequestSequence(mado, accessionNumber, normalizedStudyInstanceUID);
@@ -138,9 +141,7 @@ public class MADOSCUManifestCreator extends SCUManifestCreator {
         // SR Document Content Module with TID 1600 Image Library
         MADOContentBuilder contentBuilder = new MADOContentBuilder(defaults, normalizedStudyInstanceUID,
             studyDate, studyTime, allSeries);
-        Sequence contentSeq = contentBuilder.buildContentSequence();
-        mado.newSequence(Tag.ContentSequence, contentSeq.size())
-            .addAll(contentSeq);
+        contentBuilder.populateContentSequence(mado);
 
         return mado;
     }

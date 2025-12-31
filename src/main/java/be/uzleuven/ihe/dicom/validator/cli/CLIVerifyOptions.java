@@ -11,7 +11,7 @@ public class CLIVerifyOptions {
     private boolean verbose = false;
     private boolean newFormat = false;
     private String profile = null;
-    private List<String> files = new ArrayList<>();
+    private final List<String> files = new ArrayList<>();
 
     public boolean isShowHelp() {
         return showHelp;

@@ -86,14 +86,6 @@ public abstract class SCUManifestCreator {
         MetadataApplier.applyDefaults(attrs, defaults);
     }
 
-    /**
-     * Normalizes PatientSex (0010,0040) to valid DICOM enumerated values.
-     * Valid values are: M, F, O, or empty.
-     * Some upstream systems use non-standard values (e.g. 'W').
-     */
-    protected static String normalizePatientSex(String patientSex) {
-        return MetadataApplier.normalizePatientSex(patientSex);
-    }
 
     /**
      * Saves a generated manifest to a DICOM Part-10 file.

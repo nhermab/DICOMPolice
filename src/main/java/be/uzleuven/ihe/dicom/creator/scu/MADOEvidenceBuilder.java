@@ -27,8 +27,30 @@ class MADOEvidenceBuilder {
     }
 
     /**
-     * Builds the CurrentRequestedProcedureEvidenceSequence.
+     * Populates the CurrentRequestedProcedureEvidenceSequence directly onto the target dataset.
+     *
+     * dcm4che `Attributes` instances can't be added to more than one `Sequence`. Building the
+     * sequence on a temporary dataset and then copying using `addAll(...)` can therefore fail.
      */
+    void populateEvidenceSequence(Attributes target) {
+        Sequence evidenceSeq = target.newSequence(Tag.CurrentRequestedProcedureEvidenceSequence, 1);
+        Attributes studyItem = new Attributes();
+        studyItem.setString(Tag.StudyInstanceUID, VR.UI, normalizedStudyInstanceUID);
+
+        Sequence refSeriesSeq = studyItem.newSequence(Tag.ReferencedSeriesSequence, allSeries.size());
+        for (SeriesData sd : allSeries) {
+            refSeriesSeq.add(buildSeriesItem(sd));
+        }
+
+        evidenceSeq.add(studyItem);
+    }
+
+    /**
+     * Builds the CurrentRequestedProcedureEvidenceSequence.
+     *
+     * @deprecated Prefer {@link #populateEvidenceSequence(Attributes)} to avoid reusing items across sequences.
+     */
+    @Deprecated
     Sequence buildEvidenceSequence() {
         Sequence evidenceSeq = new Attributes().newSequence(Tag.CurrentRequestedProcedureEvidenceSequence, 1);
         Attributes studyItem = new Attributes();
@@ -62,13 +84,38 @@ class MADOEvidenceBuilder {
             "/series/" + normalizedSerUID;
         seriesItem.setString(Tag.RetrieveURL, VR.UR, wadoUrl);
 
+        // Sort instances by InstanceNumber before adding
+        java.util.List<Attributes> sortedInstances = new java.util.ArrayList<>(sd.instances);
+        sortedInstances.sort((a, b) -> {
+            int instNumA = getInstanceNumber(a);
+            int instNumB = getInstanceNumber(b);
+            return Integer.compare(instNumA, instNumB);
+        });
+
         // Add instances
-        Sequence refSOPSeq = seriesItem.newSequence(Tag.ReferencedSOPSequence, sd.instances.size());
-        for (Attributes instAttrs : sd.instances) {
+        Sequence refSOPSeq = seriesItem.newSequence(Tag.ReferencedSOPSequence, sortedInstances.size());
+        for (Attributes instAttrs : sortedInstances) {
             refSOPSeq.add(buildSOPItem(instAttrs));
         }
 
         return seriesItem;
+    }
+
+    /**
+     * Extracts the InstanceNumber from instance attributes.
+     * Falls back to Integer.MAX_VALUE if not present or invalid, so such instances
+     * sort to the end.
+     */
+    private int getInstanceNumber(Attributes instAttrs) {
+        String instNumStr = instAttrs.getString(Tag.InstanceNumber);
+        if (instNumStr != null && !instNumStr.trim().isEmpty()) {
+            try {
+                return Integer.parseInt(instNumStr.trim());
+            } catch (NumberFormatException ignore) {
+                // Fall through to default
+            }
+        }
+        return Integer.MAX_VALUE;
     }
 
     private Attributes buildSOPItem(Attributes instAttrs) {
@@ -95,4 +142,3 @@ class MADOEvidenceBuilder {
         }
     }
 }
-

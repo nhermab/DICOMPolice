@@ -1,142 +1,191 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>The DICOM Police - KOS and MADO Gazelle Validator</title>
-  <link rel="stylesheet" href="styles.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The DICOM Police - Visualizer</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="visualizer.css">
 </head>
 <body>
-  <!-- Header -->
-  <header class="header">
-    <div class="container">
-      <div class="header-content">
-        <div class="logo-section">
-          <div class="logo-placeholder">
-            <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect width="40" height="40" rx="8" fill="white" opacity="0.2"/>
-              <path d="M20 10L30 15V25L20 30L10 25V15L20 10Z" stroke="white" stroke-width="2" stroke-linejoin="round"/>
-              <circle cx="20" cy="20" r="3" fill="white"/>
-            </svg>
-          </div>
-          <div class="logo-text">
-            <h1>The DICOM Police</h1>
-            <p class="subtitle">UZ Leuven - Universitaire Ziekenhuizen Leuven</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  </header>
-
-  <!-- Main Content -->
-  <main class="main-content">
-    <div class="container">
-      <!-- Upload Section -->
-      <section class="card upload-section">
-        <div class="card-header">
-          <h2>Validate DICOM File</h2>
-          <p class="description">Upload a DICOM file to validate against IHE profiles</p>
-        </div>
-
-        <div class="card-body">
-          <!-- Profile Selection -->
-          <div class="form-group">
-            <label for="profile-select" class="form-label">
-              <span class="label-icon">📋</span>
-              Validation Profile
-            </label>
-            <select id="profile-select" class="form-select">
-              <option value="">Loading profiles...</option>
-            </select>
-            <p class="form-help" id="profile-description">Select a validation profile to see details</p>
-          </div>
-
-          <!-- File Upload Area -->
-          <div class="upload-area" id="upload-area">
-            <input type="file" id="file-input" accept=".dcm,.dicom" hidden>
-            <div class="upload-content">
-              <div class="upload-icon">
-                <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <circle cx="32" cy="32" r="28" stroke="#0066CC" stroke-width="2" stroke-dasharray="4 4"/>
-                  <path d="M32 20V44M20 32H44" stroke="#0066CC" stroke-width="3" stroke-linecap="round"/>
-                </svg>
-              </div>
-              <h3 class="upload-title">Drop DICOM file here</h3>
-              <p class="upload-text">or <button type="button" class="link-button" id="browse-button">browse files</button></p>
-              <p class="upload-hint">Supports .dcm and .dicom files</p>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <div class="logo-section">
+                    <div class="logo-placeholder">
+                        <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <rect width="40" height="40" rx="8" fill="white" opacity="0.2"/>
+                            <path d="M20 10L30 15V25L20 30L10 25V15L20 10Z" stroke="white" stroke-width="2" stroke-linejoin="round"/>
+                            <circle cx="20" cy="20" r="3" fill="white"/>
+                        </svg>
+                    </div>
+                    <div class="logo-text">
+                        <h1>The DICOM Police</h1>
+                        <p class="subtitle">UZ Leuven - Universitaire Ziekenhuizen Leuven</p>
+                    </div>
+                </div>
             </div>
-            <div class="file-info" id="file-info" style="display: none;">
-              <div class="file-icon">📄</div>
-              <div class="file-details">
-                <p class="file-name" id="file-name"></p>
-                <p class="file-size" id="file-size"></p>
-              </div>
-              <button type="button" class="remove-file-btn" id="remove-file-btn">✕</button>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="container">
+            <!-- Upload Section -->
+            <section class="card upload-section" id="upload-section">
+                <div class="card-header">
+                    <h2>📁 Upload DICOM File</h2>
+                    <p class="description">Upload a KOS or MADO file to visualize its structure and validate compliance</p>
+                </div>
+                <div class="card-body">
+                    <div class="upload-area" id="upload-area">
+                        <input type="file" id="file-input" accept=".dcm,.dicom" hidden>
+                        <div class="upload-content" id="upload-content">
+                            <div class="upload-icon">📋</div>
+                            <h3>Drop DICOM file here</h3>
+                            <p>or <button type="button" class="link-button" id="browse-button">browse files</button></p>
+                            <p class="upload-hint">Supports .dcm and .dicom files</p>
+                        </div>
+                        <div class="file-info" id="file-info" style="display: none;">
+                            <div class="file-icon">📄</div>
+                            <div class="file-details">
+                                <p class="file-name" id="file-name"></p>
+                                <p class="file-size" id="file-size"></p>
+                            </div>
+                            <button type="button" class="btn-icon" id="remove-file-btn">✕</button>
+                        </div>
+                    </div>
+                    <div class="action-buttons">
+                        <button id="parse-btn" class="btn btn-primary" disabled>
+                            <span class="btn-icon">🔍</span>
+                            <span class="btn-text">Parse & Validate</span>
+                        </button>
+                        <button id="validate-btn" class="btn btn-secondary" disabled>
+                            <span class="btn-icon">✓</span>
+                            <span class="btn-text">Validate Only</span>
+                        </button>
+                    </div>
+                    <div class="loading-indicator" id="loading-indicator" style="display: none;">
+                        <div class="spinner"></div>
+                        <p>Parsing & validating DICOM file...</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- File Info Section -->
+            <section class="card" id="file-info-section" style="display: none;">
+                <div class="card-header collapsible-header" data-section="file-info" data-default-collapsed="true">
+                    <div class="header-title-row">
+                        <h2>📊 File Information</h2>
+                        <button class="collapse-toggle" aria-label="Toggle collapse">
+                            <svg class="collapse-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body collapsible-body">
+                    <div class="info-grid" id="file-info-grid"></div>
+                </div>
+            </section>
+
+            <!-- Validation Results Section -->
+            <section class="card" id="validation-section" style="display: none;">
+                <div class="card-header collapsible-header" data-section="validation" data-default-collapsed="false">
+                    <div class="header-title-row">
+                        <h2>✓ Validation Results</h2>
+                        <button class="collapse-toggle" aria-label="Toggle collapse">
+                            <svg class="collapse-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="validation-status" id="validation-status"></div>
+                </div>
+                <div class="card-body collapsible-body">
+                    <div class="validation-summary" id="validation-summary"></div>
+                    <div class="validation-messages" id="validation-messages"></div>
+                </div>
+            </section>
+
+            <!-- Content Structure Section (KOS/MADO specific) -->
+            <section class="card" id="content-section" style="display: none;">
+                <div class="card-header collapsible-header" data-section="content">
+                    <div class="header-title-row">
+                        <h2>🗂️ Content Structure</h2>
+                        <button class="collapse-toggle" aria-label="Toggle collapse">
+                            <svg class="collapse-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="section-tabs" id="content-tabs">
+                        <button class="tab-btn active" data-tab="evidence">Evidence</button>
+                        <button class="tab-btn" data-tab="content-tree">Content Tree</button>
+                        <button class="tab-btn" data-tab="descriptors" style="display: none;">Descriptors</button>
+                    </div>
+                </div>
+                <div class="card-body collapsible-body">
+                    <div class="tab-content active" id="tab-evidence"></div>
+                    <div class="tab-content" id="tab-content-tree"></div>
+                    <div class="tab-content" id="tab-descriptors"></div>
+                </div>
+            </section>
+
+            <!-- DICOM Tags Section -->
+            <section class="card" id="tags-section" style="display: none;">
+                <div class="card-header collapsible-header" data-section="tags">
+                    <div class="header-with-controls">
+                        <div class="header-title-row">
+                            <h2>🏷️ DICOM Tags</h2>
+                            <button class="collapse-toggle" aria-label="Toggle collapse">
+                                <svg class="collapse-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="tag-controls">
+                            <form class="tag-search" role="search" onsubmit="return false;">
+                                <label for="tag-search" class="sr-only">Search DICOM tags</label>
+                                <input type="text" id="tag-search" class="search-input" placeholder="Search tags..." aria-label="Search DICOM tags">
+                            </form>
+                            <button class="btn btn-small" id="expand-all-btn">Expand All</button>
+                            <button class="btn btn-small" id="collapse-all-btn">Collapse All</button>
+                            <button class="btn btn-small" id="export-json-btn">Export JSON</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body collapsible-body">
+                    <div id="tags-container"></div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <p>&copy; 2025 UZ Leuven - Universitaire Ziekenhuizen Leuven</p>
+                <p class="footer-links">
+                    <span>DICOM KOS/MADO Visualizer</span>
+                    <span class="separator">•</span>
+                    <span>Powered by The DICOM Police</span>
+                </p>
             </div>
-          </div>
-
-          <!-- Validate Button -->
-          <button id="validate-btn" class="btn btn-primary btn-large" disabled>
-            <span class="btn-text">Validate File</span>
-            <span class="btn-loader" style="display: none;"></span>
-          </button>
         </div>
-      </section>
+    </footer>
 
-      <!-- Error Section -->
-      <section class="card error-section" id="error-section" style="display: none;">
-        <div class="card-header">
-          <h2>⚠️ Validation Error</h2>
-        </div>
-        <div class="card-body">
-          <div class="error-message" id="error-message"></div>
-        </div>
-      </section>
-
-      <!-- Results Section -->
-      <section class="card results-section" id="results-section" style="display: none;">
-        <div class="card-header">
-          <h2>Validation Results</h2>
-          <div class="result-status" id="result-status"></div>
-        </div>
-
-        <div class="card-body">
-          <!-- Summary Cards -->
-          <div class="summary-grid" id="summary-grid"></div>
-
-          <!-- Metadata (keep this above filters so it never ends up at the bottom) -->
-          <div class="metadata-section" id="metadata-section"></div>
-
-          <!-- Filter Indicator -->
-          <div class="filter-indicator" id="filter-indicator" style="display: none;">
-            <span class="filter-text">Filtering by: <strong id="filter-type"></strong></span>
-            <button class="clear-filter-btn" onclick="clearFilter()">✕ Clear Filter</button>
-          </div>
-
-          <!-- Detailed Reports -->
-          <div class="reports-container" id="reports-container"></div>
-        </div>
-      </section>
-    </div>
-  </main>
-
-  <!-- Footer -->
-  <footer class="footer">
-    <div class="container">
-      <div class="footer-content">
-        <p>&copy; 2025 UZ Leuven - Universitaire Ziekenhuizen Leuven</p>
-        <p class="footer-links">
-          <a href="#" class="footer-link">Privacy Policy</a>
-          <span class="separator">•</span>
-          <a href="#" class="footer-link">Terms of Use</a>
-          <span class="separator">•</span>
-          <a href="#" class="footer-link">Contact</a>
-        </p>
-      </div>
-    </div>
-  </footer>
-
-  <script src="app.js"></script>
+    <!-- Load modular JavaScript files -->
+    <script src="js/api.js"></script>
+    <script src="js/state.js"></script>
+    <script src="js/ui-helpers.js"></script>
+    <script src="js/file-utils.js"></script>
+    <script src="js/dicom-renderer.js"></script>
+    <script src="js/validation-renderer.js"></script>
+    <script src="js/validator.js"></script>
+    <script src="js/visualizer.js"></script>
+    <script src="js/app.js"></script>
 </body>
 </html>
-

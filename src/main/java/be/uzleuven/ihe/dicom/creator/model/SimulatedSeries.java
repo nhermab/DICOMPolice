@@ -3,8 +3,6 @@ package be.uzleuven.ihe.dicom.creator.model;
 import java.util.ArrayList;
 import java.util.List;
 
-import be.uzleuven.ihe.dicom.creator.model.SimulatedInstance;
-
 /**
  * Represents a simulated DICOM series with instances.
  */
@@ -31,9 +29,6 @@ public class SimulatedSeries {
         return seriesUID;
     }
 
-    public void setSeriesUID(String seriesUID) {
-        this.seriesUID = seriesUID;
-    }
 
     public String getModality() {
         return modality;

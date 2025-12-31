@@ -170,8 +170,8 @@ public class StudyQueryService {
         if (begin == null || end == null) {
             throw new IllegalArgumentException("begin/end required");
         }
-        if (windowDays < 1 || windowDays > 7) {
-            throw new IllegalArgumentException("windowDays must be 1..7");
+        if (windowDays < 1 || windowDays > 31) {
+            throw new IllegalArgumentException("windowDays must be 1..31");
         }
 
         Set<String> seen = new LinkedHashSet<>();

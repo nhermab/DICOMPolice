@@ -85,8 +85,8 @@ public class QueryCriteria {
             if (beginDate.isAfter(endDate)) {
                 throw new IllegalArgumentException("--begin-date must be <= --end-date");
             }
-            if (windowDays < 1 || windowDays > 7) {
-                throw new IllegalArgumentException("--window-days must be between 1 and 7 (inclusive)");
+            if (windowDays < 1 || windowDays > 31) {
+                throw new IllegalArgumentException("--window-days must be between 1 and 31 (inclusive)");
             }
 
             // avoid ambiguous combinations that might surprise users

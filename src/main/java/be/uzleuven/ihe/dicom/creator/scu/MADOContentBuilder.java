@@ -166,13 +166,37 @@ class MADOContentBuilder {
     private void addInstanceEntries(Sequence groupSeq, SeriesData sd) {
         if (sd.instances == null) return;
 
-        int instanceNumberCounter = 1;
-        for (Attributes instAttrs : sd.instances) {
-            groupSeq.add(buildInstanceEntry(instAttrs, instanceNumberCounter++));
+        // Sort instances by InstanceNumber before adding to ensure correct order
+        java.util.List<Attributes> sortedInstances = new java.util.ArrayList<>(sd.instances);
+        sortedInstances.sort((a, b) -> {
+            int instNumA = getInstanceNumber(a);
+            int instNumB = getInstanceNumber(b);
+            return Integer.compare(instNumA, instNumB);
+        });
+
+        for (Attributes instAttrs : sortedInstances) {
+            groupSeq.add(buildInstanceEntry(instAttrs));
         }
     }
 
-    private Attributes buildInstanceEntry(Attributes instAttrs, int instanceNumber) {
+    /**
+     * Extracts the InstanceNumber from instance attributes.
+     * Falls back to Integer.MAX_VALUE if not present or invalid, so such instances
+     * sort to the end.
+     */
+    private int getInstanceNumber(Attributes instAttrs) {
+        String instNumStr = instAttrs.getString(Tag.InstanceNumber);
+        if (instNumStr != null && !instNumStr.trim().isEmpty()) {
+            try {
+                return Integer.parseInt(instNumStr.trim());
+            } catch (NumberFormatException ignore) {
+                // Fall through to default
+            }
+        }
+        return Integer.MAX_VALUE;
+    }
+
+    private Attributes buildInstanceEntry(Attributes instAttrs) {
         Attributes entry = new Attributes();
         entry.setString(Tag.RelationshipType, VR.CS, DicomConstants.RELATIONSHIP_CONTAINS);
         entry.setString(Tag.ValueType, VR.CS, "IMAGE");
@@ -185,10 +209,11 @@ class MADOContentBuilder {
             normalizeUidNoLeadingZeros(instAttrs.getString(Tag.SOPInstanceUID)));
         refSop.add(refItem);
 
-        // Content sequence with instance metadata
+        // Content sequence with instance metadata - use actual InstanceNumber from PACS
         Sequence entryContent = entry.newSequence(Tag.ContentSequence, 10);
+        String instanceNumber = instAttrs.getString(Tag.InstanceNumber, "1");
         entryContent.add(createTextItem("HAS ACQ CONTEXT", CodeConstants.CODE_INSTANCE_NUMBER,
-            CodeConstants.SCHEME_DCM, CodeConstants.MEANING_INSTANCE_NUMBER, Integer.toString(instanceNumber)));
+            CodeConstants.SCHEME_DCM, CodeConstants.MEANING_INSTANCE_NUMBER, instanceNumber));
 
         // Add Number of Frames if multiframe
         addNumberOfFramesIfRequired(entryContent, instAttrs);
@@ -214,5 +239,19 @@ class MADOContentBuilder {
             }
         }
     }
-}
 
+    /**
+     * Populates the ContentSequence directly onto the target dataset.
+     *
+     * Important: dcm4che does not allow an {@link Attributes} item to be contained by more than one
+     * {@link Sequence}. Building on a temporary dataset and then copying with addAll(...) can therefore
+     * fail with "Item already contained by Sequence".
+     */
+    void populateContentSequence(Attributes target) {
+        Sequence contentSeq = target.newSequence(Tag.ContentSequence, 10);
+        String studyModality = getStudyModality();
+
+        addStudyLevelContext(contentSeq, studyModality);
+        contentSeq.add(buildImageLibraryContainer(studyModality));
+    }
+}

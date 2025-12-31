@@ -105,8 +105,7 @@ public class KOSSCUManifestCreator extends SCUManifestCreator {
         if (allSeries.isEmpty()) {
             throw new IOException("No instances found for study: " + studyInstanceUid);
         }
-        StudyAttrSeries result = new StudyAttrSeries(studyAttrs, allSeries);
-        return result;
+        return new StudyAttrSeries(studyAttrs, allSeries);
     }
 
     private static class StudyAttrSeries {
