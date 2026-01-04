@@ -1,0 +1,517 @@
+/* Page Layout Overrides */
+.mado-viewer-page {
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.mado-viewer-page .main-content {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 20px 0;
+    flex: 1;
+    min-height: 0; /* Critical for flex scrolling */
+}
+
+.mado-viewer-page .footer {
+    flex-shrink: 0;
+    z-index: 10;
+}
+
+/* Advanced DataGrid Styles */
+.viewer-container {
+    max-width: 1600px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 0 24px;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0; /* Critical for flex scrolling */
+    overflow: hidden;
+}
+
+.search-panel {
+    background: var(--background-white);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    padding: 20px;
+    margin-bottom: 16px;
+    flex-shrink: 0;
+    overflow-y: auto;
+    max-height: 25vh; /* Limit search panel height to 25% of viewport */
+}
+
+.panel-title {
+    margin-bottom: 16px;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.search-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.search-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.search-field label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.search-field input,
+.search-field select {
+    padding: 8px 10px;
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-md);
+    font-size: 13px;
+    transition: all var(--transition-fast);
+}
+
+.search-field input:focus,
+.search-field select:focus {
+    outline: none;
+    border-color: var(--primary-blue);
+    box-shadow: 0 0 0 3px var(--accent-blue);
+}
+
+.search-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    margin-top: 12px;
+}
+
+.btn-secondary {
+    background: var(--background-primary);
+    color: var(--text-primary);
+    border: 2px solid var(--border-color);
+    padding: 8px 20px;
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    font-size: 14px;
+}
+
+.btn-secondary:hover {
+    border-color: var(--primary-blue);
+    color: var(--primary-blue);
+}
+
+/* Stats Cards */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+    flex-shrink: 0;
+}
+
+.stat-card {
+    background: linear-gradient(135deg, var(--background-white) 0%, var(--background-primary) 100%);
+    border-radius: var(--radius-lg);
+    padding: 16px;
+    box-shadow: var(--shadow-md);
+    border-left: 4px solid var(--primary-blue);
+}
+
+.stat-value {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--primary-blue);
+    margin-bottom: 4px;
+}
+
+.stat-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Advanced DataGrid */
+.datagrid-container {
+    background: var(--background-white);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0; /* Critical for flex scrolling */
+}
+
+.datagrid-header {
+    padding: 16px 24px;
+    border-bottom: 2px solid var(--border-light);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+    flex-shrink: 0;
+}
+
+.datagrid-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.datagrid-controls {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.quick-search {
+    padding: 8px 16px;
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-md);
+    font-size: 14px;
+    min-width: 250px;
+    transition: all var(--transition-fast);
+}
+
+.quick-search:focus {
+    outline: none;
+    border-color: var(--primary-blue);
+    box-shadow: 0 0 0 3px var(--accent-blue);
+}
+
+#tableContent {
+    flex: 1;
+    min-height: 0; /* Critical for flex scrolling */
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.table-wrapper {
+    overflow: auto;
+    flex: 1;
+    min-height: 0; /* Critical for flex scrolling */
+    position: relative;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.data-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--background-primary);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.data-table th {
+    padding: 12px 16px;
+    text-align: left;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 2px solid var(--border-color);
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+    transition: background var(--transition-fast);
+}
+
+.data-table th:hover {
+    background: var(--border-light);
+}
+
+.data-table th .sort-indicator {
+    display: inline-block;
+    margin-left: 8px;
+    font-size: 10px;
+    color: var(--text-light);
+}
+
+.data-table th.sorted-asc .sort-indicator::after {
+    content: '▲';
+    color: var(--primary-blue);
+}
+
+.data-table th.sorted-desc .sort-indicator::after {
+    content: '▼';
+    color: var(--primary-blue);
+}
+
+.data-table tbody tr {
+    border-bottom: 1px solid var(--border-light);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.data-table tbody tr:hover {
+    background: var(--accent-blue);
+}
+
+.data-table td {
+    padding: 12px 16px;
+    font-size: 13px;
+    color: var(--text-primary);
+}
+
+.data-table td.date-cell {
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+}
+
+.data-table td.modality-cell {
+    font-weight: 600;
+}
+
+.modality-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 700;
+    background: var(--primary-blue);
+    color: white;
+    margin-right: 4px;
+}
+
+.description-cell {
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.patient-cell {
+    font-weight: 500;
+}
+
+.action-cell {
+    text-align: center;
+}
+
+.view-btn {
+    padding: 4px 12px;
+    background: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-blue-dark) 100%);
+    color: white;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.view-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 102, 204, 0.3);
+}
+
+.empty-state {
+    padding: 60px 40px;
+    text-align: center;
+    color: var(--text-secondary);
+}
+
+.empty-state-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    opacity: 0.5;
+}
+
+.empty-state-title {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: var(--text-primary);
+}
+
+.loading-overlay {
+    position: relative;
+    min-height: 300px;
+}
+
+.loading-spinner {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+}
+
+.spinner {
+    width: 48px;
+    height: 48px;
+    margin: 0 auto 16px;
+    border: 3px solid var(--border-color);
+    border-top-color: var(--primary-blue);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.pagination {
+    padding: 16px 24px;
+    border-top: 2px solid var(--border-light);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+    flex-shrink: 0;
+    background: var(--background-white);
+}
+
+.pagination-info {
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.pagination-info strong {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.pagination-controls {
+    display: flex;
+    gap: 6px;
+}
+
+.page-btn {
+    padding: 6px 12px;
+    background: var(--background-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    color: var(--text-primary);
+}
+
+.page-btn:hover:not(:disabled) {
+    background: var(--primary-blue);
+    color: white;
+    border-color: var(--primary-blue);
+}
+
+.page-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.page-btn.active {
+    background: var(--primary-blue);
+    color: white;
+    border-color: var(--primary-blue);
+}
+
+.error-banner {
+    background: var(--error-light);
+    border-left: 4px solid var(--error-red);
+    padding: 12px 16px;
+    border-radius: var(--radius-md);
+    margin-bottom: 16px;
+    color: var(--error-red);
+    font-weight: 500;
+    font-size: 14px;
+}
+
+.btn-small {
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    background: var(--background-primary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+}
+
+.btn-small:hover {
+    background: var(--primary-blue);
+    color: white;
+    border-color: var(--primary-blue);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .mado-viewer-page {
+        height: auto;
+        overflow: auto;
+    }
+
+    .mado-viewer-page .main-content {
+        overflow: visible;
+        flex: initial;
+    }
+
+    .viewer-container {
+        height: auto;
+        overflow: visible;
+        flex: initial;
+    }
+
+    .datagrid-container {
+        min-height: 500px;
+        flex: initial;
+    }
+
+    .search-panel {
+        max-height: none;
+    }
+
+    .search-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .data-table th,
+    .data-table td {
+        padding: 10px 8px;
+        font-size: 12px;
+    }
+
+    .description-cell {
+        max-width: 150px;
+    }
+
+    .datagrid-controls {
+        width: 100%;
+        flex-direction: column;
+    }
+
+    .quick-search {
+        width: 100%;
+        min-width: initial;
+    }
+}
+

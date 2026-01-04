@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MHD MADO Viewer - The DICOM Police</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="mado-viewer.css">
+</head>
+<body class="mado-viewer-page">
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <div class="logo-section">
+                    <div class="logo-placeholder">
+                        <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <rect width="40" height="40" rx="8" fill="white" opacity="0.2"/>
+                            <path d="M20 10L30 15V25L20 30L10 25V15L20 10Z" stroke="white" stroke-width="2" stroke-linejoin="round"/>
+                            <circle cx="20" cy="20" r="3" fill="white"/>
+                        </svg>
+                    </div>
+                    <div class="logo-text">
+                        <h1>The DICOM Police - MHD MADO Viewer</h1>
+                        <p class="subtitle">UZ Leuven - Universitaire Ziekenhuizen Leuven</p>
+                    </div>
+                </div>
+                <div class="header-nav">
+                    <a href="/" class="nav-link">Visualizer</a>
+                    <a href="/MHDMADOViewer.html" class="nav-link active">MADO Viewer</a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="viewer-container">
+            <!-- Search Panel -->
+            <section class="search-panel">
+                <h2 class="panel-title">🔍 Search DocumentReferences</h2>
+                <div class="search-grid">
+                    <div class="search-field">
+                        <label for="patientId">Patient ID</label>
+                        <input type="text" id="patientId" placeholder="Enter patient ID">
+                    </div>
+                    <div class="search-field">
+                        <label for="studyUid">Study Instance UID</label>
+                        <input type="text" id="studyUid" placeholder="Enter study UID">
+                    </div>
+                    <div class="search-field">
+                        <label for="accessionNumber">Accession Number</label>
+                        <input type="text" id="accessionNumber" placeholder="Enter accession">
+                    </div>
+                    <div class="search-field">
+                        <label for="modality">Modality</label>
+                        <select id="modality">
+                            <option value="">All Modalities</option>
+                            <option value="CT">CT - Computed Tomography</option>
+                            <option value="MR">MR - Magnetic Resonance</option>
+                            <option value="US">US - Ultrasound</option>
+                            <option value="XA">XA - X-Ray Angiography</option>
+                            <option value="CR">CR - Computed Radiography</option>
+                            <option value="DX">DX - Digital Radiography</option>
+                            <option value="MG">MG - Mammography</option>
+                            <option value="PT">PT - PET</option>
+                            <option value="NM">NM - Nuclear Medicine</option>
+                            <option value="OT">OT - Other</option>
+                        </select>
+                    </div>
+                    <div class="search-field">
+                        <label for="dateFrom">Date From</label>
+                        <input type="date" id="dateFrom">
+                    </div>
+                    <div class="search-field">
+                        <label for="dateTo">Date To</label>
+                        <input type="date" id="dateTo">
+                    </div>
+                </div>
+                <div class="search-actions">
+                    <button type="button" class="btn-secondary" id="clearBtn">Clear</button>
+                    <button type="button" class="btn btn-primary" id="searchBtn">
+                        <span>🔍 Search</span>
+                    </button>
+                </div>
+            </section>
+
+            <!-- Error Banner -->
+            <div id="errorBanner" class="error-banner" style="display: none;"></div>
+
+            <!-- Stats Cards -->
+            <div class="stats-grid" id="statsGrid" style="display: none;">
+                <div class="stat-card">
+                    <div class="stat-value" id="totalCount">0</div>
+                    <div class="stat-label">Total Studies</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="patientCount">0</div>
+                    <div class="stat-label">Unique Patients</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="modalityCount">0</div>
+                    <div class="stat-label">Modalities</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="dateRange">-</div>
+                    <div class="stat-label">Date Range</div>
+                </div>
+            </div>
+
+            <!-- DataGrid -->
+            <section class="datagrid-container">
+                <div class="datagrid-header">
+                    <div class="datagrid-title">
+                        <span>📊</span>
+                        <span>MADO Manifests</span>
+                    </div>
+                    <div class="datagrid-controls">
+                        <input type="text" id="quickSearch" class="quick-search" placeholder="Quick filter..." aria-label="Quick filter">
+                        <button type="button" class="btn-small" id="exportBtn">📥 Export CSV</button>
+                        <button type="button" class="btn-small" id="refreshBtn">🔄 Refresh</button>
+                    </div>
+                </div>
+
+                <div id="tableContent">
+                    <!-- Loading state shown initially -->
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🔍</div>
+                        <div class="empty-state-title">Ready to Search</div>
+                        <div class="empty-state-text">Use the search panel above to find MADO manifests</div>
+                    </div>
+                </div>
+
+                <div class="pagination" id="pagination" style="display: none;">
+                    <div class="pagination-info">
+                        Showing <strong id="showingRange">0-0</strong> of <strong id="totalEntries">0</strong> entries
+                    </div>
+                    <div class="pagination-controls" id="paginationControls"></div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <p>&copy; 2026 UZ Leuven - Universitaire Ziekenhuizen Leuven</p>
+                <p class="footer-links">
+                    <span>MHD MADO Viewer</span>
+                    <span class="separator">•</span>
+                    <span>Powered by The DICOM Police</span>
+                </p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="js/mado-viewer.js"></script>
+</body>
+</html>
