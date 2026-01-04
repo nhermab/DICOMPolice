@@ -71,6 +71,7 @@ public class CFindQueryBuilder {
 
     /**
      * Creates C-FIND keys for IMAGE (INSTANCE) level query.
+     * Requests comprehensive metadata for high-quality MADO manifests.
      *
      * @param studyInstanceUid The Study Instance UID
      * @param seriesInstanceUid The Series Instance UID
@@ -82,13 +83,46 @@ public class CFindQueryBuilder {
         keys.setString(Tag.StudyInstanceUID, VR.UI, studyInstanceUid);
         keys.setString(Tag.SeriesInstanceUID, VR.UI, seriesInstanceUid);
 
-        // Return attributes for instances
+        // Required identifiers
         keys.setNull(Tag.SOPInstanceUID, VR.UI);
         keys.setNull(Tag.SOPClassUID, VR.UI);
         keys.setNull(Tag.InstanceNumber, VR.IS);
+
+        // Image dimensions and multiframe
         keys.setNull(Tag.NumberOfFrames, VR.IS);
         keys.setNull(Tag.Rows, VR.US);
         keys.setNull(Tag.Columns, VR.US);
+
+        // Pixel Module attributes (critical for OHIF viewer)
+        keys.setNull(Tag.BitsAllocated, VR.US);
+        keys.setNull(Tag.BitsStored, VR.US);
+        keys.setNull(Tag.HighBit, VR.US);
+        keys.setNull(Tag.PixelRepresentation, VR.US);
+        keys.setNull(Tag.SamplesPerPixel, VR.US);
+        keys.setNull(Tag.PhotometricInterpretation, VR.CS);
+
+        // Geometry and spatial information (critical for ordering and MPR)
+        keys.setNull(Tag.ImagePositionPatient, VR.DS);
+        keys.setNull(Tag.ImageOrientationPatient, VR.DS);
+        keys.setNull(Tag.PixelSpacing, VR.DS);
+        keys.setNull(Tag.SliceThickness, VR.DS);
+        keys.setNull(Tag.SliceLocation, VR.DS);
+        keys.setNull(Tag.SpacingBetweenSlices, VR.DS);
+
+        // Window/Level and rescale (for proper display)
+        keys.setNull(Tag.WindowCenter, VR.DS);
+        keys.setNull(Tag.WindowWidth, VR.DS);
+        keys.setNull(Tag.RescaleIntercept, VR.DS);
+        keys.setNull(Tag.RescaleSlope, VR.DS);
+        keys.setNull(Tag.RescaleType, VR.LO);
+
+        // Additional useful metadata
+        keys.setNull(Tag.ImageType, VR.CS);
+        keys.setNull(Tag.AcquisitionNumber, VR.IS);
+        keys.setNull(Tag.AcquisitionDate, VR.DA);
+        keys.setNull(Tag.AcquisitionTime, VR.TM);
+        keys.setNull(Tag.ContentDate, VR.DA);
+        keys.setNull(Tag.ContentTime, VR.TM);
 
         return keys;
     }

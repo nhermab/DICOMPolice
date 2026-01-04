@@ -1,5 +1,6 @@
 package be.uzleuven.ihe.dicom.creator.samples;
 
+import be.uzleuven.ihe.dicom.creator.options.MADOOptionsUtils;
 import org.dcm4che3.data.Attributes;
 
 import java.io.File;
@@ -55,8 +56,8 @@ public class ExampleProducer {
     private static void produceGoodMado(int count, File outDir, String runId) throws IOException {
         for (int i = 0; i < count; i++) {
             // MADO creator randomizes study structure in its random options main path.
-            // Here we call the programmatic API with defaults; inside it still uses random UIDs/times.
-            Attributes attrs = IHEMADOSampleCreator.createMADOFromOptions(IHEMADOSampleCreator.generateRandomOptions());
+            // Use the non-deprecated utility to generate options.
+            Attributes attrs = IHEMADOSampleCreator.createMADOFromOptions(MADOOptionsUtils.generateRandomOptions());
             File out = new File(outDir, uniqueName("IHE_MADO", runId, i));
             writeDicomFile(out, attrs);
         }

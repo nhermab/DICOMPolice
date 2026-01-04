@@ -221,9 +221,12 @@ public class KOSSCUManifestCreator extends SCUManifestCreator {
                 "/series/" + normalizedSerUID;
             seriesItem.setString(Tag.RetrieveURL, VR.UR, wadoUrl);
 
-            Sequence refSOPSeq = seriesItem.newSequence(Tag.ReferencedSOPSequence, sd.instances.size());
+            // Sort instances before adding to ensure correct order
+            java.util.List<Attributes> sortedInstances = sortInstances(sd.instances);
 
-            for (Attributes instAttrs : sd.instances) {
+            Sequence refSOPSeq = seriesItem.newSequence(Tag.ReferencedSOPSequence, sortedInstances.size());
+
+            for (Attributes instAttrs : sortedInstances) {
                 Attributes sopItem = new Attributes();
                 sopItem.setString(Tag.ReferencedSOPClassUID, VR.UI,
                     instAttrs.getString(Tag.SOPClassUID));
@@ -241,8 +244,10 @@ public class KOSSCUManifestCreator extends SCUManifestCreator {
         Sequence contentSeq = kos.newSequence(Tag.ContentSequence, 1);
 
         // All IMAGE references directly in content (KOS doesn't require container)
+        // Sort instances to maintain correct order
         for (SeriesData sd : allSeries) {
-            for (Attributes instAttrs : sd.instances) {
+            java.util.List<Attributes> sortedInstances = sortInstances(sd.instances);
+            for (Attributes instAttrs : sortedInstances) {
                 Attributes imageRef = createImageItem("CONTAINS",
                     code(CODE_IMAGE, SCHEME_DCM, MEANING_IMAGE),
                     instAttrs.getString(Tag.SOPClassUID),
@@ -253,6 +258,81 @@ public class KOSSCUManifestCreator extends SCUManifestCreator {
         }
 
         return kos;
+    }
+
+    /**
+     * Sorts instances using multiple criteria for robust ordering.
+     * Priority: InstanceNumber > ImagePositionPatient Z > AcquisitionNumber > SOPInstanceUID
+     */
+    private java.util.List<Attributes> sortInstances(java.util.List<Attributes> instances) {
+        if (instances == null) return java.util.Collections.emptyList();
+
+        java.util.List<Attributes> sorted = new java.util.ArrayList<>(instances);
+        sorted.sort((a, b) -> {
+            // Primary: InstanceNumber
+            int instNumA = getInstanceNumber(a);
+            int instNumB = getInstanceNumber(b);
+
+            if (instNumA != Integer.MAX_VALUE || instNumB != Integer.MAX_VALUE) {
+                int cmp = Integer.compare(instNumA, instNumB);
+                if (cmp != 0) return cmp;
+            }
+
+            // Secondary: ImagePositionPatient Z-coordinate (for spatial ordering)
+            double zPosA = getImagePositionZ(a);
+            double zPosB = getImagePositionZ(b);
+
+            if (!Double.isNaN(zPosA) || !Double.isNaN(zPosB)) {
+                int cmp = Double.compare(zPosA, zPosB);
+                if (cmp != 0) return cmp;
+            }
+
+            // Tertiary: AcquisitionNumber
+            int acqNumA = getAcquisitionNumber(a);
+            int acqNumB = getAcquisitionNumber(b);
+
+            if (acqNumA != Integer.MAX_VALUE || acqNumB != Integer.MAX_VALUE) {
+                int cmp = Integer.compare(acqNumA, acqNumB);
+                if (cmp != 0) return cmp;
+            }
+
+            // Final fallback: SOPInstanceUID (deterministic ordering)
+            String sopA = a.getString(Tag.SOPInstanceUID, "");
+            String sopB = b.getString(Tag.SOPInstanceUID, "");
+            return sopA.compareTo(sopB);
+        });
+
+        return sorted;
+    }
+
+    private int getInstanceNumber(Attributes attrs) {
+        String instNumStr = attrs.getString(Tag.InstanceNumber);
+        if (instNumStr != null && !instNumStr.trim().isEmpty()) {
+            try {
+                return Integer.parseInt(instNumStr.trim());
+            } catch (NumberFormatException ignore) {
+            }
+        }
+        return Integer.MAX_VALUE;
+    }
+
+    private double getImagePositionZ(Attributes attrs) {
+        double[] ipp = attrs.getDoubles(Tag.ImagePositionPatient);
+        if (ipp != null && ipp.length >= 3) {
+            return ipp[2]; // Z coordinate
+        }
+        return Double.NaN;
+    }
+
+    private int getAcquisitionNumber(Attributes attrs) {
+        String acqNumStr = attrs.getString(Tag.AcquisitionNumber);
+        if (acqNumStr != null && !acqNumStr.trim().isEmpty()) {
+            try {
+                return Integer.parseInt(acqNumStr.trim());
+            } catch (NumberFormatException ignore) {
+            }
+        }
+        return Integer.MAX_VALUE;
     }
 
     /**

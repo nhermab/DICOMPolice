@@ -209,8 +209,10 @@ class MADOContentBuilder {
             normalizeUidNoLeadingZeros(instAttrs.getString(Tag.SOPInstanceUID)));
         refSop.add(refItem);
 
-        // Content sequence with instance metadata - use actual InstanceNumber from PACS
-        Sequence entryContent = entry.newSequence(Tag.ContentSequence, 10);
+        // Content sequence with comprehensive instance metadata
+        Sequence entryContent = entry.newSequence(Tag.ContentSequence, 30);
+
+        // Core identifiers
         String instanceNumber = instAttrs.getString(Tag.InstanceNumber, "1");
         entryContent.add(createTextItem("HAS ACQ CONTEXT", CodeConstants.CODE_INSTANCE_NUMBER,
             CodeConstants.SCHEME_DCM, CodeConstants.MEANING_INSTANCE_NUMBER, instanceNumber));
@@ -218,7 +220,108 @@ class MADOContentBuilder {
         // Add Number of Frames if multiframe
         addNumberOfFramesIfRequired(entryContent, instAttrs);
 
+        // Image dimensions
+        addIfPresent(entryContent, instAttrs, Tag.Rows, "Rows");
+        addIfPresent(entryContent, instAttrs, Tag.Columns, "Columns");
+
+        // Pixel Module attributes (critical for OHIF viewer)
+        addIfPresent(entryContent, instAttrs, Tag.BitsAllocated, "Bits Allocated");
+        addIfPresent(entryContent, instAttrs, Tag.BitsStored, "Bits Stored");
+        addIfPresent(entryContent, instAttrs, Tag.HighBit, "High Bit");
+        addIfPresent(entryContent, instAttrs, Tag.PixelRepresentation, "Pixel Representation");
+        addIfPresent(entryContent, instAttrs, Tag.SamplesPerPixel, "Samples per Pixel");
+        addTextIfPresent(entryContent, instAttrs, Tag.PhotometricInterpretation, "Photometric Interpretation");
+
+        // Geometry and spatial information (critical for MPR/3D)
+        addArrayIfPresent(entryContent, instAttrs, Tag.ImagePositionPatient, "Image Position (Patient)");
+        addArrayIfPresent(entryContent, instAttrs, Tag.ImageOrientationPatient, "Image Orientation (Patient)");
+        addArrayIfPresent(entryContent, instAttrs, Tag.PixelSpacing, "Pixel Spacing");
+        addIfPresent(entryContent, instAttrs, Tag.SliceThickness, "Slice Thickness");
+        addIfPresent(entryContent, instAttrs, Tag.SliceLocation, "Slice Location");
+        addIfPresent(entryContent, instAttrs, Tag.SpacingBetweenSlices, "Spacing Between Slices");
+
+        // Window/Level and rescale (for proper display)
+        addArrayIfPresent(entryContent, instAttrs, Tag.WindowCenter, "Window Center");
+        addArrayIfPresent(entryContent, instAttrs, Tag.WindowWidth, "Window Width");
+        addIfPresent(entryContent, instAttrs, Tag.RescaleIntercept, "Rescale Intercept");
+        addIfPresent(entryContent, instAttrs, Tag.RescaleSlope, "Rescale Slope");
+        addTextIfPresent(entryContent, instAttrs, Tag.RescaleType, "Rescale Type");
+
+        // Additional useful metadata
+        addArrayIfPresent(entryContent, instAttrs, Tag.ImageType, "Image Type");
+        addIfPresent(entryContent, instAttrs, Tag.AcquisitionNumber, "Acquisition Number");
+        addTextIfPresent(entryContent, instAttrs, Tag.AcquisitionDate, "Acquisition Date");
+        addTextIfPresent(entryContent, instAttrs, Tag.AcquisitionTime, "Acquisition Time");
+        addTextIfPresent(entryContent, instAttrs, Tag.ContentDate, "Content Date");
+        addTextIfPresent(entryContent, instAttrs, Tag.ContentTime, "Content Time");
+
         return entry;
+    }
+
+    /**
+     * Adds a numeric attribute as TEXT item if present in source attributes.
+     */
+    private void addIfPresent(Sequence seq, Attributes attrs, int tag, String meaning) {
+        String value = attrs.getString(tag);
+        if (value != null && !value.trim().isEmpty()) {
+            seq.add(createTextItem("HAS ACQ CONTEXT",
+                String.format("(%04X,%04X)", tag >>> 16, tag & 0xFFFF),
+                CodeConstants.SCHEME_DCM, meaning, value));
+        }
+    }
+
+    /**
+     * Adds a text/string attribute as TEXT item if present in source attributes.
+     */
+    private void addTextIfPresent(Sequence seq, Attributes attrs, int tag, String meaning) {
+        String value = attrs.getString(tag);
+        if (value != null && !value.trim().isEmpty()) {
+            seq.add(createTextItem("HAS ACQ CONTEXT",
+                String.format("(%04X,%04X)", tag >>> 16, tag & 0xFFFF),
+                CodeConstants.SCHEME_DCM, meaning, value));
+        }
+    }
+
+    /**
+     * Adds an array attribute (DS or CS) as TEXT item if present in source attributes.
+     * Formats array values as comma-separated string.
+     */
+    private void addArrayIfPresent(Sequence seq, Attributes attrs, int tag, String meaning) {
+        // Try doubles first (for DS values like PixelSpacing, ImagePositionPatient)
+        double[] doubleValues = attrs.getDoubles(tag);
+        if (doubleValues != null && doubleValues.length > 0) {
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < doubleValues.length; i++) {
+                if (i > 0) sb.append("\\");
+                sb.append(doubleValues[i]);
+            }
+            seq.add(createTextItem("HAS ACQ CONTEXT",
+                String.format("(%04X,%04X)", tag >>> 16, tag & 0xFFFF),
+                CodeConstants.SCHEME_DCM, meaning, sb.toString()));
+            return;
+        }
+
+        // Try strings (for CS/CS multi-valued attributes like ImageType)
+        String[] stringValues = attrs.getStrings(tag);
+        if (stringValues != null && stringValues.length > 0) {
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < stringValues.length; i++) {
+                if (i > 0) sb.append("\\");
+                sb.append(stringValues[i]);
+            }
+            seq.add(createTextItem("HAS ACQ CONTEXT",
+                String.format("(%04X,%04X)", tag >>> 16, tag & 0xFFFF),
+                CodeConstants.SCHEME_DCM, meaning, sb.toString()));
+            return;
+        }
+
+        // Fallback to single string value
+        String value = attrs.getString(tag);
+        if (value != null && !value.trim().isEmpty()) {
+            seq.add(createTextItem("HAS ACQ CONTEXT",
+                String.format("(%04X,%04X)", tag >>> 16, tag & 0xFFFF),
+                CodeConstants.SCHEME_DCM, meaning, value));
+        }
     }
 
     private void addNumberOfFramesIfRequired(Sequence entryContent, Attributes instAttrs) {
