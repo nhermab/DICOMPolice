@@ -70,7 +70,25 @@ The Spring projects (Spring Boot and Spring Framework) are provided under the Ap
 Redistributors must include the Apache License 2.0 text when redistributing those components.
 
 -------------------------------------------------------------------------------
-4) SLF4J (library dependency)
+4) HAPI FHIR (library dependency)
+-------------------------------------------------------------------------------
+This project depends on HAPI FHIR libraries (ca.uhn.hapi.fhir:hapi-fhir-base, hapi-fhir-structures-r4,
+and hapi-fhir-server) which are licensed under the Apache License, Version 2.0.
+
+- **Version used by this project**: **8.2.0**
+- Used for MHD Document Responder FHIR R4 server implementation
+
+Please refer to the HAPI FHIR project and the Apache License for full license text and notices:
+
+- https://hapifhir.io/
+- https://github.com/hapifhir/hapi-fhir
+- https://www.apache.org/licenses/LICENSE-2.0
+
+HAPI FHIR is provided under the Apache License 2.0.
+Redistributors must include the Apache License 2.0 text when redistributing those components.
+
+-------------------------------------------------------------------------------
+5) SLF4J (library dependency)
 -------------------------------------------------------------------------------
 This project may include the SLF4J API (e.g., org.slf4j:slf4j-api) as a logging facade used by Spring and other libraries.
 SLF4J is distributed under a permissive license (see SLF4J project for details). Please refer to:

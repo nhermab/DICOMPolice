@@ -11,6 +11,57 @@ Available through **command-line interface**, **web interface**, and **REST API*
 
 [online web based demo](https://ihebelgium.ehealthhub.be/TheDICOMPolice/)
 
+### MHD Document Responder Demo
+
+DICOMPolice includes an **IHE MHD (Mobile access to Health Documents) Document Responder** that provides a FHIR R4 facade over DICOM PACS systems. The demo server is available at:
+
+**Base URL**: `https://ihebelgium.ehealthhub.be/TheDICOMPolice/fhir/`
+
+#### Live Endpoints
+
+- **CapabilityStatement**: [https://ihebelgium.ehealthhub.be/TheDICOMPolice/fhir/metadata](https://ihebelgium.ehealthhub.be/TheDICOMPolice/fhir/metadata)
+- **Search DocumentReferences**: [https://ihebelgium.ehealthhub.be/TheDICOMPolice/fhir/DocumentReference?_format=json](https://ihebelgium.ehealthhub.be/TheDICOMPolice/fhir/DocumentReference?_format=json)
+- **Browse with HTML**: [https://ihebelgium.ehealthhub.be/TheDICOMPolice/fhir/DocumentReference?_format=html](https://ihebelgium.ehealthhub.be/TheDICOMPolice/fhir/DocumentReference?_format=html)
+- **Retrieve MADO Manifest**: `https://ihebelgium.ehealthhub.be/TheDICOMPolice/fhir/Binary/{documentId}`
+  - Example: [https://ihebelgium.ehealthhub.be/TheDICOMPolice/fhir/Binary/MS4yLjg0MC4xMTM1NDMuNi42LjEuNC40LjM4NDQ4NjExMjI0NDI2ODc4MzAuMjAzMTAwNTM1NzY.dcm](https://ihebelgium.ehealthhub.be/TheDICOMPolice/fhir/Binary/MS4yLjg0MC4xMTM1NDMuNi42LjEuNC40LjM4NDQ4NjExMjI0NDI2ODc4MzAuMjAzMTAwNTM1NzY.dcm)
+
+#### Supported IHE Transactions
+
+| Transaction | Resource | Description |
+|------------|----------|-------------|
+| **ITI-66** | `List` | Find Document Lists (SubmissionSets) |
+| **ITI-67** | `DocumentReference` | Find Document References |
+| **ITI-68** | `Binary` | Retrieve Document (MADO manifests) |
+
+#### Key Capabilities
+
+- **On-the-fly MADO Generation**: Queries DICOM PACS via C-FIND and generates MADO (Key Object Selection) manifests dynamically
+- **FHIR R4 Interface**: Full HAPI FHIR R4 server with browser-friendly HTML rendering
+- **IHE MHD v4.2.3 Conformance**: Document Responder actor implementation
+- **Search Parameters**: Patient identifier, accession number, study UID, date range, modality
+- **MADO Compliance**: Generates manifests with TID 1600 Image Library, timezone offset, proper document titles per DICOM CP-2595
+
+#### Example Queries
+
+```bash
+# Search by patient identifier
+curl "https://ihebelgium.ehealthhub.be/TheDICOMPolice/fhir/DocumentReference?patient.identifier=12345&_format=json"
+
+# Search by accession number
+curl "https://ihebelgium.ehealthhub.be/TheDICOMPolice/fhir/DocumentReference?accession=ACC12345&_format=json"
+
+# Search by study instance UID
+curl "https://ihebelgium.ehealthhub.be/TheDICOMPolice/fhir/DocumentReference?study-instance-uid=1.2.3.4.5&_format=json"
+
+# Get CapabilityStatement
+curl "https://ihebelgium.ehealthhub.be/TheDICOMPolice/fhir/metadata?_format=json"
+
+# Retrieve MADO manifest as DICOM file
+curl "https://ihebelgium.ehealthhub.be/TheDICOMPolice/fhir/Binary/{documentId}" -o manifest.dcm
+```
+
+For detailed documentation, see [MHD Service README](src/main/java/be/uzleuven/ihe/service/MHD/README.md).
+
 ## example files
 
 [example files if you don't have any](./examplefiles.md)
@@ -53,6 +104,7 @@ java -cp target\DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.creator.sam
 - 🖥️ **Command-Line Interface**: Batch validation with verbose output options
 - 🌐 **Web Interface**: Modern drag-and-drop UI for file validation with detailed reports
 - 🔌 **REST API**: Gazelle Validation Service compatible endpoints (`/validation/v2`)
+- 🏥 **MHD Document Responder**: IHE MHD (ITI-66/67/68) FHIR R4 server for on-the-fly MADO generation
 - 📊 **Detailed Reports**: Categorized validation results (ERROR, WARNING, INFO)
 
 ### Sample Generation
@@ -77,6 +129,7 @@ java -cp target\DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.creator.sam
   - [Sample Creation](#sample-creation)
   - [EVIL (intentionally broken) generators](#evil-intentionally-broken-generators)
 - [REST API](#rest-api)
+- [MHD Document Responder](#mhd-document-responder-demo)
 - [Validation Profiles](#validation-profiles)
 - [Architecture](#architecture)
 - [MADO Profile Notice](#mado-profile-notice)
@@ -391,8 +444,14 @@ This produces:
 ### Spring Boot (Apache License 2.0)
 
 - **Framework**: Spring Boot
-- **Version used by this project**: **2.7.18**
+- **Version used by this project**: **3.2.0**
 - Used for web interface and REST API
+
+### HAPI FHIR (Apache License 2.0)
+
+- **Library**: `hapi-fhir-base`, `hapi-fhir-structures-r4`, `hapi-fhir-server`
+- **Version used by this project**: **8.2.0**
+- Used for MHD Document Responder FHIR R4 server implementation
 
 ### dcm4che (GPLv2)
 
