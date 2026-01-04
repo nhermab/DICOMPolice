@@ -30,7 +30,7 @@ public class MHDConfiguration {
     private String retrieveLocationUid = "1.3.6.1.4.1.21297.150.1.2";
 
     // FHIR Server Base URL (used to construct absolute URLs)
-    private String fhirBaseUrl = "http://localhost:8080/fhir";
+    private String fhirBaseUrl = "https://ihebelgium.ehealthhub.be/TheDICOMPolice/fhir";
 
     // WADO-RS Base URL for DICOM retrieval
     private String wadoRsBaseUrl = "https://ihebelgium.ehealthhub.be/orthanc/dicom-web/wado-rs/studies";
@@ -38,7 +38,8 @@ public class MHDConfiguration {
     // DICOM Connection Settings
     private String callingAet = "DICOMPOLICE";
     private String calledAet = "ORTHANC";
-    private String remoteHost = "172.20.240.184";
+    //private String remoteHost = "172.20.240.184";
+    private String remoteHost = "localhost";
     private int remotePort = 4242;
     private int connectTimeout = 5000;
     private int responseTimeout = 10000;
