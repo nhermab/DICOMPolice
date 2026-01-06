@@ -1,5 +1,6 @@
 package be.uzleuven.ihe.dicom.creator.utils;
 
+import be.uzleuven.ihe.dicom.constants.DicomConstants;
 import org.dcm4che3.data.*;
 
 import static be.uzleuven.ihe.dicom.creator.utils.DicomCreatorUtils.code;
@@ -16,7 +17,7 @@ public class SRContentItemUtils {
                                            String meaning, String textValue) {
         Attributes item = new Attributes();
         item.setString(Tag.RelationshipType, VR.CS, relationshipType);
-        item.setString(Tag.ValueType, VR.CS, "TEXT");
+        item.setString(Tag.ValueType, VR.CS, DicomConstants.VALUE_TYPE_TEXT);
         item.newSequence(Tag.ConceptNameCodeSequence, 1).add(code(codeValue, scheme, meaning));
         item.setString(Tag.TextValue, VR.UT, textValue);
         return item;
@@ -29,7 +30,7 @@ public class SRContentItemUtils {
                                              String meaning, String uidValue) {
         Attributes item = new Attributes();
         item.setString(Tag.RelationshipType, VR.CS, relationshipType);
-        item.setString(Tag.ValueType, VR.CS, "UIDREF");
+        item.setString(Tag.ValueType, VR.CS, DicomConstants.VALUE_TYPE_UIDREF);
         item.newSequence(Tag.ConceptNameCodeSequence, 1).add(code(codeValue, scheme, meaning));
         item.setString(Tag.UID, VR.UI, uidValue);
         return item;
@@ -42,7 +43,7 @@ public class SRContentItemUtils {
                                            String meaning, Attributes conceptCode) {
         Attributes item = new Attributes();
         item.setString(Tag.RelationshipType, VR.CS, relationshipType);
-        item.setString(Tag.ValueType, VR.CS, "CODE");
+        item.setString(Tag.ValueType, VR.CS, DicomConstants.VALUE_TYPE_CODE);
         item.newSequence(Tag.ConceptNameCodeSequence, 1).add(code(codeValue, scheme, meaning));
         item.newSequence(Tag.ConceptCodeSequence, 1).add(conceptCode);
         return item;
@@ -55,7 +56,7 @@ public class SRContentItemUtils {
                                               String meaning, int number) {
         Attributes item = new Attributes();
         item.setString(Tag.RelationshipType, VR.CS, relationshipType);
-        item.setString(Tag.ValueType, VR.CS, "NUM");
+        item.setString(Tag.ValueType, VR.CS, DicomConstants.VALUE_TYPE_NUM);
         item.newSequence(Tag.ConceptNameCodeSequence, 1).add(code(codeValue, scheme, meaning));
         Attributes mv = new Attributes();
         mv.setString(Tag.NumericValue, VR.DS, Integer.toString(number));
@@ -70,7 +71,7 @@ public class SRContentItemUtils {
                                             String sopClassUID, String sopInstanceUID) {
         Attributes item = new Attributes();
         item.setString(Tag.RelationshipType, VR.CS, relationshipType);
-        item.setString(Tag.ValueType, VR.CS, "IMAGE");
+        item.setString(Tag.ValueType, VR.CS, DicomConstants.VALUE_TYPE_IMAGE);
 
         if (conceptName != null) {
             item.newSequence(Tag.ConceptNameCodeSequence, 1).add(conceptName);

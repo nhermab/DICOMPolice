@@ -1,5 +1,6 @@
 package be.uzleuven.ihe.dicom.validator.utils;
 
+import be.uzleuven.ihe.dicom.constants.CodeConstants;
 import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Sequence;
 import org.dcm4che3.data.Tag;
@@ -64,7 +65,8 @@ public final class MADOContentUtils {
                 if (conceptSeq != null && !conceptSeq.isEmpty()) {
                     Attributes concept = conceptSeq.get(0);
                     String codeValue = concept.getString(Tag.CodeValue);
-                    if ("ddd007".equals(codeValue)) { // SOP Instance UID code
+                    if (CodeConstants.CODE_SOP_INSTANCE_UID.equals(codeValue)) { // SOP Instance UID code  EV (ddd007, DCM, “SOP Instance UID”)
+                        //TODO: this is wrong????
                         referencedUIDs.add(uid);
                     }
                 }

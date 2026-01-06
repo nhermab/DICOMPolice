@@ -17,6 +17,8 @@ public final class DigitalSignatureValidator {
     private DigitalSignatureValidator() {
     }
 
+    private static final String CODE_SIGNED_MANIFEST = "113031";
+
     /**
      * Validate Digital Signature requirements based on Document Title.
      * If the KOS is labeled as "Signed Manifest" (113031, DCM), it must contain a valid signature.
@@ -53,7 +55,7 @@ public final class DigitalSignatureValidator {
         Attributes titleCode = conceptNameSeq.get(0);
         String codeValue = titleCode.getString(Tag.CodeValue);
 
-        return "113031".equals(codeValue); // Signed Manifest
+        return CODE_SIGNED_MANIFEST.equals(codeValue); // Signed Manifest
     }
 
     /**
@@ -220,4 +222,3 @@ public final class DigitalSignatureValidator {
         }
     }
 }
-

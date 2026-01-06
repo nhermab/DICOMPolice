@@ -1,5 +1,6 @@
 package be.uzleuven.ihe.dicom.creator.utils;
 
+import be.uzleuven.ihe.dicom.constants.DicomConstants;
 import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Tag;
 import org.dcm4che3.data.UID;
@@ -105,7 +106,7 @@ public class ManifestHeaderUtils {
 
         // MADO-specific attribute
         if (config.includeTypeOfPatientID) {
-            attrs.setString(Tag.TypeOfPatientID, VR.CS, "TEXT");
+            attrs.setString(Tag.TypeOfPatientID, VR.CS, DicomConstants.VALUE_TYPE_TEXT);
         }
     }
 
@@ -228,4 +229,3 @@ public class ManifestHeaderUtils {
         return "O"; // Default to Other
     }
 }
-

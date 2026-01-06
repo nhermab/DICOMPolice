@@ -1,13 +1,15 @@
 package be.uzleuven.ihe.dicom.validator.validation.tid1600;
 
 import be.uzleuven.ihe.dicom.constants.CodeConstants;
-import be.uzleuven.ihe.dicom.constants.TID1600Codes;
+import be.uzleuven.ihe.dicom.constants.DicomConstants;
 import be.uzleuven.ihe.dicom.constants.ValidationMessages;
 import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Sequence;
 import org.dcm4che3.data.Tag;
 import be.uzleuven.ihe.dicom.validator.model.ValidationResult;
 import be.uzleuven.ihe.dicom.validator.utils.SRContentTreeUtils;
+
+import static be.uzleuven.ihe.dicom.constants.CodeConstants.*;
 
 /**
  * Validates the TID 1600 "Image Library" container and its nested groups/entries.
@@ -100,23 +102,22 @@ public final class TID1600ImageLibraryValidator {
             if (concept != null) {
                 String codeValue = concept.getString(Tag.CodeValue);
 
-                if (TID1600Codes.CODE_MODALITY.equals(codeValue)) {
+                if (CODE_MODALITY.equals(codeValue)) {
                     hasModality = true;
-                } else if (TID1600Codes.CODE_SERIES_DATE.equals(codeValue)) {
+                } else if (CODE_SERIES_DATE.equals(codeValue)) {
                     hasSeriesDate = true;
-                } else if (TID1600Codes.CODE_SERIES_TIME.equals(codeValue)) {
+                } else if (CODE_SERIES_TIME.equals(codeValue)) {
                     hasSeriesTime = true;
-                } else if (TID1600Codes.CODE_SERIES_DESCRIPTION.equals(codeValue)) {
+                } else if (CODE_SERIES_DESCRIPTION.equals(codeValue)) {
                     hasSeriesDescription = true;
-                } else if (TID1600Codes.CODE_SERIES_NUMBER.equals(codeValue)
-                        || "ddd010".equals(codeValue)) {
+                } else if (CODE_SERIES_NUMBER.equals(codeValue)) {
                     // Some generators encode Series Number using ddd010 (see CodeConstants.CODE_SERIES_NUMBER).
                     // Accept both to avoid false positives when validating existing dumps.
                     hasSeriesNumber = true;
                     TID1600Rules.validateSeriesNumberConsistency(item, result, path);
-                } else if (TID1600Codes.CODE_SERIES_INSTANCE_UID.equals(codeValue)) {
+                } else if (CODE_SERIES_INSTANCE_UID.equals(codeValue)) {
                     hasSeriesUID = true;
-                } else if (TID1600Codes.CODE_NUMBER_OF_SERIES_RELATED_INSTANCES.equals(codeValue)) {
+                } else if (CODE_NUM_SERIES_RELATED_INSTANCES.equals(codeValue)) {
                     hasNumberOfSeriesRelatedInstances = true;
                 }
             }
@@ -199,10 +200,10 @@ public final class TID1600ImageLibraryValidator {
                 if (concept != null) {
                     String codeValue = concept.getString(Tag.CodeValue);
 
-                    if (TID1600Codes.CODE_NUMBER_OF_FRAMES.equals(codeValue)) {
+                    if (CODE_NUMBER_OF_FRAMES.equals(codeValue)) {
                         hasNumberOfFrames = true;
-                    } else if (TID1600Codes.CODE_INSTANCE_NUMBER.equals(codeValue)
-                            || TID1600Codes.CODE_SERIES_NUMBER.equals(codeValue)) {
+                    } else if (CODE_INSTANCE_NUMBER.equals(codeValue)
+                            || CODE_SERIES_NUMBER.equals(codeValue)) {
                         // Some generators (and older dumps) use ddd005 for the instance number concept.
                         // Accept both ddd012 (preferred) and ddd005 (legacy mapping) to avoid false positives.
                         hasInstanceNumber = true;
@@ -210,10 +211,11 @@ public final class TID1600ImageLibraryValidator {
                         // ValueType can be TEXT in our validator, but dumps often show UT for TextValue.
                         // Treat TEXT/UT as acceptable string carriers.
                         String vt = item.getString(Tag.ValueType);
-                        if (vt != null && !("TEXT".equals(vt) || "UT".equals(vt))) {
+                        if (vt != null && !(DicomConstants.VALUE_TYPE_TEXT.equals(vt) || "UT".equals(vt))) {
                             result.addError(String.format(ValidationMessages.TID1600_ENTRY_INSTANCE_NUMBER_WRONG_VT, vt), path);
                         }
-                    } else if (TID1600Codes.CODE_KOS_TITLE.equals(codeValue)) {
+                    } else if (
+                            CODE_KOS_TITLE.equals(codeValue)) {
                         validateKOSReference(entry, result, path);
                     }
                 }
@@ -249,9 +251,9 @@ public final class TID1600ImageLibraryValidator {
             if (concept != null) {
                 String codeValue = concept.getString(Tag.CodeValue);
 
-                if (TID1600Codes.CODE_KOS_TITLE.equals(codeValue)) {
+                if (CODE_KOS_TITLE.equals(codeValue)) {
                     hasKOSTitle = true;
-                } else if (TID1600Codes.CODE_SOP_INSTANCE_UID.equals(codeValue)) {
+                } else if (CODE_SOP_INSTANCE_UID.equals(codeValue)) {
                     hasSOPInstanceUIDs = true;
                 }
             }
@@ -292,7 +294,7 @@ public final class TID1600ImageLibraryValidator {
             }
 
             String codeValue = concept.getString(Tag.CodeValue);
-            if (TID1600Codes.CODE_KEY_OBJECT_DESC.equals(codeValue)) {
+            if (DicomConstants.CODE_KEY_OBJECT_DESCRIPTION.equals(codeValue)) {
                 hasKeyObjectDesc = true;
 
                 Sequence nestedContent = item.getSequence(Tag.ContentSequence);

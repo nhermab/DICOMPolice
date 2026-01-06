@@ -7,6 +7,8 @@ import org.dcm4che3.data.VR;
 
 import java.util.List;
 
+import static be.uzleuven.ihe.dicom.constants.CodeConstants.CODE_INSTANCE_NUMBER;
+import static be.uzleuven.ihe.dicom.constants.DicomConstants.SCHEME_DCM;
 import static be.uzleuven.ihe.dicom.creator.utils.DicomCreatorUtils.*;
 import static be.uzleuven.ihe.dicom.creator.utils.SRContentItemUtils.*;
 import be.uzleuven.ihe.dicom.constants.CodeConstants;
@@ -214,8 +216,8 @@ class MADOContentBuilder {
 
         // Core identifiers
         String instanceNumber = instAttrs.getString(Tag.InstanceNumber, "1");
-        entryContent.add(createTextItem("HAS ACQ CONTEXT", CodeConstants.CODE_INSTANCE_NUMBER,
-            CodeConstants.SCHEME_DCM, CodeConstants.MEANING_INSTANCE_NUMBER, instanceNumber));
+        entryContent.add(createTextItem("HAS ACQ CONTEXT", CODE_INSTANCE_NUMBER,
+            SCHEME_DCM, CodeConstants.MEANING_INSTANCE_NUMBER, instanceNumber));
 
         // Add Number of Frames if multiframe
         addNumberOfFramesIfRequired(entryContent, instAttrs);

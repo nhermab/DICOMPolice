@@ -1,5 +1,7 @@
 package be.uzleuven.ihe.service;
 
+import be.uzleuven.ihe.dicom.constants.CodeConstants;
+import be.uzleuven.ihe.dicom.constants.DicomConstants;
 import be.uzleuven.ihe.dicom.validator.CLIDICOMVerify;
 import be.uzleuven.ihe.dicom.validator.model.ValidationResult;
 
@@ -14,6 +16,8 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.util.*;
+
+import static be.uzleuven.ihe.dicom.constants.CodeConstants.CODE_MANIFEST_WITH_DESCRIPTION;
 
 /**
  * REST Controller for DICOM KOS/MADO Visualization
@@ -190,8 +194,8 @@ public class DicomVisualizerController {
         // MADO uses:
         // (113030, DCM, "Manifest") - Standard manifest title
         // (ddd001, DCM, "Manifest with Description") - MADO-specific title
-        boolean isManifest = "113030".equals(codeValue) && "DCM".equals(csd);
-        boolean isManifestWithDesc = "ddd001".equals(codeValue) && "DCM".equals(csd);
+        boolean isManifest = CodeConstants.CODE_KOS_MANIFEST.equals(codeValue) && DicomConstants.SCHEME_DCM.equals(csd);
+        boolean isManifestWithDesc = CODE_MANIFEST_WITH_DESCRIPTION.equals(codeValue) && DicomConstants.SCHEME_DCM.equals(csd);
 
         // If it's one of these, check for MADO-specific content (TID 1600)
         if (isManifest || isManifestWithDesc) {
@@ -215,13 +219,13 @@ public class DicomVisualizerController {
         // Look for CONTAINER with "Image Library" or descriptors
         for (Attributes contentItem : contentSeq) {
             String valueType = contentItem.getString(Tag.ValueType);
-            if ("CONTAINER".equals(valueType)) {
+            if (be.uzleuven.ihe.dicom.constants.DicomConstants.VALUE_TYPE_CONTAINER.equals(valueType)) {
                 Sequence conceptSeq = contentItem.getSequence(Tag.ConceptNameCodeSequence);
                 if (conceptSeq != null && !conceptSeq.isEmpty()) {
                     Attributes concept = conceptSeq.get(0);
                     String conceptCode = concept.getString(Tag.CodeValue);
-                    // Check for TID 1600 root or descriptors (126200, 121070, etc.)
-                    if ("126200".equals(conceptCode) || "121070".equals(conceptCode) ||
+                    // Check for TID 1600 root or descriptors
+                    if (CodeConstants.CODE_IMAGE_LIBRARY.equals(conceptCode) || CodeConstants.CODE_IMAGE_LIBRARY_GROUP.equals(conceptCode) || "121070".equals(conceptCode) ||
                         "121071".equals(conceptCode) || "121072".equals(conceptCode)) {
                         return true;
                     }
@@ -490,14 +494,14 @@ public class DicomVisualizerController {
                         node.put("code", codeValue);
                     }
                     break;
-                case "TEXT":
+                case DicomConstants.VALUE_TYPE_TEXT:
                     node.put("textValue", item.getString(Tag.TextValue, ""));
                     break;
-                case "NUM":
+                case DicomConstants.VALUE_TYPE_NUM:
                     node.put("numericValue", item.getString(Tag.NumericValue, ""));
                     break;
-                case "IMAGE":
-                case "COMPOSITE":
+                case DicomConstants.VALUE_TYPE_IMAGE:
+                case DicomConstants.VALUE_TYPE_COMPOSITE:
                     Sequence refSOPSeq = item.getSequence(Tag.ReferencedSOPSequence);
                     if (refSOPSeq != null && !refSOPSeq.isEmpty()) {
                         Attributes refSOP = refSOPSeq.get(0);
@@ -559,4 +563,3 @@ public class DicomVisualizerController {
         return result;
     }
 }
-

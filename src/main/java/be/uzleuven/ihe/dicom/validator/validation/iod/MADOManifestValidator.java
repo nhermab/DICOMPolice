@@ -1,5 +1,6 @@
 package be.uzleuven.ihe.dicom.validator.validation.iod;
 
+import be.uzleuven.ihe.dicom.constants.CodeConstants;
 import be.uzleuven.ihe.dicom.constants.DicomConstants;
 import be.uzleuven.ihe.dicom.constants.ValidationMessages;
 import org.dcm4che3.data.Attributes;
@@ -9,6 +10,8 @@ import be.uzleuven.ihe.dicom.validator.utils.MADOProfileUtils;
 import be.uzleuven.ihe.dicom.validator.model.ValidationResult;
 import be.uzleuven.ihe.dicom.validator.validation.MADOComplianceChecker;
 
+import static be.uzleuven.ihe.dicom.constants.CodeConstants.CODE_MANIFEST_WITH_DESCRIPTION;
+
 /**
  * Validator for MADO (Manifest-based Access to DICOM Objects) profile.
  * MADO extends KOS with TID 1600 Image Library template for enhanced metadata.
@@ -17,7 +20,6 @@ import be.uzleuven.ihe.dicom.validator.validation.MADOComplianceChecker;
 public class MADOManifestValidator extends KeyObjectSelectionValidator {
 
     // MADO uses different document title than XDS-I.b
-    private static final String MADO_MANIFEST_CODE_VALUE = "ddd001";
     private static final String MADO_MANIFEST_CSD = "DCM";
     private static final String MADO_MANIFEST_CODE_MEANING = "Manifest with Description";
 
@@ -146,7 +148,7 @@ public class MADOManifestValidator extends KeyObjectSelectionValidator {
         // Type of Patient ID validation
         if (dataset.contains(Tag.TypeOfPatientID)) {
             String typeOfPatientID = dataset.getString(Tag.TypeOfPatientID);
-            if (!"TEXT".equals(typeOfPatientID)) {
+            if (!DicomConstants.VALUE_TYPE_TEXT.equals(typeOfPatientID)) {
                 result.addWarning("TypeOfPatientID (0010,0022) should be 'TEXT' in MADO profile, found: " +
                         typeOfPatientID, modulePath);
             }
@@ -256,14 +258,14 @@ public class MADOManifestValidator extends KeyObjectSelectionValidator {
         String meaning = item.getString(Tag.CodeMeaning);
 
         // MADO requires either (113030, DCM, "Manifest") OR (ddd001, DCM, "Manifest with Description")
-        boolean isManifest = "113030".equals(codeValue) && "DCM".equals(csd);
-        boolean isManifestWithDesc = MADO_MANIFEST_CODE_VALUE.equals(codeValue) && MADO_MANIFEST_CSD.equals(csd);
+        boolean isManifest = CodeConstants.CODE_KOS_MANIFEST.equals(codeValue) && "DCM".equals(csd);
+        boolean isManifestWithDesc = CODE_MANIFEST_WITH_DESCRIPTION.equals(codeValue) && MADO_MANIFEST_CSD.equals(csd);
 
         if (!isManifest && !isManifestWithDesc) {
             result.addError(
                 "MADO ConceptNameCodeSequence (Document Title) must be either:\n" +
                 "  (113030, DCM, \"Manifest\") OR\n" +
-                "  (" + MADO_MANIFEST_CODE_VALUE + ", " + MADO_MANIFEST_CSD + ", \"" + MADO_MANIFEST_CODE_MEANING + "\")\n" +
+                "  (" + CODE_MANIFEST_WITH_DESCRIPTION + ", " + MADO_MANIFEST_CSD + ", \"" + MADO_MANIFEST_CODE_MEANING + "\")\n" +
                 "Found: (" + codeValue + ", " + csd + ", \"" + meaning + "\")\n" +
                 "Note: Generic KOS titles like (113000, DCM, \"Of Interest\") are NOT valid for MADO.", modulePath);
         }

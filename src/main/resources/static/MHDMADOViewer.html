@@ -36,80 +36,149 @@
     <!-- Main Content -->
     <main class="main-content">
         <div class="viewer-container">
-            <!-- Search Panel -->
-            <section class="search-panel">
-                <h2 class="panel-title">🔍 Search DocumentReferences</h2>
-                <div class="search-grid">
-                    <div class="search-field">
-                        <label for="patientId">Patient ID</label>
-                        <input type="text" id="patientId" placeholder="Enter patient ID">
+            <!-- Left Sidebar: Search Panel and Stats -->
+            <div class="left-sidebar">
+                <!-- Search Panel -->
+                <section class="search-panel">
+                    <h2 class="panel-title">🔍 Search DocumentReferences</h2>
+                    <div class="search-grid">
+                        <div class="search-field">
+                            <label for="patientId">Patient ID</label>
+                            <input type="text" id="patientId" placeholder="Enter patient ID">
+                        </div>
+                        <div class="search-field">
+                            <label for="studyUid">Study Instance UID</label>
+                            <input type="text" id="studyUid" placeholder="Enter study UID">
+                        </div>
+                        <div class="search-field">
+                            <label for="accessionNumber">Accession Number</label>
+                            <input type="text" id="accessionNumber" placeholder="Enter accession">
+                        </div>
+                        <div class="search-field">
+                            <label for="modality">Modality</label>
+                            <select id="modality">
+                                <option value="">All Modalities</option>
+                                <option value="CT">CT – Computed Tomography</option>
+                                <option value="MR">MR – Magnetic Resonance</option>
+                                <option value="US">US – Ultrasound</option>
+                                <option value="DX">DX – Digital Radiography</option>
+                                <option value="CR">CR – Computed Radiography</option>
+                                <option value="MG">MG – Mammography</option>
+                                <option value="NM">NM – Nuclear Medicine</option>
+                                <option value="PT">PT – Positron Emission Tomography (PET)</option>
+                                <option value="XA">XA – X-Ray Angiography</option>
+                                <option value="ECG">ECG – Electrocardiography</option>
+                                <option value="ES">ES – Endoscopy</option>
+                                <option value="IO">IO – Intra-Oral Radiography</option>
+                                <option value="PX">PX – Panoramic X-Ray</option>
+                                <option value="SM">SM – Slide Microscopy</option>
+                                <option value="GM">GM – General Microscopy</option>
+                                <option value="XC">XC – External-camera Photography</option>
+                                <option value="OP">OP – Ophthalmic Photography</option>
+                                <option value="OCT">OCT – Optical Coherence Tomography (non-Ophthalmic)</option>
+                                <option value="OPT">OPT – Ophthalmic Tomography</option>
+                                <option value="OPV">OPV – Ophthalmic Visual Field</option>
+                                <option value="VA">VA – Visual Acuity</option>
+                                <option value="KER">KER – Keratometry</option>
+                                <option value="IVUS">IVUS – Intravascular Ultrasound</option>
+                                <option value="IVOCT">IVOCT – Intravascular Optical Coherence Tomography</option>
+                                <option value="HD">HD – Hemodynamic Waveform</option>
+                                <option value="RESP">RESP – Respiratory Waveform</option>
+                                <option value="RTIMAGE">RTIMAGE – Radiotherapy Image</option>
+                                <option value="RTPLAN">RTPLAN – Radiotherapy Plan</option>
+                                <option value="RTDOSE">RTDOSE – Radiotherapy Dose</option>
+                                <option value="RTSTRUCT">RTSTRUCT – Radiotherapy Structure Set</option>
+                                <option value="RTRECORD">RTRECORD – RT Treatment Record</option>
+                                <option value="SEG">SEG – Segmentation</option>
+                                <option value="REG">REG – Registration</option>
+                                <option value="RWV">RWV – Real World Value Map</option>
+                                <option value="DOC">DOC – Document</option>
+                                <option value="SR">SR – Structured Report (SR Document)</option>
+                                <option value="PR">PR – Presentation State</option>
+                                <option value="KO">KO – Key Object Selection</option>
+                                <option value="PLAN">PLAN – Plan</option>
+                                <option value="FID">FID – Fiducials</option>
+                                <option value="IOL">IOL – Intraocular Lens Data</option>
+                                <option value="LEN">LEN – Lensometry</option>
+                                <option value="LS">LS – Laser Surface Scan</option>
+                                <option value="OSS">OSS – Optical Surface Scan</option>
+                                <option value="OAM">OAM – Ophthalmic Axial Measurements</option>
+                                <option value="SRF">SRF – Subjective Refraction</option>
+                                <option value="STAIN">STAIN – Automated Slide Stainer</option>
+                                <option value="SMR">SMR – Stereometric Relationship</option>
+                                <option value="RG">RG – Radiographic Imaging (Film/Screen)</option>
+                                <option value="RF">RF – Radio Fluoroscopy</option>
+                                <option value="TG">TG – Thermography</option>
+                                <option value="DG">DG – Diaphanography</option>
+                                <option value="BI">BI – Biomagnetic Imaging</option>
+                                <option value="EPS">EPS – Cardiac Electrophysiology</option>
+                                <option value="AU">AU – Audio</option>
+                                <option value="HC">HC – Hard Copy</option>
+                                <option value="AS">AS – Angioscopy</option>
+                                <option value="CD">CD – Color Flow Doppler</option>
+                                <option value="CF">CF – Cinefluorography</option>
+                                <option value="CP">CP – Colposcopy</option>
+                                <option value="DD">DD – Duplex Doppler</option>
+                                <option value="DF">DF – Digital Fluoroscopy</option>
+                                <option value="DM">DM – Digital Microscopy</option>
+                                <option value="DS">DS – Digital Subtraction Angiography</option>
+                                <option value="EC">EC – Echocardiography</option>
+                                <option value="FA">FA – Fluorescein Angiography</option>
+                                <option value="FS">FS – Fundoscopy</option>
+                                <option value="LP">LP – Laparoscopy</option>
+                                <option value="MA">MA – Magnetic Resonance Angiography</option>
+                                <option value="MS">MS – Magnetic Resonance Spectroscopy</option>
+                                <option value="OPR">OPR – Ophthalmic Refraction</option>
+                                <option value="ST">ST – Single-photon Emission Computed Tomography (SPECT)</option>
+                                <option value="VF">VF – Videofluorography</option>
+                                <option value="OT">OT – Other</option>
+                            </select>
+                        </div>
+                        <div class="search-field">
+                            <label for="dateFrom">Date From</label>
+                            <input type="date" id="dateFrom">
+                        </div>
+                        <div class="search-field">
+                            <label for="dateTo">Date To</label>
+                            <input type="date" id="dateTo">
+                        </div>
                     </div>
-                    <div class="search-field">
-                        <label for="studyUid">Study Instance UID</label>
-                        <input type="text" id="studyUid" placeholder="Enter study UID">
+                    <div class="search-actions">
+                        <button type="button" class="btn-secondary" id="clearBtn">Clear</button>
+                        <button type="button" class="btn btn-primary" id="searchBtn">
+                            <span>🔍 Search</span>
+                        </button>
                     </div>
-                    <div class="search-field">
-                        <label for="accessionNumber">Accession Number</label>
-                        <input type="text" id="accessionNumber" placeholder="Enter accession">
-                    </div>
-                    <div class="search-field">
-                        <label for="modality">Modality</label>
-                        <select id="modality">
-                            <option value="">All Modalities</option>
-                            <option value="CT">CT - Computed Tomography</option>
-                            <option value="MR">MR - Magnetic Resonance</option>
-                            <option value="US">US - Ultrasound</option>
-                            <option value="XA">XA - X-Ray Angiography</option>
-                            <option value="CR">CR - Computed Radiography</option>
-                            <option value="DX">DX - Digital Radiography</option>
-                            <option value="MG">MG - Mammography</option>
-                            <option value="PT">PT - PET</option>
-                            <option value="NM">NM - Nuclear Medicine</option>
-                            <option value="OT">OT - Other</option>
-                        </select>
-                    </div>
-                    <div class="search-field">
-                        <label for="dateFrom">Date From</label>
-                        <input type="date" id="dateFrom">
-                    </div>
-                    <div class="search-field">
-                        <label for="dateTo">Date To</label>
-                        <input type="date" id="dateTo">
-                    </div>
-                </div>
-                <div class="search-actions">
-                    <button type="button" class="btn-secondary" id="clearBtn">Clear</button>
-                    <button type="button" class="btn btn-primary" id="searchBtn">
-                        <span>🔍 Search</span>
-                    </button>
-                </div>
-            </section>
 
-            <!-- Error Banner -->
-            <div id="errorBanner" class="error-banner" style="display: none;"></div>
-
-            <!-- Stats Cards -->
-            <div class="stats-grid" id="statsGrid" style="display: none;">
-                <div class="stat-card">
-                    <div class="stat-value" id="totalCount">0</div>
-                    <div class="stat-label">Total Studies</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="patientCount">0</div>
-                    <div class="stat-label">Unique Patients</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="modalityCount">0</div>
-                    <div class="stat-label">Modalities</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="dateRange">-</div>
-                    <div class="stat-label">Date Range</div>
-                </div>
+                    <!-- Stats Cards - Inside Search Panel -->
+                    <div class="stats-grid" id="statsGrid" style="display: none;">
+                        <div class="stat-card">
+                            <div class="stat-value" id="totalCount">0</div>
+                            <div class="stat-label">Total Studies</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="patientCount">0</div>
+                            <div class="stat-label">Unique Patients</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="modalityCount">0</div>
+                            <div class="stat-label">Modalities</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="dateRange">-</div>
+                            <div class="stat-label">Date Range</div>
+                        </div>
+                    </div>
+                </section>
             </div>
 
-            <!-- DataGrid -->
-            <section class="datagrid-container">
+            <!-- Right Content: Error Banner and DataGrid -->
+            <div class="right-content">
+                <!-- Error Banner -->
+                <div id="errorBanner" class="error-banner" style="display: none;"></div>
+
+                <!-- DataGrid -->
+                <section class="datagrid-container">
                 <div class="datagrid-header">
                     <div class="datagrid-title">
                         <span>📊</span>
@@ -138,6 +207,7 @@
                     <div class="pagination-controls" id="paginationControls"></div>
                 </div>
             </section>
+            </div> <!-- End right-content -->
         </div>
     </main>
 

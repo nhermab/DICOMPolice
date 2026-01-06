@@ -5,6 +5,7 @@ import org.dcm4che3.data.UID;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Centralized list of known SOP Class UIDs -> human-readable names.
@@ -16,6 +17,21 @@ public final class SopClassLists {
     }
 
     public static final Map<String, String> KNOWN_SOP_CLASSES;
+
+    /**
+     * Set of multiframe SOP Class UIDs that may contain multiple frames.
+     * Used for validation and processing logic that differs for multiframe objects.
+     */
+    public static final Set<String> MULTIFRAME_SOP_CLASSES = Set.of(
+        UID.VLWholeSlideMicroscopyImageStorage,           // 1.2.840.10008.5.1.4.1.1.77.1.6
+        UID.MultiFrameSingleBitSecondaryCaptureImageStorage,  // 1.2.840.10008.5.1.4.1.1.7.1
+        UID.MultiFrameGrayscaleByteSecondaryCaptureImageStorage,  // 1.2.840.10008.5.1.4.1.1.7.2
+        UID.MultiFrameGrayscaleWordSecondaryCaptureImageStorage,  // 1.2.840.10008.5.1.4.1.1.7.3
+        UID.MultiFrameTrueColorSecondaryCaptureImageStorage,  // 1.2.840.10008.5.1.4.1.1.7.4
+        UID.EnhancedCTImageStorage,                       // 1.2.840.10008.5.1.4.1.1.2.1
+        UID.EnhancedMRImageStorage,                       // 1.2.840.10008.5.1.4.1.1.4.1
+        UID.EnhancedPETImageStorage                       // 1.2.840.10008.5.1.4.1.1.130
+    );
 
     static {
         Map<String, String> m = new HashMap<>();
@@ -158,4 +174,3 @@ public final class SopClassLists {
         KNOWN_SOP_CLASSES = Collections.unmodifiableMap(m);
     }
 }
-

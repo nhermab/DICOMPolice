@@ -1,5 +1,6 @@
 package be.uzleuven.ihe.dicom.creator.samples;
 
+import be.uzleuven.ihe.dicom.constants.CodeConstants;
 import be.uzleuven.ihe.dicom.constants.DicomConstants;
 import org.dcm4che3.data.*;
 
@@ -261,7 +262,7 @@ public class IHEKOSSampleCreator {
 
         // Document Title
         Sequence conceptName = d.newSequence(Tag.ConceptNameCodeSequence, 1);
-        conceptName.add(code(CODE_MANIFEST, SCHEME_DCM, MEANING_MANIFEST));
+        conceptName.add(code(CodeConstants.CODE_KOS_MANIFEST, SCHEME_DCM, MEANING_MANIFEST));
 
         // ContentTemplateSequence identifies TID 2010 / DCMR
         Sequence cts = d.newSequence(Tag.ContentTemplateSequence, 1);

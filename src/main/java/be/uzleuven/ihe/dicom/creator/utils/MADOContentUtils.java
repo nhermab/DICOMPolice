@@ -1,5 +1,6 @@
 package be.uzleuven.ihe.dicom.creator.utils;
 
+import be.uzleuven.ihe.dicom.constants.CodeConstants;
 import be.uzleuven.ihe.dicom.creator.model.SimulatedInstance;
 import be.uzleuven.ihe.dicom.creator.model.SimulatedSeries;
 import be.uzleuven.ihe.dicom.creator.model.SimulatedStudy;
@@ -48,7 +49,7 @@ public class MADOContentUtils {
 
         // KOS Description (optional)
         descSeq.add(createTextItem(be.uzleuven.ihe.dicom.constants.DicomConstants.RELATIONSHIP_CONTAINS,
-            "ddd009", "DCM", "KOS Object Description", "Key Objects for Surgery"));
+                CODE_KOS_DESCRIPTION, CodeConstants.SCHEME_DCM, "KOS Object Description", "Key Objects for Surgery"));
 
         // Select up to N referenced instances (IMAGE items) from NON-KIN instances to describe.
         MADOOptions options = (MADOOptions) study.getOptions();

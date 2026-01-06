@@ -1,12 +1,14 @@
 package be.uzleuven.ihe.dicom.validator.validation.tid1600;
 
-import be.uzleuven.ihe.dicom.constants.TID1600Codes;
+import be.uzleuven.ihe.dicom.constants.CodeConstants;
 import be.uzleuven.ihe.dicom.constants.ValidationMessages;
 import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Sequence;
 import org.dcm4che3.data.Tag;
 import be.uzleuven.ihe.dicom.validator.model.ValidationResult;
 import be.uzleuven.ihe.dicom.validator.utils.SRContentTreeUtils;
+
+import static be.uzleuven.ihe.dicom.constants.DicomConstants.SCHEME_DCM;
 
 /**
  * Facade validator for TID 1600 Image Library structure.
@@ -30,7 +32,7 @@ public final class TID1600Validator {
 
         boolean foundImageLibrary = false;
         for (Attributes item : contentSeq) {
-            if (SRContentTreeUtils.isContainerWithConcept(item, TID1600Codes.CODE_IMAGE_LIBRARY, TID1600Codes.SCHEME_DCM)) {
+            if (SRContentTreeUtils.isContainerWithConcept(item, CodeConstants.CODE_IMAGE_LIBRARY, SCHEME_DCM)) {
                 foundImageLibrary = true;
                 result.addInfo("MADO Approach 2: TID 1600 Image Library (111028, DCM) detected", modulePath);
                 TID1600ImageLibraryValidator.validateImageLibraryContainer(item, result, modulePath + ".ImageLibrary", verbose);

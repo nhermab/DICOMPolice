@@ -69,12 +69,12 @@ body {
 /* =========================
    03. Layout
    ========================= */
-.container { max-width: 1200px; margin: 0 auto; padding: 0 24px; width: 100%; }
+.container { max-width: 1200px; margin: 0 auto; padding: 0 12px; width: 100%; }
 
 .header {
   background: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-blue-dark) 100%);
   color: #fff;
-  padding: 24px 0;
+  padding: 12px 0;
   box-shadow: var(--shadow-md);
   position: sticky;
   top: 0;
@@ -82,27 +82,28 @@ body {
 }
 
 .header-content { display: flex; align-items: center; justify-content: space-between; }
-.logo-section { display: flex; align-items: center; gap: 16px; }
+.logo-section { display: flex; align-items: center; gap: 12px; }
 .logo-placeholder { display: flex; align-items: center; justify-content: center; }
+.logo-placeholder svg { width: 32px; height: 32px; flex-shrink: 0; }
 
-.logo-text h1 { font-size: 24px; font-weight: 600; margin: 0; letter-spacing: -0.5px; }
-.logo-text .subtitle { font-size: 13px; opacity: 0.9; margin: 0; font-weight: 400; }
+.logo-text h1 { font-size: 18px; font-weight: 600; margin: 0; letter-spacing: -0.5px; }
+.logo-text .subtitle { font-size: 11px; opacity: 0.9; margin: 0; font-weight: 400; }
 
 /* Header Navigation (shared across pages) */
-.header-nav { display: flex; gap: 12px; }
+.header-nav { display: flex; gap: 8px; }
 
 .nav-link {
   color: #fff;
   text-decoration: none;
-  padding: 8px 16px;
+  padding: 6px 12px;
   border-radius: 6px;
   transition: background var(--transition-fast);
   font-weight: 500;
+  font-size: 13px;
   background: transparent;
   border: none;
   cursor: pointer;
   font-family: inherit;
-  font-size: inherit;
 }
 
 .nav-link:hover { background: rgba(255, 255, 255, 0.1); }
@@ -696,25 +697,25 @@ body {
 .footer {
   background: var(--background-white);
   border-top: 2px solid var(--border-light);
-  padding: 24px 0;
+  padding: 12px 0;
   margin-top: auto;
 }
 
 .footer-content {
   text-align: center;
   color: var(--text-secondary);
-  font-size: 14px;
+  font-size: 11px;
 }
 
 .footer-content p {
-  margin: 8px 0;
+  margin: 4px 0;
 }
 
 .footer-links {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .footer-link {
@@ -735,32 +736,37 @@ body {
 /* Responsive Design */
 @media (max-width: 768px) {
   .container {
-    padding: 0 16px;
+    padding: 0 8px;
   }
 
   .header {
-    padding: 16px 0;
+    padding: 8px 0;
   }
 
   .logo-text h1 {
-    font-size: 20px;
+    font-size: 16px;
   }
 
   .logo-text .subtitle {
+    font-size: 10px;
+  }
+
+  .nav-link {
+    padding: 5px 10px;
     font-size: 12px;
   }
 
   .main-content {
-    padding: 24px 0;
+    padding: 16px 0;
   }
 
   .card-header,
   .card-body {
-    padding: 20px;
+    padding: 16px;
   }
 
   .upload-area {
-    padding: 32px 20px;
+    padding: 24px 16px;
   }
 
   .summary-grid {
@@ -770,6 +776,14 @@ body {
   .metadata-grid {
     grid-template-columns: 1fr;
   }
+
+  .footer {
+    padding: 8px 0;
+  }
+
+  .footer-content {
+    font-size: 10px;
+  }
 }
 
 @media (max-width: 480px) {
@@ -778,12 +792,24 @@ body {
   }
 
   .logo-section {
-    gap: 12px;
+    gap: 8px;
   }
 
   .logo-placeholder svg {
-    width: 32px;
-    height: 32px;
+    width: 28px;
+    height: 28px;
+  }
+
+  .logo-text h1 {
+    font-size: 14px;
+  }
+
+  .logo-text .subtitle {
+    display: none;
+  }
+
+  .header-nav {
+    gap: 6px;
   }
 }
 

@@ -23,22 +23,22 @@ public final class XDSIManifestProfileUtils {
     private XDSIManifestProfileUtils() {
     }
 
-    private static final String EXPECTED_MAPPING_RESOURCE_DCMR = "DCMR";
+    private static final String EXPECTED_MAPPING_RESOURCE_DCMR = ValidationMessages.DCMR;
     private static final String EXPECTED_TEMPLATE_IDENTIFIER_TID_2010 = "2010";
 
     // IHE XDS-I.b Imaging Manifest title
     private static final String XDSI_MANIFEST_CODE_VALUE = "113030";
-    private static final String XDSI_MANIFEST_CSD = "DCM";
-    private static final String XDSI_MANIFEST_CODE_MEANING = "Manifest";
+    private static final String XDSI_MANIFEST_CSD = DicomConstants.SCHEME_DCM;
+    private static final String XDSI_MANIFEST_CODE_MEANING = DicomConstants.CODE_MANIFEST_MEANING;
 
     // IOCM rejection note titles we explicitly forbid when the caller expects a sharing manifest.
     // (Non-exhaustive but covers the commonly encountered high-risk titles.)
     private static final Set<String> FORBIDDEN_IOCM_TITLE_CODE_VALUES = new HashSet<>();
 
     static {
-        FORBIDDEN_IOCM_TITLE_CODE_VALUES.add("113001"); // Rejected for Quality Reasons
-        FORBIDDEN_IOCM_TITLE_CODE_VALUES.add("113037"); // Rejected for Patient Safety Reasons
-        FORBIDDEN_IOCM_TITLE_CODE_VALUES.add("113039"); // Data Retention Policy Expired
+        FORBIDDEN_IOCM_TITLE_CODE_VALUES.add(DicomConstants.IOCM_REJECTED_QUALITY); // Rejected for Quality Reasons
+        FORBIDDEN_IOCM_TITLE_CODE_VALUES.add(DicomConstants.IOCM_REJECTED_PATIENT_SAFETY); // Rejected for Patient Safety Reasons
+        FORBIDDEN_IOCM_TITLE_CODE_VALUES.add(DicomConstants.IOCM_DATA_RETENTION_EXPIRED); // Data Retention Policy Expired
     }
 
     public static boolean isForbiddenIOCMTitle(String codeValue) {

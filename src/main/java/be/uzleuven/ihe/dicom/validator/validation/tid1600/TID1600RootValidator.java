@@ -1,13 +1,16 @@
 package be.uzleuven.ihe.dicom.validator.validation.tid1600;
 
 import be.uzleuven.ihe.dicom.constants.DicomConstants;
-import be.uzleuven.ihe.dicom.constants.TID1600Codes;
 import be.uzleuven.ihe.dicom.constants.ValidationMessages;
 import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Sequence;
 import org.dcm4che3.data.Tag;
 import be.uzleuven.ihe.dicom.validator.model.ValidationResult;
 import be.uzleuven.ihe.dicom.validator.utils.SRContentTreeUtils;
+
+import static be.uzleuven.ihe.dicom.constants.CodeConstants.CODE_KOS_MANIFEST;
+import static be.uzleuven.ihe.dicom.constants.CodeConstants.CODE_MANIFEST_WITH_DESCRIPTION;
+import static be.uzleuven.ihe.dicom.constants.DicomConstants.SCHEME_DCM;
 
 /**
  * Root container checks for MADO TID 1600 manifests.
@@ -41,9 +44,9 @@ public final class TID1600RootValidator {
         String codeValue = concept.getString(Tag.CodeValue);
         String codingScheme = concept.getString(Tag.CodingSchemeDesignator);
 
-        if (TID1600Codes.CODE_MANIFEST.equals(codeValue) && TID1600Codes.SCHEME_DCM.equals(codingScheme)) {
+        if (CODE_KOS_MANIFEST.equals(codeValue) && SCHEME_DCM.equals(codingScheme)) {
             result.addInfo("Root container uses MADO preferred title: (113030, DCM, 'Manifest')", modulePath);
-        } else if ("ddd001".equals(codeValue) && TID1600Codes.SCHEME_DCM.equals(codingScheme)) {
+        } else if (CODE_MANIFEST_WITH_DESCRIPTION.equals(codeValue) && SCHEME_DCM.equals(codingScheme)) {
             result.addInfo("Root container uses MADO title: (ddd001, DCM, 'Manifest with Description')", modulePath);
         } else {
             result.addWarning("MADO Root Container Requirement V-ROOT-02: ConceptNameCodeSequence "

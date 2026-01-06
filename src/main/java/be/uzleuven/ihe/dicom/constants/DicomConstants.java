@@ -20,8 +20,6 @@ public final class DicomConstants {
     public static final String TRANSFER_SYNTAX_COMPRESSED_PREFIX = "1.2.840.10008.1.2.4";
 
     // Common SR / KOS code values (DCM coding scheme)
-    public static final String CODE_MANIFEST = "113030";       // DCM "Manifest"
-    public static final String CODE_IMAGE_LIBRARY = "111028"; // DCM "Image Library"
     public static final String CODE_KEY_OBJECT_DESCRIPTION = "113012"; // DCM "Key Object Description"
     public static final String CODE_DOCUMENT_TITLE_MODIFIER = "113011"; // DCM "Document Title Modifier"
     public static final String CODE_QUALITY_ISSUE = "113010"; // DCM "Quality Issue"
@@ -31,8 +29,15 @@ public final class DicomConstants {
     public static final String CODE_MODALITY = "121139";
     public static final String CODE_NUMBER_OF_FRAMES = "121140";
 
-    // Generic coding scheme designator for DICOM concept codes
+    // Common OID constants (for demo/default configurations)
+    public static final String DEMO_PATIENT_ID_ISSUER_OID = "1.3.6.1.4.1.21297.100.1.1";
+    public static final String DEMO_ACCESSION_NUMBER_ISSUER_OID = "1.3.6.1.4.1.21297.120.1.1";
+    public static final String DEMO_REPOSITORY_UNIQUE_ID = "1.2.3.4.5.6.7.8.9.10";
+    public static final String DEMO_RETRIEVE_LOCATION_UID = "1.3.6.1.4.1.21297.150.1.2";
+
+    // Coding scheme designators
     public static final String SCHEME_DCM = "DCM";
+    public static final String SCHEME_SRT = "SRT";
 
     // SR content/value constants
     public static final String VALUE_TYPE_CONTAINER = "CONTAINER";

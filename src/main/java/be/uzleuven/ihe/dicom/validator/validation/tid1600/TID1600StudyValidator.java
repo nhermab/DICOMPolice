@@ -1,12 +1,16 @@
 package be.uzleuven.ihe.dicom.validator.validation.tid1600;
 
-import be.uzleuven.ihe.dicom.constants.TID1600Codes;
+
 import be.uzleuven.ihe.dicom.constants.ValidationMessages;
 import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Sequence;
 import org.dcm4che3.data.Tag;
 import be.uzleuven.ihe.dicom.validator.model.ValidationResult;
 import be.uzleuven.ihe.dicom.validator.utils.SRContentTreeUtils;
+
+import static be.uzleuven.ihe.dicom.constants.CodeConstants.CODE_STUDY_INSTANCE_UID;
+import static be.uzleuven.ihe.dicom.constants.CodeConstants.CODE_TARGET_REGION;
+import static be.uzleuven.ihe.dicom.constants.DicomConstants.CODE_MODALITY;
 
 /**
  * Validates study-level attributes used by TID 1600 Acquisition Context.
@@ -30,15 +34,15 @@ public final class TID1600StudyValidator {
 
             String codeValue = concept.getString(Tag.CodeValue);
 
-            if (TID1600Codes.CODE_MODALITY.equals(codeValue)) {
+            if (CODE_MODALITY.equals(codeValue)) {
                 hasModality = true;
-            } else if (TID1600Codes.CODE_STUDY_INSTANCE_UID.equals(codeValue)) {
+            } else if (CODE_STUDY_INSTANCE_UID.equals(codeValue)) {
                 hasStudyUID = true;
                 String uidValue = item.getString(Tag.UID);
                 if (uidValue == null || uidValue.trim().isEmpty()) {
                     result.addError(ValidationMessages.TID1600_STUDY_UID_NO_VALUE, path);
                 }
-            } else if (TID1600Codes.CODE_TARGET_REGION.equals(codeValue)) {
+            } else if (CODE_TARGET_REGION.equals(codeValue)) {
                 hasTargetRegion = true;
                 TID1600Rules.validateAnatomicRegion(item, result, path);
             }

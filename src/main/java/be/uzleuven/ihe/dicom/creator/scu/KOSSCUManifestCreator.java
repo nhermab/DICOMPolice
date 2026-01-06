@@ -187,7 +187,7 @@ public class KOSSCUManifestCreator extends SCUManifestCreator {
 
         // Document Title: Manifest (Key Object Selection)
         Sequence conceptNameCodeSeq = kos.newSequence(Tag.ConceptNameCodeSequence, 1);
-        conceptNameCodeSeq.add(code(CODE_MANIFEST, SCHEME_DCM, MEANING_MANIFEST));
+        conceptNameCodeSeq.add(code(CODE_KOS_MANIFEST, SCHEME_DCM, MEANING_MANIFEST));
 
         // ReferencedRequestSequence - Type 2 (required to be present, can be empty)
         populateReferencedRequestSequenceWithIssuer(kos, normalizedStudyInstanceUID, accessionNumber, defaults.accessionNumberIssuerOid);

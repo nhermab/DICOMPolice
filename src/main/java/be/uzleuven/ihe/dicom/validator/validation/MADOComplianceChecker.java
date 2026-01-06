@@ -1,10 +1,14 @@
 package be.uzleuven.ihe.dicom.validator.validation;
 
+import be.uzleuven.ihe.dicom.constants.CodeConstants;
+import be.uzleuven.ihe.dicom.constants.DicomConstants;
 import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Sequence;
 import org.dcm4che3.data.Tag;
 import be.uzleuven.ihe.dicom.validator.model.ValidationResult;
 import be.uzleuven.ihe.dicom.constants.ValidationMessages;
+
+import static be.uzleuven.ihe.dicom.constants.CodeConstants.CODE_MANIFEST_WITH_DESCRIPTION;
 
 /**
  * MADO Compliance Checker - validates the critical requirements based on IHE MADO Profile.
@@ -139,7 +143,7 @@ public final class MADOComplianceChecker {
         for (Attributes item : contentSeq) {
             String valueType = item.getString(Tag.ValueType);
 
-            if ("CONTAINER".equals(valueType)) {
+            if (DicomConstants.VALUE_TYPE_CONTAINER.equals(valueType)) {
                 hasOnlyFlatCompositeReferences = false;
 
                 Sequence conceptSeq = item.getSequence(Tag.ConceptNameCodeSequence);
@@ -148,10 +152,10 @@ public final class MADOComplianceChecker {
                     String codeValue = concept.getString(Tag.CodeValue);
                     String codingScheme = concept.getString(Tag.CodingSchemeDesignator);
 
-                    if ("111028".equals(codeValue) && "DCM".equals(codingScheme)) {
+                    if (CodeConstants.CODE_IMAGE_LIBRARY.equals(codeValue) && CodeConstants.SCHEME_DCM.equals(codingScheme)) {
                         hasImageLibrary = true;
                         if (verbose) {
-                            result.addInfo("Found TID 1600 Image Library (111028, DCM, 'Image Library')", modulePath);
+                            result.addInfo("Found TID 1600 Image Library (" + CodeConstants.CODE_IMAGE_LIBRARY + ", " + CodeConstants.SCHEME_DCM + ", 'Image Library')", modulePath);
                         }
                     }
                 }
@@ -190,12 +194,12 @@ public final class MADOComplianceChecker {
         String codeMeaning = concept.getString(Tag.CodeMeaning);
 
         // Check for valid MADO titles
-        boolean isManifest = "113030".equals(codeValue) && "DCM".equals(codingScheme);
-        boolean isManifestWithDesc = "ddd001".equals(codeValue) && "DCM".equals(codingScheme);
+        boolean isManifest = CodeConstants.CODE_KOS_MANIFEST.equals(codeValue) && CodeConstants.SCHEME_DCM.equals(codingScheme);
+        boolean isManifestWithDesc = CODE_MANIFEST_WITH_DESCRIPTION.equals(codeValue) && CodeConstants.SCHEME_DCM.equals(codingScheme);
 
         if (!isManifest && !isManifestWithDesc) {
             // Check if it's a generic KOS title
-            if ("113000".equals(codeValue) && "DCM".equals(codingScheme)) {
+            if ("113000".equals(codeValue) && CodeConstants.SCHEME_DCM.equals(codingScheme)) {
                 result.addError("MADO COMPLIANCE FAILURE:\n" + "  Document Title is (113000, DCM, 'Of Interest') - generic KOS title.\n" + "  MADO requires:\n" + "    (113030, DCM, 'Manifest') OR\n" + "    (ddd001, DCM, 'Manifest with Description')\n" + "  Fix: Change ConceptNameCodeSequence to use MADO manifest title.", modulePath);
             } else {
                 result.addError("MADO COMPLIANCE FAILURE:\n" + "  Document Title: (" + codeValue + ", " + codingScheme + ", '" + codeMeaning + "')\n" + "  MADO requires:\n" + "    (113030, DCM, 'Manifest') OR\n" + "    (ddd001, DCM, 'Manifest with Description')\n" + "  Fix: Change ConceptNameCodeSequence to use MADO manifest title.", modulePath);

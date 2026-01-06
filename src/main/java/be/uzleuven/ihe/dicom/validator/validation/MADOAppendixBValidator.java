@@ -1,10 +1,12 @@
 package be.uzleuven.ihe.dicom.validator.validation;
 
+import be.uzleuven.ihe.dicom.constants.SopClassLists;
+import be.uzleuven.ihe.dicom.constants.ValidationMessages;
 import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Sequence;
 import org.dcm4che3.data.Tag;
+
 import be.uzleuven.ihe.dicom.validator.model.ValidationResult;
-import be.uzleuven.ihe.dicom.constants.ValidationMessages;
 
 /**
  * Validator for MADO Appendix B format (Alternative Approach 1).
@@ -231,16 +233,9 @@ public final class MADOAppendixBValidator {
             return false;
         }
 
-        // Common multi-frame SOP Classes
-        return sopClassUID.equals("1.2.840.10008.5.1.4.1.1.77.1.6") ||  // VL Whole Slide Microscopy
-               sopClassUID.equals("1.2.840.10008.5.1.4.1.1.7.1") ||     // Multi-frame Single Bit
-               sopClassUID.equals("1.2.840.10008.5.1.4.1.1.7.2") ||     // Multi-frame Grayscale Byte
-               sopClassUID.equals("1.2.840.10008.5.1.4.1.1.7.3") ||     // Multi-frame Grayscale Word
-               sopClassUID.equals("1.2.840.10008.5.1.4.1.1.7.4") ||     // Multi-frame True Color
-               sopClassUID.equals("1.2.840.10008.5.1.4.1.1.2.1") ||     // Enhanced CT
-               sopClassUID.equals("1.2.840.10008.5.1.4.1.1.4.1") ||     // Enhanced MR
-               sopClassUID.equals("1.2.840.10008.5.1.4.1.1.130") ||     // Enhanced PET
-               sopClassUID.contains("Enhanced");                         // Generic enhanced IOD check
+        // Use centralized multiframe SOP class list
+        return SopClassLists.MULTIFRAME_SOP_CLASSES.contains(sopClassUID) ||
+               sopClassUID.contains("Enhanced");  // Generic enhanced IOD check
     }
 }
 

@@ -1,5 +1,6 @@
 package be.uzleuven.ihe.service.MHD.config;
 
+import be.uzleuven.ihe.dicom.constants.DicomConstants;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
@@ -19,15 +20,15 @@ public class MHDConfiguration {
     private String softwareVersion = "1.0.0";
 
     // Patient ID Issuer
-    private String patientIdIssuerOid = "1.3.6.1.4.1.21297.100.1.1";
+    private String patientIdIssuerOid = DicomConstants.DEMO_PATIENT_ID_ISSUER_OID;
     private String patientIdIssuerLocalNamespace = "HOSPITAL_A";
 
     // Accession Number Issuer
-    private String accessionNumberIssuerOid = "1.3.6.1.4.1.21297.120.1.1";
+    private String accessionNumberIssuerOid = DicomConstants.DEMO_ACCESSION_NUMBER_ISSUER_OID;
 
     // Repository Information
-    private String repositoryUniqueId = "1.2.3.4.5.6.7.8.9.10";
-    private String retrieveLocationUid = "1.3.6.1.4.1.21297.150.1.2";
+    private String repositoryUniqueId = DicomConstants.DEMO_REPOSITORY_UNIQUE_ID;
+    private String retrieveLocationUid = DicomConstants.DEMO_RETRIEVE_LOCATION_UID;
 
     // FHIR Server Base URL (used to construct absolute URLs)
     private String fhirBaseUrl = "https://ihebelgium.ehealthhub.be/TheDICOMPolice/fhir";
@@ -38,8 +39,8 @@ public class MHDConfiguration {
     // DICOM Connection Settings
     private String callingAet = "DICOMPOLICE";
     private String calledAet = "ORTHANC";
-    //private String remoteHost = "172.20.240.184";
     private String remoteHost = "localhost";
+    //private String remoteHost = "172.20.240.184";
     private int remotePort = 4242;
     private int connectTimeout = 5000;
     private int responseTimeout = 10000;

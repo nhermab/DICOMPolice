@@ -1,5 +1,7 @@
 package be.uzleuven.ihe.dicom.validator.utils;
 
+import be.uzleuven.ihe.dicom.constants.CodeConstants;
+import be.uzleuven.ihe.dicom.constants.DicomConstants;
 import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Sequence;
 import org.dcm4che3.data.Tag;
@@ -125,14 +127,14 @@ public final class MADOProfileUtils {
     private static boolean hasImageLibrary(Sequence contentSeq) {
         for (Attributes item : contentSeq) {
             String valueType = item.getString(Tag.ValueType);
-            if ("CONTAINER".equals(valueType)) {
+            if (DicomConstants.VALUE_TYPE_CONTAINER.equals(valueType)) {
                 Sequence conceptSeq = item.getSequence(Tag.ConceptNameCodeSequence);
                 if (conceptSeq != null && !conceptSeq.isEmpty()) {
                     Attributes concept = conceptSeq.get(0);
                     String codeValue = concept.getString(Tag.CodeValue);
                     String codingScheme = concept.getString(Tag.CodingSchemeDesignator);
 
-                    if ("111028".equals(codeValue) && "DCM".equals(codingScheme)) {
+                    if (CodeConstants.CODE_IMAGE_LIBRARY.equals(codeValue) && CodeConstants.SCHEME_DCM.equals(codingScheme)) {
                         return true;  // Found Image Library
                     }
                 }

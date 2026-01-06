@@ -7,6 +7,21 @@ package be.uzleuven.ihe.dicom.constants;
  */
 public class ValidationMessages {
 
+    // Import code constants for use in message strings
+    private static final String CODE_MANIFEST_WITH_DESCRIPTION = CodeConstants.CODE_MANIFEST_WITH_DESCRIPTION;
+    private static final String CODE_SERIES_DESCRIPTION = CodeConstants.CODE_SERIES_DESCRIPTION;
+    private static final String CODE_SERIES_DATE = CodeConstants.CODE_SERIES_DATE;
+    private static final String CODE_SERIES_TIME = CodeConstants.CODE_SERIES_TIME;
+    private static final String CODE_SERIES_NUMBER = CodeConstants.CODE_SERIES_NUMBER;
+    private static final String CODE_SERIES_INSTANCE_UID = CodeConstants.CODE_SERIES_INSTANCE_UID;
+    private static final String CODE_NUM_SERIES_RELATED_INSTANCES = CodeConstants.CODE_NUM_SERIES_RELATED_INSTANCES;
+    private static final String CODE_INSTANCE_NUMBER = CodeConstants.CODE_INSTANCE_NUMBER;
+    private static final String CODE_STUDY_INSTANCE_UID = CodeConstants.CODE_STUDY_INSTANCE_UID;
+    private static final String CODE_SOP_INSTANCE_UID = CodeConstants.CODE_SOP_INSTANCE_UID;
+    private static final String CODE_KOS_TITLE = CodeConstants.CODE_KOS_TITLE;
+    // ddd009 not yet defined in CodeConstants, using literal for now
+    private static final String CODE_KEY_OBJECT_DESCRIPTION = CodeConstants.CODE_KOS_OBJECT_DESCRIPTION;
+
     // ========== Specification References ==========
     public static final String REF_MADO_6_X_1_2_2_5_2 = "IHE MADO Suppl. 6.X.1.2.2.5.2";
     public static final String REF_MADO_6_X_1_2_3_4 = "IHE MADO Suppl. 6.X.1.2.3.4";
@@ -456,7 +471,7 @@ public class ValidationMessages {
             REF_MADO_6_X_1_2_2_5_2 + ": 'The SR Document Content Module shall be constructed from TID 2010... including TID 1600.']";
 
     public static final String MADO_COMPLIANCE_DOCUMENT_TITLE_OF_INTEREST = "Document Title is (113000, DCM, 'Of Interest'). MADO requires more specific document title. [" +
-            REF_MADO_6_X_1_2_2_5_2 + ": 'The CID 7010 Key Object Selection Document Title shall be set to 'Manifest with Description' (ddd001)...' " +
+            REF_MADO_6_X_1_2_2_5_2 + ": 'The CID 7010 Key Object Selection Document Title shall be set to 'Manifest with Description' (" + CODE_MANIFEST_WITH_DESCRIPTION + ")...' " +
             "(Not generic 'Of Interest').]";
 
     public static final String MADO_COMPLIANCE_TIMEZONE_MISSING = "TimezoneOffsetFromUTC (0008,0201) is missing. [" +
@@ -647,42 +662,42 @@ public class ValidationMessages {
     public static final String TID1600_GROUP_MISSING_MODALITY = "TID 1600 Image Library Group missing Modality (121139, DCM, \"Modality\"). [" +
             REF_MADO_6_X_1_2_2_5_2 + ": 'The following content Items shall be present in the 'Image Library Group'... Modality (121139, DCM) R+']";
 
-    public static final String TID1600_GROUP_MISSING_SERIES_DATE = "TID 1600 Image Library Group missing Series Date (ddd003, DCM, \"Series Date\"). [" +
-            REF_MADO_6_X_1_2_2_5_2 + ": 'The following content Items shall be present... Series Date (ddd003, DCM) R+']";
+    public static final String TID1600_GROUP_MISSING_SERIES_DATE = "TID 1600 Image Library Group missing Series Date (" + CODE_SERIES_DATE + ", DCM, \"Series Date\"). [" +
+            REF_MADO_6_X_1_2_2_5_2 + ": 'The following content Items shall be present... Series Date (" + CODE_SERIES_DATE + ", DCM) R+']";
 
-    public static final String TID1600_GROUP_MISSING_SERIES_TIME = "TID 1600 Image Library Group missing Series Time (ddd004, DCM, \"Series Time\"). [" +
-            REF_MADO_6_X_1_2_2_5_2 + ": 'The following content Items shall be present... Series Time (ddd004, DCM) R+']";
+    public static final String TID1600_GROUP_MISSING_SERIES_TIME = "TID 1600 Image Library Group missing Series Time (" + CODE_SERIES_TIME + ", DCM, \"Series Time\"). [" +
+            REF_MADO_6_X_1_2_2_5_2 + ": 'The following content Items shall be present... Series Time (" + CODE_SERIES_TIME + ", DCM) R+']";
 
-    public static final String TID1600_GROUP_MISSING_SERIES_DESCRIPTION = "TID 1600 Image Library Group missing Series Description (ddd002, DCM, \"Series Description\"). [" +
-            REF_MADO_6_X_1_2_2_5_2 + ": 'The following content Items shall be present... Series Description (ddd002, DCM) R+']";
+    public static final String TID1600_GROUP_MISSING_SERIES_DESCRIPTION = "TID 1600 Image Library Group missing Series Description (" + CODE_SERIES_DESCRIPTION + ", DCM, \"Series Description\"). [" +
+            REF_MADO_6_X_1_2_2_5_2 + ": 'The following content Items shall be present... Series Description (" + CODE_SERIES_DESCRIPTION + ", DCM) R+']";
 
-    public static final String TID1600_GROUP_MISSING_SERIES_NUMBER = "TID 1600 Image Library Group missing Series Number (ddd005, DCM, \"Series Number\"). [" +
-            REF_MADO_6_X_1_2_2_5_2 + ": 'The following content Items shall be present... Series Number (ddd005, DCM) R+']";
+    public static final String TID1600_GROUP_MISSING_SERIES_NUMBER = "TID 1600 Image Library Group missing Series Number (" + CODE_SERIES_NUMBER + ", DCM, \"Series Number\"). [" +
+            REF_MADO_6_X_1_2_2_5_2 + ": 'The following content Items shall be present... Series Number (" + CODE_SERIES_NUMBER + ", DCM) R+']";
 
-    public static final String TID1600_GROUP_MISSING_SERIES_UID = "TID 1600 Image Library Group missing Series Instance UID (ddd006, DCM, \"Series Instance UID\"). [" +
-            REF_MADO_6_X_1_2_2_5_2 + ": 'The following content Items shall be present... Series Instance UID (ddd006, DCM) R+']";
+    public static final String TID1600_GROUP_MISSING_SERIES_UID = "TID 1600 Image Library Group missing Series Instance UID (" + CODE_SERIES_INSTANCE_UID + ", DCM, \"Series Instance UID\"). [" +
+            REF_MADO_6_X_1_2_2_5_2 + ": 'The following content Items shall be present... Series Instance UID (" + CODE_SERIES_INSTANCE_UID + ", DCM) R+']";
 
-    public static final String TID1600_GROUP_MISSING_SERIES_RELATED_INSTANCES = "TID 1600 Image Library Group missing Number of Series Related Instances (ddd013, DCM). [" +
-            "IHE MADO Suppl. Appx A (TID 1602, Row 12f): 'Number of Series Related Instances (ddd007, DCM)... Usage U' " +
+    public static final String TID1600_GROUP_MISSING_SERIES_RELATED_INSTANCES = "TID 1600 Image Library Group missing Number of Series Related Instances (" + CODE_NUM_SERIES_RELATED_INSTANCES + ", DCM). [" +
+            "IHE MADO Suppl. Appx A (TID 1602, Row 12f): 'Number of Series Related Instances (" + CODE_NUM_SERIES_RELATED_INSTANCES + ", DCM)... Usage U' " +
             "(Note: MADO Validator enforces this as R+ based on profile consistency requirements).]";
 
     public static final String TID1600_ENTRY_NO_REFERENCED_SOP = "TID 1600 Image Library Entry has no ReferencedSOPSequence. [" +
             REF_DICOM_PS3_3 + " (Ref SOP Seq): 'Referenced SOP Sequence (0008,1199)... One or more Items shall be included in this Sequence.' " +
             "(For a specific entry pointing to a single instance, exactly one is expected).]";
 
-    public static final String TID1600_ENTRY_MISSING_INSTANCE_NUMBER = "TID 1600 Image Library Entry missing Instance Number (ddd008, DCM). [" +
+    public static final String TID1600_ENTRY_MISSING_INSTANCE_NUMBER = "TID 1600 Image Library Entry missing Instance Number (" + CODE_INSTANCE_NUMBER + ", DCM). [" +
             REF_MADO_6_X_1_2_2_5_2 + ": 'The following content Items shall be present in the 'Image Library Entry'... " +
-            "Instance Number (ddd008, DCM)... RC+ Required when present in the referenced SOP Instance.']";
+            "Instance Number (" + CODE_INSTANCE_NUMBER + ", DCM)... RC+ Required when present in the referenced SOP Instance.']";
 
     public static final String TID1600_ENTRY_MISSING_NUMBER_OF_FRAMES = "TID 1600 Image Library Entry missing Number of Frames (121140, DCM). [" +
             REF_MADO_6_X_1_2_2_5_2 + ": 'Number of Frames (121140, DCM)... RC+ Required when the SOP Class is multiframe.']";
 
     public static final String TID1600_KOS_REFERENCE_MISSING_TITLE_CODE = "KOS reference missing KOS Title Code or SOP Instance UIDs. [" +
             REF_MADO_6_X_1_2_2_5_2 + ": 'The following content Items shall be present in a container... when the related instance is a KOS... " +
-            "KOS Title Code (ddd008, DCM) R+... SOP Instance UID (ddd007, DCM) R+.']";
+            "KOS Title Code (" + CODE_KOS_TITLE + ", DCM) R+... SOP Instance UID (" + CODE_SOP_INSTANCE_UID + ", DCM) R+.']";
 
     public static final String TID1600_KEY_IMAGE_FLAGGING_REQUIREMENT = "TID 16XX Requirement V-DESC-02: Key Image Description required. [" +
-            REF_MADO_6_X_1_2_2_5_2 + ": 'Key Object Description (ddd009, DCM)... RC+ Required when present in the referenced KOS instance.']";
+            REF_MADO_6_X_1_2_2_5_2 + ": 'Key Object Description (" + CODE_KEY_OBJECT_DESCRIPTION + ", DCM)... RC+ Required when present in the referenced KOS instance.']";
 
     // ========== TID 1600 Root Validator ==========
     public static final String TID1600_ROOT_VALUE_TYPE_WRONG = "MADO Root Container Requirement V-ROOT-01: ValueType (0040,A040) must be 'CONTAINER'. [" +
@@ -700,13 +715,13 @@ public class ValidationMessages {
 
     // ========== TID 1600 Study Validator ==========
     public static final String TID1600_STUDY_UID_NO_VALUE = "Study Instance UID content item has no UID value. [" +
-            REF_MADO_6_X_1_2_2_5_2 + ": 'Study Instance UID (ddd011, DCM) R+... shall contain a valid UID value.']";
+            REF_MADO_6_X_1_2_2_5_2 + ": 'Study Instance UID (" + CODE_STUDY_INSTANCE_UID + ", DCM) R+... shall contain a valid UID value.']";
 
     public static final String TID1600_STUDY_MISSING_MODALITY = "TID 1600 Requirement: Modality (121139, DCM, 'Modality') missing at study level (Type R+). [" +
             REF_MADO_6_X_1_2_2_5_2 + ": 'In the TID 1600 'Image Library' the following content Items shall be present... Modality (121139, DCM) R+']";
 
-    public static final String TID1600_STUDY_MISSING_STUDY_UID = "TID 1600 Requirement: Study Instance UID (ddd011, DCM, 'Study Instance UID') missing at study level (Type R+). [" +
-            REF_MADO_6_X_1_2_2_5_2 + ": 'In the TID 1600 'Image Library' the following content Items shall be present... Study Instance UID (ddd011, DCM) R+']";
+    public static final String TID1600_STUDY_MISSING_STUDY_UID = "TID 1600 Requirement: Study Instance UID (" + CODE_STUDY_INSTANCE_UID + ", DCM, 'Study Instance UID') missing at study level (Type R+). [" +
+            REF_MADO_6_X_1_2_2_5_2 + ": 'In the TID 1600 'Image Library' the following content Items shall be present... Study Instance UID (" + CODE_STUDY_INSTANCE_UID + ", DCM) R+']";
 
     public static final String TID1600_STUDY_MISSING_TARGET_REGION = "TID 1600 Requirement: Target Region (123014, DCM, 'Target Region') missing at study level (Type R+). [" +
             REF_MADO_6_X_1_2_2_5_2 + ": 'In the TID 1600 'Image Library' the following content Items shall be present... Target Region (123014, DCM) R+']";
@@ -727,23 +742,23 @@ public class ValidationMessages {
     public static final String TID1600_ENTRY_INSTANCE_NUMBER_WRONG_VT = "Instance Number concept item must use ValueType TEXT (or UT in dumps), found: %s. [" +
             REF_MADO_6_X_1_2_2_5_2 + ": 'Instance Number content item shall use ValueType TEXT.']";
 
-    public static final String TID1600_ENTRY_MISSING_INSTANCE_NUMBER_REQUIRED = "Instance Number (ddd012, DCM) missing for Image Library Entry. Type R+ (required by MADO). [" +
-            REF_MADO_6_X_1_2_2_5_2 + ": 'Instance Number (ddd008, DCM)... RC+ Required when present in the referenced SOP Instance.']";
+    public static final String TID1600_ENTRY_MISSING_INSTANCE_NUMBER_REQUIRED = "Instance Number (" + CODE_INSTANCE_NUMBER + ", DCM) missing for Image Library Entry. Type R+ (required by MADO). [" +
+            REF_MADO_6_X_1_2_2_5_2 + ": 'Instance Number (" + CODE_INSTANCE_NUMBER + ", DCM)... RC+ Required when present in the referenced SOP Instance.']";
 
     public static final String TID1600_ENTRY_MISSING_NUMBER_OF_FRAMES_MULTIFRAME = "Number of Frames (121140, DCM) missing for multiframe SOP Class: %s. Type C+ (conditionally required by MADO). [" +
             REF_MADO_6_X_1_2_2_5_2 + ": 'Number of Frames (121140, DCM)... RC+ Required when the SOP Class is multiframe.']";
 
-    public static final String TID1600_ENTRY_MISSING_METADATA_CONTENT = "TID 1600 Image Library Entry missing required instance-level metadata (ContentSequence). MADO requires at least Instance Number (ddd012, DCM) and conditionally Number of Frames. [" +
+    public static final String TID1600_ENTRY_MISSING_METADATA_CONTENT = "TID 1600 Image Library Entry missing required instance-level metadata (ContentSequence). MADO requires at least Instance Number (" + CODE_INSTANCE_NUMBER + ", DCM) and conditionally Number of Frames. [" +
             REF_MADO_6_X_1_2_2_5_2 + ": 'The following content Items shall be present in the 'Image Library Entry'...']";
 
-    public static final String TID1600_KOS_MISSING_TITLE_CODE = "KOS reference missing KOS Title Code (ddd008, DCM). Type R+. [" +
-            REF_MADO_6_X_1_2_2_5_2 + ": 'KOS Title Code (ddd008, DCM) R+... when the related instance is a KOS.']";
+    public static final String TID1600_KOS_MISSING_TITLE_CODE = "KOS reference missing KOS Title Code (" + CODE_KOS_TITLE + ", DCM). Type R+. [" +
+            REF_MADO_6_X_1_2_2_5_2 + ": 'KOS Title Code (" + CODE_KOS_TITLE + ", DCM) R+... when the related instance is a KOS.']";
 
-    public static final String TID1600_KOS_MISSING_SOP_UIDS = "KOS reference missing SOP Instance UIDs (ddd007, DCM). Type R+. [" +
-            REF_MADO_6_X_1_2_2_5_2 + ": 'SOP Instance UID (ddd007, DCM) R+... when the related instance is a KOS.']";
+    public static final String TID1600_KOS_MISSING_SOP_UIDS = "KOS reference missing SOP Instance UIDs (" + CODE_SOP_INSTANCE_UID + ", DCM). Type R+. [" +
+            REF_MADO_6_X_1_2_2_5_2 + ": 'SOP Instance UID (" + CODE_SOP_INSTANCE_UID + ", DCM) R+... when the related instance is a KOS.']";
 
     public static final String TID1600_KEY_DESCRIPTION_MISMATCH = "TID 16XX Requirement V-DESC-02: Key Object Description present but %s. [" +
-            REF_MADO_6_X_1_2_2_5_2 + ": 'Key Object Description (ddd009, DCM)... RC+ Required when present in the referenced KOS instance.']";
+            REF_MADO_6_X_1_2_2_5_2 + ": 'Key Object Description (" + CODE_KEY_OBJECT_DESCRIPTION + ", DCM)... RC+ Required when present in the referenced KOS instance.']";
 
     // ========== Appendix B Validation =========="
     public static final String APPENDIX_B_EVIDENCE_MISSING = "CurrentRequestedProcedureEvidenceSequence is missing (Appendix B format). [" +
@@ -759,7 +774,7 @@ public class ValidationMessages {
             REF_MADO_TABLE_B_3_2_1 + ": 'Modality (0008,0060) ... R+']";
 
     public static final String APPENDIX_B_SERIES_UID_MISSING = "Appendix B Requirement V-ALT-01: SeriesInstanceUID (0020,000E) is Type 1 (Required) in Referenced Series Sequence. [" +
-            REF_MADO_TABLE_B_3_2_1 + ": 'Series Instance UID (ddd006) ... R+']";
+            REF_MADO_TABLE_B_3_2_1 + ": 'Series Instance UID (" + CODE_SERIES_INSTANCE_UID + ") ... R+']";
 
     public static final String APPENDIX_B_SOP_SEQUENCE_MISSING = "ReferencedSOPSequence is missing in series item. [" +
             REF_MADO_APPENDIX_B + ".3: 'Referenced SOP Sequence (0008,1199) ... R ... Contains references to SOP Instances.']";
