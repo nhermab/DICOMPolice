@@ -80,15 +80,14 @@ public class MADOToFHIRExample {
 
         } catch (IOException e) {
             System.err.println("Error reading DICOM file: " + e.getMessage());
-            e.printStackTrace();
+            System.err.println("Check that the file exists and is a valid DICOM file.");
             System.exit(2);
         } catch (IllegalArgumentException e) {
             System.err.println("Error: " + e.getMessage());
-            e.printStackTrace();
             System.exit(3);
         } catch (Exception e) {
             System.err.println("Unexpected error: " + e.getMessage());
-            e.printStackTrace();
+            System.err.println("Error type: " + e.getClass().getName());
             System.exit(4);
         }
     }

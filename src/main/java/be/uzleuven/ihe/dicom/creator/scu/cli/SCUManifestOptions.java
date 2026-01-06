@@ -14,13 +14,13 @@ import java.util.List;
  */
 public class SCUManifestOptions {
     private ManifestType type;
-    private DefaultMetadata defaults = new DefaultMetadata();
+    private final DefaultMetadata defaults = new DefaultMetadata();
 
     // Query criteria
     private String accession;
     private String studyUid;
-    private List<String> patientIds = new ArrayList<>();
-    private List<String> studyDates = new ArrayList<>();
+    private final List<String> patientIds = new ArrayList<>();
+    private final List<String> studyDates = new ArrayList<>();
     private LocalDate beginDate;
     private LocalDate endDate;
     private int windowDays = 7;

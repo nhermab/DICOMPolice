@@ -30,12 +30,10 @@ public class BinaryProvider implements IResourceProvider {
     private static final Logger LOG = LoggerFactory.getLogger(BinaryProvider.class);
 
     private final DicomBackendService dicomService;
-    private final MHDConfiguration config;
 
     @Autowired
     public BinaryProvider(DicomBackendService dicomService, MHDConfiguration config) {
         this.dicomService = dicomService;
-        this.config = config;
     }
 
     @Override
@@ -74,11 +72,8 @@ public class BinaryProvider implements IResourceProvider {
 
             LOG.info("Generated MADO manifest for study {}, size: {} bytes", studyInstanceUid, manifestBytes.length);
 
-            // Create the Binary resource (its ID already includes .dcm)
-            Binary binary = DicomToFhirMapper.createBinaryResource(studyInstanceUid, manifestBytes);
-
-            // Return the Binary resource
-            return binary;
+            // Create and return the Binary resource (its ID already includes .dcm)
+            return DicomToFhirMapper.createBinaryResource(studyInstanceUid, manifestBytes);
 
         } catch (IOException e) {
             LOG.error("Error retrieving MADO manifest", e);

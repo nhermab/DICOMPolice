@@ -68,9 +68,9 @@ public class MHDFhirRestfulServer extends ca.uhn.fhir.rest.server.RestfulServer 
 
         // Configure CORS
         CorsConfiguration corsConfig = new CorsConfiguration();
-        corsConfig.setAllowedOrigins(Arrays.asList("*"));
+        corsConfig.setAllowedOrigins(java.util.Collections.singletonList("*"));
         corsConfig.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        corsConfig.setAllowedHeaders(Arrays.asList("*"));
+        corsConfig.setAllowedHeaders(java.util.Collections.singletonList("*"));
         corsConfig.setExposedHeaders(Arrays.asList("Location", "Content-Location"));
         corsConfig.setAllowCredentials(false);
         CorsInterceptor corsInterceptor = new CorsInterceptor(corsConfig);

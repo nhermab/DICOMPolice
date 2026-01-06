@@ -351,7 +351,7 @@ public class KOSSCUManifestCreator extends SCUManifestCreator {
         try {
             CommandLineParser.ParsedArgs parsed = CommandLineParser.parseArgs(args, "KOS_FROM_SCU.dcm");
 
-            if (!parsed.isValid()) {
+            if (parsed.isInvalid()) {
                 System.err.println(parsed.getUsageMessage("KOSSCUManifestCreator"));
                 System.exit(1);
             }

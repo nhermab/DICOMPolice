@@ -76,12 +76,7 @@ public final class MADOTimezoneValidator {
             return false;
         }
 
-        // Some timezones use 30 or 45 minute offsets
-        if (minutes != 0 && minutes != 15 && minutes != 30 && minutes != 45) {
-            // This is informational - some rare timezones use other offsets
-            return true; // Still valid, just unusual
-        }
-
+        // Some timezones use 30 or 45 minute offsets (still valid, just unusual)
         return true;
     }
 }

@@ -1243,7 +1243,8 @@ public class MADOToFHIRConverter {
                 sdf.setTimeZone(TimeZone.getTimeZone("GMT" + timezoneOffset));
             }
 
-            return sdf.parse(dicomDateTime.substring(0, Math.min(dicomDateTime.length(), pattern.length())));
+            // Truncate to pattern length (pattern is always <= dicomDateTime length based on the if-else above)
+            return sdf.parse(dicomDateTime.substring(0, pattern.length()));
         } catch (ParseException e) {
             return null;
         }

@@ -43,6 +43,13 @@ public class ArgumentParser {
     }
 
     /**
+     * Checks if a string is NOT a flag (doesn't start with '-').
+     */
+    protected static boolean isNotFlag(String arg) {
+        return arg == null || !arg.startsWith("-");
+    }
+
+    /**
      * Checks if a string is a flag (starts with '-').
      */
     protected static boolean isFlag(String arg) {
@@ -114,9 +121,9 @@ public class ArgumentParser {
         List<String> result = new ArrayList<>();
         for (int i = 0; i < args.length; i++) {
             String arg = args[i];
-            if (!isFlag(arg)) {
+            if (isNotFlag(arg)) {
                 result.add(arg);
-            } else if (i + 1 < args.length && !isFlag(args[i + 1])) {
+            } else if (i + 1 < args.length && isNotFlag(args[i + 1])) {
                 // Skip the value following a flag
                 i++;
             }

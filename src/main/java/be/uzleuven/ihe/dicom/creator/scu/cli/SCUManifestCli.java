@@ -27,7 +27,10 @@ public class SCUManifestCli {
             System.exit(exit);
         } catch (Exception e) {
             System.err.println("Error: " + e.getMessage());
-            e.printStackTrace();
+            System.err.println("Error type: " + e.getClass().getName());
+            if (e.getCause() != null) {
+                System.err.println("Caused by: " + e.getCause().getMessage());
+            }
             System.exit(2);
         }
     }

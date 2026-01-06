@@ -200,7 +200,7 @@ public class MADOSCUManifestCreator extends SCUManifestCreator {
         try {
             CommandLineParser.ParsedArgs parsed = CommandLineParser.parseArgs(args, "MADO_FROM_SCU.dcm");
 
-            if (!parsed.isValid()) {
+            if (parsed.isInvalid()) {
                 System.err.println(parsed.getUsageMessage("MADOSCUManifestCreator"));
                 System.exit(1);
             }

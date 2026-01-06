@@ -267,7 +267,7 @@ public class DicomToFhirMapper {
         // Identifier - unique submission set ID
         Identifier identifier = new Identifier();
         identifier.setSystem("urn:ietf:rfc:3986");
-        identifier.setValue("urn:uuid:" + UUID.randomUUID().toString());
+        identifier.setValue("urn:uuid:" + UUID.randomUUID());
         identifier.setUse(Identifier.IdentifierUse.OFFICIAL);
         list.addIdentifier(identifier);
 

@@ -7,7 +7,7 @@ import java.util.List;
  * Represents a simulated DICOM series with instances.
  */
 public class SimulatedSeries {
-    private String seriesUID;
+    private final String seriesUID;
     private String modality;
     private String description;
     private int seriesNumber;

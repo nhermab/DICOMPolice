@@ -2,7 +2,6 @@ package be.uzleuven.ihe.service.MHD.fhir.provider;
 
 import be.uzleuven.ihe.service.MHD.config.MHDConfiguration;
 import ca.uhn.fhir.rest.annotation.Metadata;
-import ca.uhn.fhir.rest.api.server.RequestDetails;
 import ca.uhn.fhir.rest.server.RestfulServer;
 import org.hl7.fhir.r4.model.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,15 +18,12 @@ public class CapabilityStatementProvider {
 
     private final MHDConfiguration config;
 
-    private RestfulServer restfulServer;
-
     @Autowired
     public CapabilityStatementProvider(MHDConfiguration config) {
         this.config = config;
     }
 
     public void setRestfulServer(RestfulServer theRestfulServer) {
-        this.restfulServer = theRestfulServer;
     }
 
     /**

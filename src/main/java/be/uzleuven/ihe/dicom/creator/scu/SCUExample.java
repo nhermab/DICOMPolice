@@ -127,7 +127,10 @@ public class SCUExample {
             System.err.println("2. Verify AE Title configuration matches PACS");
             System.err.println("3. Confirm Study Instance UID exists in PACS");
             System.err.println("4. Check network connectivity and firewall settings");
-            e.printStackTrace();
+            System.err.println("\nError details: " + e.getClass().getName());
+            if (e.getCause() != null) {
+                System.err.println("Caused by: " + e.getCause().getMessage());
+            }
             System.exit(1);
         }
     }

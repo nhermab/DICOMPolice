@@ -25,6 +25,10 @@ public class CommandLineParser {
             return studyUID != null;
         }
 
+        public boolean isInvalid() {
+            return studyUID == null;
+        }
+
         public String getUsageMessage(String programName) {
             return "Usage: " + programName + " -study <StudyInstanceUID> " +
                    "[-pid <PatientID>] [-aec <CalledAET>] [-aet <CallingAET>] " +
@@ -134,7 +138,10 @@ public class CommandLineParser {
     public static void printErrorAndExit(String message, Throwable error) {
         System.err.println("Error: " + message);
         if (error != null) {
-            error.printStackTrace();
+            System.err.println("Cause: " + error.getClass().getName() + ": " + error.getMessage());
+            if (error.getCause() != null) {
+                System.err.println("Root cause: " + error.getCause().getClass().getName() + ": " + error.getCause().getMessage());
+            }
         }
         System.exit(1);
     }

@@ -58,7 +58,7 @@ public class StudyGeneratorUtils {
 
             // Allocate at least one instance per series.
             int minForThisSeries = 1;
-            int sfTake = 0;
+            int sfTake;
             int mfTake = 0;
 
             if (seriesLeft == 1) {

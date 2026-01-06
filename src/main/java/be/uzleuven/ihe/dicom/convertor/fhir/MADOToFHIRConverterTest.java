@@ -59,7 +59,10 @@ public class MADOToFHIRConverterTest {
             runConversionTest(testFile);
         } catch (Exception e) {
             System.err.println("Test failed with error: " + e.getMessage());
-            e.printStackTrace();
+            System.err.println("Error type: " + e.getClass().getName());
+            if (e.getCause() != null) {
+                System.err.println("Caused by: " + e.getCause().getMessage());
+            }
         }
     }
 

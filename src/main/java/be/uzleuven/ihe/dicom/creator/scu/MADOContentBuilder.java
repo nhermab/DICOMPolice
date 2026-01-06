@@ -20,7 +20,6 @@ import be.uzleuven.ihe.dicom.constants.DicomConstants;
  */
 class MADOContentBuilder {
 
-    private final DefaultMetadata defaults;
     private final String normalizedStudyInstanceUID;
     private final String studyDate;
     private final String studyTime;
@@ -29,7 +28,6 @@ class MADOContentBuilder {
     MADOContentBuilder(DefaultMetadata defaults, String normalizedStudyInstanceUID,
                        String studyDate, String studyTime,
                        List<SeriesData> allSeries) {
-        this.defaults = defaults;
         this.normalizedStudyInstanceUID = normalizedStudyInstanceUID;
         this.studyDate = studyDate;
         this.studyTime = studyTime;

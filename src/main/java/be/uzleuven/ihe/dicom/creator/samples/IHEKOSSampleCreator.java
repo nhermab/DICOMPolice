@@ -99,7 +99,7 @@ public class IHEKOSSampleCreator {
 
         public Options withKeyImageCount(int v) {
             // Deprecated: parameter ignored, kept for backward compatibility
-            this.keyImageCount = v;
+            // this.keyImageCount = v;  // Removed to avoid using deprecated field
             return this;
         }
     }
