@@ -102,7 +102,7 @@ public final class CodeConstants {
     public static final String SNOMED_PELVIS = "62413002";
 
     public static final Map<String, String[]> BODY_SITE_MAP = Map.ofEntries(
-            Map.entry(CodeConstants.CODE_REGION_ABDOMEN, new String[]{CodeConstants.SNOMED_ABDOMEN, CodeConstants.MEANING_REGION_ABDOMEN}),
+            Map.entry(CodeConstants.CODE_REGION_ABDOMEN, new String[]{CodeConstants.SNOMED_ABDOMEN, "Cross-sectional abdomen"}),
             Map.entry(CodeConstants.SRT_REGION_HEAD, new String[]{CodeConstants.SNOMED_HEAD, "Head"}),
             Map.entry(CodeConstants.SRT_REGION_HEAD_AND_NECK, new String[]{CodeConstants.SNOMED_HEAD_AND_NECK, "Head and neck"}),
             Map.entry(CodeConstants.SRT_REGION_THORAX, new String[]{CodeConstants.SNOMED_THORAX, "Thorax"}),
@@ -164,17 +164,17 @@ public final class CodeConstants {
 
     // MADO IG Extension URLs
     public static final String EXT_INSTANCE_DESCRIPTION = "http://hl7.eu/fhir/imaging-manifest-r5/StructureDefinition/instance-description";
-    public static final String EXT_NUMBER_OF_FRAMES = "http://hl7.eu/fhir/imaging-manifest-r5/StructureDefinition/number-of-frames";
     public static final String EXT_SELECTION_CODE = "http://hl7.eu/fhir/imaging-manifest-r5/StructureDefinition/selection-code";
     public static final String EXT_DERIVED_FROM = "http://hl7.eu/fhir/imaging-manifest-r5/StructureDefinition/derived-from";
     public static final String EXT_SELECTED_INSTANCE = "http://hl7.eu/fhir/imaging-manifest-r5/StructureDefinition/selected-instance";
 
     // MADO IG Profile URLs
     public static final String PROFILE_IMAGING_STUDY_MANIFEST = "http://hl7.eu/fhir/imaging-manifest-r5/StructureDefinition/ImImagingStudyManifest";
-    public static final String PROFILE_IMAGING_PATIENT = "http://hl7.eu/fhir/imaging-manifest-r5/StructureDefinition/ImImagingPatient";
-    public static final String PROFILE_IMAGING_STUDY = "http://hl7.eu/fhir/imaging-manifest-r5/StructureDefinition/ImManifestImagingStudy";
+    public static final String PROFILE_IMAGING_PATIENT = "http://hl7.eu/fhir/imaging-manifest-r5/StructureDefinition/ImPatient";
+    public static final String PROFILE_IMAGING_STUDY = "http://hl7.eu/fhir/imaging-manifest-r5/StructureDefinition/ImImagingStudy";
     public static final String PROFILE_IMAGING_SELECTION = "http://hl7.eu/fhir/imaging-manifest-r5/StructureDefinition/ImImagingSelection";
-    public static final String PROFILE_WADO_ENDPOINT = "http://hl7.eu/fhir/imaging-manifest-r5/StructureDefinition/ImWadoEndpoint";
+    public static final String PROFILE_WADO_RS_ENDPOINT = "http://hl7.eu/fhir/imaging-manifest-r5/StructureDefinition/ImWadoRsEndpoint";
+    public static final String PROFILE_IMAGE_VIEWER_ENDPOINT = "http://hl7.eu/fhir/imaging-manifest-r5/StructureDefinition/ImImageViewerEndpoint";
     public static final String PROFILE_IID_ENDPOINT = "http://hl7.eu/fhir/imaging-manifest-r5/StructureDefinition/ImIheIidViewerEndpoint";
     public static final String PROFILE_IMAGING_DEVICE = "http://hl7.eu/fhir/imaging-manifest-r5/StructureDefinition/ImImagingDevice";
 

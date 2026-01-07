@@ -2,7 +2,7 @@ package be.uzleuven.ihe.dicom.convertor.fhir;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
-import org.hl7.fhir.r4.model.*;
+import org.hl7.fhir.r5.model.*;
 
 import java.io.File;
 import java.io.IOException;
@@ -16,7 +16,7 @@ import static be.uzleuven.ihe.dicom.constants.CodeConstants.*;
  */
 public class MADOToFHIRConverterTest {
 
-    private static final FhirContext FHIR_CONTEXT = FhirContext.forR4();
+    private static final FhirContext FHIR_CONTEXT = FhirContext.forR5();
 
     public static void main(String[] args) {
         System.out.println("MADO to FHIR Converter Test (MADO IG Compliant)");
@@ -171,7 +171,8 @@ public class MADOToFHIRConverterTest {
         System.out.println("  Title: " + composition.getTitle());
 
         if (composition.hasIdentifier()) {
-            System.out.println("  Identifier: " + composition.getIdentifier().getValue());
+            // R5: identifier is now an array
+            System.out.println("  Identifier: " + composition.getIdentifierFirstRep().getValue());
         }
 
         if (composition.hasDate()) {
@@ -239,8 +240,9 @@ public class MADOToFHIRConverterTest {
             System.out.println("  Manufacturer: " + device.getManufacturer());
         }
 
-        if (device.hasDeviceName()) {
-            System.out.println("  Device Name: " + device.getDeviceName().get(0).getName());
+        if (device.hasName()) {
+            // R5: changed from deviceName to name
+            System.out.println("  Device Name: " + device.getNameFirstRep().getValue());
         }
 
         if (device.hasVersion()) {
@@ -299,11 +301,16 @@ public class MADOToFHIRConverterTest {
             System.out.println("    Series " + (i + 1) + ":");
             System.out.println("      UID: " + s.getUid());
             if (s.hasModality()) {
-                System.out.println("      Modality: " + s.getModality().getCode());
+                // R5: modality is now CodeableConcept
+                System.out.println("      Modality: " + s.getModality().getCodingFirstRep().getCode());
             }
             if (s.hasBodySite()) {
-                System.out.println("      Body Site: " + s.getBodySite().getCode() +
-                    " (" + s.getBodySite().getDisplay() + ")");
+                // R5: bodySite is now CodeableReference
+                if (s.getBodySite().hasConcept()) {
+                    Coding bodySiteCoding = s.getBodySite().getConcept().getCodingFirstRep();
+                    System.out.println("      Body Site: " + bodySiteCoding.getCode() +
+                        " (" + bodySiteCoding.getDisplay() + ")");
+                }
             }
             if (s.hasDescription()) {
                 System.out.println("      Description: " + s.getDescription());
@@ -311,13 +318,13 @@ public class MADOToFHIRConverterTest {
             System.out.println("      Instances: " + s.getInstance().size());
 
             for (ImagingStudy.ImagingStudySeriesInstanceComponent inst : s.getInstance()) {
-                String frameInfo = "";
-                Extension framesExt = inst.getExtensionByUrl(
-                    EXT_NUMBER_OF_FRAMES);
-                if (framesExt != null && framesExt.hasValue()) {
-                    frameInfo = " (" + framesExt.getValue().primitiveValue() + " frames)";
+                String descInfo = "";
+                Extension descExt = inst.getExtensionByUrl(
+                    EXT_INSTANCE_DESCRIPTION);
+                if (descExt != null && descExt.hasValue()) {
+                    descInfo = " - " + descExt.getValue().primitiveValue();
                 }
-                System.out.println("        - " + inst.getUid() + frameInfo);
+                System.out.println("        - " + inst.getUid() + descInfo);
             }
         }
 
@@ -335,11 +342,15 @@ public class MADOToFHIRConverterTest {
 
         System.out.println("  Status: " + endpoint.getStatus());
 
-        if (endpoint.hasConnectionType()) {
-            Coding type = endpoint.getConnectionType();
-            System.out.println("  Connection Type: " + type.getCode());
-            if ("ihe-iid".equals(type.getCode())) {
-                System.out.println("    ✓ IHE-IID endpoint (MADO requirement)");
+        if (endpoint.hasConnectionType() && !endpoint.getConnectionType().isEmpty()) {
+            // R5: connectionType is now an array of CodeableConcept
+            CodeableConcept type = endpoint.getConnectionTypeFirstRep();
+            if (type.hasCoding()) {
+                String code = type.getCodingFirstRep().getCode();
+                System.out.println("  Connection Type: " + code);
+                if ("ihe-iid".equals(code)) {
+                    System.out.println("    ✓ IHE-IID endpoint (MADO requirement)");
+                }
             }
         }
 

@@ -2,7 +2,7 @@ package be.uzleuven.ihe.dicom.convertor.fhir;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
-import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r5.model.Bundle;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -21,7 +21,7 @@ import java.nio.charset.StandardCharsets;
  */
 public class MADOToFHIRExample {
 
-    private static final FhirContext FHIR_CONTEXT = FhirContext.forR4();
+    private static final FhirContext FHIR_CONTEXT = FhirContext.forR5();
 
     public static void main(String[] args) {
         if (args.length < 1) {
