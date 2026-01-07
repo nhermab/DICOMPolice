@@ -168,6 +168,21 @@ public final class CodeConstants {
     public static final String EXT_DERIVED_FROM = "http://hl7.eu/fhir/imaging-manifest-r5/StructureDefinition/derived-from";
     public static final String EXT_SELECTED_INSTANCE = "http://hl7.eu/fhir/imaging-manifest-r5/StructureDefinition/selected-instance";
 
+    // Custom extensions for DICOM round-trip preservation
+    public static final String EXT_LOCAL_NAMESPACE = "http://dicom.nema.org/fhir/StructureDefinition/local-namespace";
+    public static final String EXT_TYPE_OF_PATIENT_ID = "http://dicom.nema.org/fhir/StructureDefinition/type-of-patient-id";
+    public static final String EXT_STUDY_ID = "http://dicom.nema.org/fhir/StructureDefinition/study-id";
+    public static final String EXT_SERIES_DATE = "http://dicom.nema.org/fhir/StructureDefinition/series-date";
+    public static final String EXT_SERIES_TIME = "http://dicom.nema.org/fhir/StructureDefinition/series-time";
+    public static final String EXT_CONTENT_DATE = "http://dicom.nema.org/fhir/StructureDefinition/content-date";
+    public static final String EXT_CONTENT_TIME = "http://dicom.nema.org/fhir/StructureDefinition/content-time";
+    public static final String EXT_SOP_INSTANCE_UID = "http://dicom.nema.org/fhir/StructureDefinition/sop-instance-uid";
+    public static final String EXT_SERIES_INSTANCE_UID = "http://dicom.nema.org/fhir/StructureDefinition/series-instance-uid";
+    public static final String EXT_REFERRING_PHYSICIAN = "http://dicom.nema.org/fhir/StructureDefinition/referring-physician";
+    // Extensions for series-level metadata (within ImagingStudy.series)
+    public static final String EXT_IMAGING_SERIES_DATE = "http://dicom.nema.org/fhir/StructureDefinition/imaging-series-date";
+    public static final String EXT_IMAGING_SERIES_TIME = "http://dicom.nema.org/fhir/StructureDefinition/imaging-series-time";
+
     // MADO IG Profile URLs
     public static final String PROFILE_IMAGING_STUDY_MANIFEST = "http://hl7.eu/fhir/imaging-manifest-r5/StructureDefinition/ImImagingStudyManifest";
     public static final String PROFILE_IMAGING_PATIENT = "http://hl7.eu/fhir/imaging-manifest-r5/StructureDefinition/ImPatient";

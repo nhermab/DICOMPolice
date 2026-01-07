@@ -300,6 +300,7 @@ public class MADOToFHIRConverter {
         metadata.patientName = attrs.getString(Tag.PatientName);
         metadata.patientId = attrs.getString(Tag.PatientID);
         metadata.issuerOfPatientId = attrs.getString(Tag.IssuerOfPatientID);
+        metadata.typeOfPatientId = attrs.getString(Tag.TypeOfPatientID);
         metadata.patientBirthDate = attrs.getString(Tag.PatientBirthDate);
         metadata.patientSex = attrs.getString(Tag.PatientSex);
 
@@ -314,6 +315,10 @@ public class MADOToFHIRConverter {
         // Manifest Identity
         metadata.sopInstanceUID = attrs.getString(Tag.SOPInstanceUID);
         metadata.seriesInstanceUID = attrs.getString(Tag.SeriesInstanceUID);
+        metadata.contentDate = attrs.getString(Tag.ContentDate);
+        metadata.contentTime = attrs.getString(Tag.ContentTime);
+        metadata.seriesDate = attrs.getString(Tag.SeriesDate);
+        metadata.seriesTime = attrs.getString(Tag.SeriesTime);
 
         // Timezone - Critical for MADO compliance
         metadata.timezoneOffset = attrs.getString(Tag.TimezoneOffsetFromUTC);
@@ -417,6 +422,22 @@ public class MADOToFHIRConverter {
             } else if (metadata.issuerOfPatientId != null) {
                 // If it's a local namespace, prefix it to make it absolute
                 identifier.setSystem("urn:oid:" + metadata.issuerOfPatientId);
+            }
+
+            // Preserve local namespace separately if different from OID (for round-trip)
+            if (metadata.issuerOfPatientId != null && !metadata.issuerOfPatientId.isEmpty()) {
+                Extension localNsExt = new Extension();
+                localNsExt.setUrl(EXT_LOCAL_NAMESPACE);
+                localNsExt.setValue(new StringType(metadata.issuerOfPatientId));
+                identifier.addExtension(localNsExt);
+            }
+
+            // Preserve TypeOfPatientID (for round-trip)
+            if (metadata.typeOfPatientId != null && !metadata.typeOfPatientId.isEmpty()) {
+                Extension typeExt = new Extension();
+                typeExt.setUrl(EXT_TYPE_OF_PATIENT_ID);
+                typeExt.setValue(new StringType(metadata.typeOfPatientId));
+                identifier.addExtension(typeExt);
             }
         }
 
@@ -807,6 +828,40 @@ public class MADOToFHIRConverter {
             study.setStarted(started);
         }
 
+        // Extensions for round-trip preservation
+        // StudyID
+        if (metadata.studyID != null && !metadata.studyID.isEmpty()) {
+            study.addExtension(new Extension(EXT_STUDY_ID, new StringType(metadata.studyID)));
+        }
+        // ContentDate
+        if (metadata.contentDate != null && !metadata.contentDate.isEmpty()) {
+            study.addExtension(new Extension(EXT_CONTENT_DATE, new StringType(metadata.contentDate)));
+        }
+        // ContentTime
+        if (metadata.contentTime != null && !metadata.contentTime.isEmpty()) {
+            study.addExtension(new Extension(EXT_CONTENT_TIME, new StringType(metadata.contentTime)));
+        }
+        // SeriesDate
+        if (metadata.seriesDate != null && !metadata.seriesDate.isEmpty()) {
+            study.addExtension(new Extension(EXT_SERIES_DATE, new StringType(metadata.seriesDate)));
+        }
+        // SeriesTime
+        if (metadata.seriesTime != null && !metadata.seriesTime.isEmpty()) {
+            study.addExtension(new Extension(EXT_SERIES_TIME, new StringType(metadata.seriesTime)));
+        }
+        // SOP Instance UID (manifest UID)
+        if (metadata.sopInstanceUID != null && !metadata.sopInstanceUID.isEmpty()) {
+            study.addExtension(new Extension(EXT_SOP_INSTANCE_UID, new StringType(metadata.sopInstanceUID)));
+        }
+        // Series Instance UID (manifest series UID)
+        if (metadata.seriesInstanceUID != null && !metadata.seriesInstanceUID.isEmpty()) {
+            study.addExtension(new Extension(EXT_SERIES_INSTANCE_UID, new StringType(metadata.seriesInstanceUID)));
+        }
+        // Referring Physician (preserved even if just dashes)
+        if (metadata.referringPhysicianName != null) {
+            study.addExtension(new Extension(EXT_REFERRING_PHYSICIAN, new StringType(metadata.referringPhysicianName)));
+        }
+
         // MADO requirement: Map ALL entries from Referenced Request Sequence to basedOn
         if (!metadata.referencedRequests.isEmpty()) {
             for (ReferencedRequest req : metadata.referencedRequests) {
@@ -1067,6 +1122,8 @@ public class MADOToFHIRConverter {
         String seriesUID = null;
         String seriesDescription = null;
         Integer seriesNumber = null;
+        String seriesDate = null;
+        String seriesTime = null;
         Map<String, Integer> instanceNumbers = new HashMap<>(); // SOP Instance UID -> Instance Number
 
         for (Attributes item : contentSeq) {
@@ -1086,6 +1143,10 @@ public class MADOToFHIRConverter {
                 } catch (NumberFormatException e) {
                     // Ignore
                 }
+            } else if ("TEXT".equals(valueType) && CODE_SERIES_DATE.equals(codeValue)) {
+                seriesDate = item.getString(Tag.TextValue);
+            } else if ("TEXT".equals(valueType) && CODE_SERIES_TIME.equals(codeValue)) {
+                seriesTime = item.getString(Tag.TextValue);
             } else if ("IMAGE".equals(valueType)) {
                 // Process IMAGE items to extract instance numbers
                 extractInstanceNumberFromImage(item, instanceNumbers);
@@ -1100,6 +1161,13 @@ public class MADOToFHIRConverter {
                 }
                 if (seriesNumber != null) {
                     series.setNumber(seriesNumber);
+                }
+                // Store Series Date/Time as extensions for round-trip
+                if (seriesDate != null && !seriesDate.isEmpty()) {
+                    series.addExtension(new Extension(EXT_IMAGING_SERIES_DATE, new StringType(seriesDate)));
+                }
+                if (seriesTime != null && !seriesTime.isEmpty()) {
+                    series.addExtension(new Extension(EXT_IMAGING_SERIES_TIME, new StringType(seriesTime)));
                 }
                 // Populate instance numbers from SR content tree
                 if (!instanceNumbers.isEmpty() && series.hasInstance()) {
@@ -1460,6 +1528,7 @@ public class MADOToFHIRConverter {
         String issuerOfPatientId;
         String issuerOfPatientIdUniversalId;
         String issuerOfPatientIdUniversalIdType;
+        String typeOfPatientId;
         String patientBirthDate;
         String patientSex;
 
@@ -1477,6 +1546,10 @@ public class MADOToFHIRConverter {
         String sopInstanceUID;
         String seriesInstanceUID;
         String timezoneOffset;
+        String contentDate;
+        String contentTime;
+        String seriesDate;
+        String seriesTime;
 
         // Device/Equipment
         String manufacturer;
