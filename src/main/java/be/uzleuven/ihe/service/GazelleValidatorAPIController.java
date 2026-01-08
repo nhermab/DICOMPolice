@@ -8,7 +8,11 @@ import be.uzleuven.ihe.dicom.validator.model.ValidationResult;
 import be.uzleuven.ihe.service.models.*;
 
 import org.dcm4che3.data.Attributes;
+import org.dcm4che3.data.Tag;
+import org.dcm4che3.data.UID;
 import org.dcm4che3.io.DicomOutputStream;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -22,6 +26,7 @@ import java.util.*;
 @RequestMapping("/validation/v2")
 public class GazelleValidatorAPIController {
 
+    private static final Logger LOG = LoggerFactory.getLogger(GazelleValidatorAPIController.class);
     private static final String SERVICE_NAME = "DICOM IHE Validation Service";
     private static final String SERVICE_VERSION = "1.0.0";
 
@@ -109,7 +114,11 @@ public class GazelleValidatorAPIController {
 
         File tempFile = File.createTempFile("kos_generated_", ".dcm");
         try (DicomOutputStream dos = new DicomOutputStream(tempFile)) {
-            dos.writeDataset(null, attrs);
+            // Write Part 10 format with File Meta Information for validation
+            String transferSyntax = attrs.getString(Tag.TransferSyntaxUID, UID.ExplicitVRLittleEndian);
+            Attributes fmi = attrs.createFileMetaInformation(transferSyntax);
+            dos.writeDataset(fmi, attrs);
+            LOG.debug("Generated KOS sample in Part 10 format for validation");
         }
 
         ValidationResult validationResult = CLIDICOMVerify.validateFile(tempFile, "IHEXDSIManifest");
@@ -152,7 +161,11 @@ public class GazelleValidatorAPIController {
 
         File tempFile = File.createTempFile("mado_generated_", ".dcm");
         try (DicomOutputStream dos = new DicomOutputStream(tempFile)) {
-            dos.writeDataset(null, attrs);
+            // Write Part 10 format with File Meta Information for validation
+            String transferSyntax = attrs.getString(Tag.TransferSyntaxUID, UID.ExplicitVRLittleEndian);
+            Attributes fmi = attrs.createFileMetaInformation(transferSyntax);
+            dos.writeDataset(fmi, attrs);
+            LOG.debug("Generated MADO sample in Part 10 format for validation");
         }
 
         ValidationResult validationResult = CLIDICOMVerify.validateFile(tempFile, "IHEMADO");
