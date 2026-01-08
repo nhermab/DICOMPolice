@@ -159,6 +159,7 @@ public class MADOToFHIRConverterTest {
 
         IParser parser = FHIR_CONTEXT.newJsonParser();
         parser.setPrettyPrint(true);
+        parser.setOverrideResourceIdWithBundleEntryFullUrl(false);  // Preserve resource IDs
         String json = parser.encodeResourceToString(bundle);
         System.out.println(json);
     }

@@ -1,141 +1,121 @@
 # DICOMPolice
 
-**A DICOM Key Object Selection (KOS) and MADO Manifest validator + sample generator for IHE XDS-I.b and MADO trial implementations.**
+**IHE XDS-I.b KOS / MADO Validator + MHD Document Responder + DICOM/FHIR Converter**
 
-DICOMPolice validates DICOM Key Object Selection (KOS) documents and Manifest-based Access to DICOM Objects (MADO) manifests (TID 1600 Image Library) according to the IHE Radiology Technical Framework (XDS-I.b) and the draft MADO profile.
+DICOMPolice is a comprehensive toolkit centered on the powerful **Manifest-based Access to DICOM Objects (MADO)** and **KeY Object Selection (KOS)** standards defined in IHE-RAD. It validates, creates, and converts these advanced DICOM objects, demonstrating the robust capabilities of modern DICOM.
 
-Available through **command-line interface**, **web interface**, and **REST API** (Gazelle-compatible). Includes generators for compliant sample files and optional "EVIL" intentionally broken samples for interoperability testing.
+For environments requiring FHIR interoperability, it supplements the core DICOM functionality with bridge tools (like SCU-driven generation) that connect legacy DICOM archives to state-of-the-art MADO and FHIR workflows.
+
+Available via **Web Interface** (drag-and-drop), **REST API** (Gazelle-compatible), and **Command-Line Interface (CLI)**.
 
 ---
-## DEMO
 
-[online web based demo](https://ihebelgium.ehealthhub.be/TheDICOMPolice/)
+## 🌐 Web Interface Tools
 
-### MHD Document Responder Demo
+The easiest way to use DICOMPolice is through the served web applications.
+Launch the server:
+```bash
+mvn spring-boot:run
+# Open http://localhost:8080
+```
 
-DICOMPolice includes an **IHE MHD (Mobile access to Health Documents) Document Responder** that provides a FHIR R4 facade over DICOM PACS systems. The demo server is available at:
+### 1. Validator (MADO & KOS)
+> **URL**: [http://localhost:8080](http://localhost:8080)
 
-**Base URL**: `https://ihebelgium.ehealthhub.be/TheDICOMPolice/fhir/`
+Drag-and-drop DICOM files to validate them against IHE profiles.
+- **Profiles**: IHE XDS-I.b Key Object Selection (KOS), MADO Draft Profile (TID 1600).
+- **Features**: Detailed error logs, SR tree visualization, rigorous DICOM constraints.
+- **Core Code**:
+  - [`DicomVisualizerController.java`](src/main/java/be/uzleuven/ihe/service/DicomVisualizerController.java) (Web controller)
+  - [`GazelleValidatorAPIController.java`](src/main/java/be/uzleuven/ihe/service/GazelleValidatorAPIController.java) (Validation logic)
 
-#### Live Endpoints
+### 2. MHD Viewer & MADO SCU Client
+> **URL**: [http://localhost:8080/MHDMADOViewer.html](http://localhost:8080/MHDMADOViewer.html)
 
-- **CapabilityStatement**: [https://ihebelgium.ehealthhub.be/TheDICOMPolice/fhir/metadata](https://ihebelgium.ehealthhub.be/TheDICOMPolice/fhir/metadata)
-- **Search DocumentReferences**: [https://ihebelgium.ehealthhub.be/TheDICOMPolice/fhir/DocumentReference?_format=json](https://ihebelgium.ehealthhub.be/TheDICOMPolice/fhir/DocumentReference?_format=json)
-- **Browse with HTML**: [https://ihebelgium.ehealthhub.be/TheDICOMPolice/fhir/DocumentReference?_format=html](https://ihebelgium.ehealthhub.be/TheDICOMPolice/fhir/DocumentReference?_format=html)
-- **Retrieve MADO Manifest**: `https://ihebelgium.ehealthhub.be/TheDICOMPolice/fhir/Binary/{documentId}`
-  - Example: [https://ihebelgium.ehealthhub.be/TheDICOMPolice/fhir/Binary/MS4yLjg0MC4xMTM1NDMuNi42LjEuNC40LjM4NDQ4NjExMjI0NDI2ODc4MzAuMjAzMTAwNTM1NzY.dcm](https://ihebelgium.ehealthhub.be/TheDICOMPolice/fhir/Binary/MS4yLjg0MC4xMTM1NDMuNi42LjEuNC40LjM4NDQ4NjExMjI0NDI2ODc4MzAuMjAzMTAwNTM1NzY.dcm)
+A **FHIR MHD (Mobile access to Health Documents)** Document Responder facade that sits on top of a standard DICOM PACS.
+- **Workflow**:
+  1. User searches via the web UI (MHD ITI-67 transaction).
+  2. Backend queries the PACS via **DICOM C-FIND** (SCU).
+  3. Backend generates a MADO/KOS on-the-fly from C-FIND results.
+  4. Returns FHIR DocumentReference resources or the binary MADO file.
+- **Core Code**:
+  - [`MHDService.java`](src/main/java/be/uzleuven/ihe/service/MHD/MHDService.java) (MHD to DICOM C-FIND orchestration)
+  - [`MADOSCUManifestCreator.java`](src/main/java/be/uzleuven/ihe/dicom/creator/scu/MADOSCUManifestCreator.java) (Builds MADO from PACS responses)
 
-#### Supported IHE Transactions
+### 3. DICOM ↔ FHIR Converter
+> **URL**: [http://localhost:8080/converter.html](http://localhost:8080/converter.html)
 
-| Transaction | Resource | Description |
-|------------|----------|-------------|
-| **ITI-66** | `List` | Find Document Lists (SubmissionSets) |
-| **ITI-67** | `DocumentReference` | Find Document References |
-| **ITI-68** | `Binary` | Retrieve Document (MADO manifests) |
+Visualize and test the bidirectional conversion between DICOM MADO manifests and FHIR R5 Document Bundles.
+- **MADO to FHIR**: Converts DICOM attributes and SR tree to FHIR Composition/DocumentReference.
+- **FHIR to MADO**: Reconstructs a valid binary DICOM MADO file from a FHIR JSON bundle.
+- **Core Code**:
+  - [`ConverterController.java`](src/main/java/be/uzleuven/ihe/service/ConverterController.java)
+  - [`FHIRToMADOConverter.java`](src/main/java/be/uzleuven/ihe/dicom/convertor/dicom/FHIRToMADOConverter.java)
+  - [`MADOToFHIRConverter.java`](src/main/java/be/uzleuven/ihe/dicom/convertor/fhir/MADOToFHIRConverter.java)
 
-#### Key Capabilities
 
-- **On-the-fly MADO Generation**: Queries DICOM PACS via C-FIND and generates MADO (Key Object Selection) manifests dynamically
-- **FHIR R4 Interface**: Full HAPI FHIR R4 server with browser-friendly HTML rendering
-- **IHE MHD v4.2.3 Conformance**: Document Responder actor implementation
-- **Search Parameters**: Patient identifier, accession number, study UID, date range, modality
-- **MADO Compliance**: Generates manifests with TID 1600 Image Library, timezone offset, proper document titles per DICOM CP-2595
+---
 
-#### Example Queries
+## 🖥️ Command Line Tools
+
+Useful for batch processing, scripting, or headless environments.
+
+### 1. Validation CLI
+Validate generic DICOM files or specific profiles.
+
+**Source**: [`CLIDICOMVerify.java`](src/main/java/be/uzleuven/ihe/dicom/validator/CLIDICOMVerify.java)
 
 ```bash
-# Search by patient identifier
-curl "https://ihebelgium.ehealthhub.be/TheDICOMPolice/fhir/DocumentReference?patient.identifier=12345&_format=json"
+# Validate generic DICOM compliance
+java -cp target/DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.validator.CLIDICOMVerify file.dcm
 
-# Search by accession number
-curl "https://ihebelgium.ehealthhub.be/TheDICOMPolice/fhir/DocumentReference?accession=ACC12345&_format=json"
-
-# Search by study instance UID
-curl "https://ihebelgium.ehealthhub.be/TheDICOMPolice/fhir/DocumentReference?study-instance-uid=1.2.3.4.5&_format=json"
-
-# Get CapabilityStatement
-curl "https://ihebelgium.ehealthhub.be/TheDICOMPolice/fhir/metadata?_format=json"
-
-# Retrieve MADO manifest as DICOM file
-curl "https://ihebelgium.ehealthhub.be/TheDICOMPolice/fhir/Binary/{documentId}" -o manifest.dcm
+# Validate against MADO profile with verbose output
+java -cp target/DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.validator.CLIDICOMVerify --profile IHEMADO -v file.dcm
 ```
 
-For detailed documentation, see [MHD Service README](src/main/java/be/uzleuven/ihe/service/MHD/README.md).
+### 2. MADO/KOS from SCU (Query PACS)
+Query a PACS (C-FIND) and generate a local manifest file referencing the remote images. This tool can query for specific studies or crawl a date range to generate manifests in batches.
 
-## example files
+**Source**: [`SCUManifestCli.java`](src/main/java/be/uzleuven/ihe/dicom/creator/scu/cli/SCUManifestCli.java)
 
-[example files if you don't have any](./examplefiles.md)
+**Note on Compatibility**: The examples below often reference an **Orthanc** server (which we highly respect and use for testing <3). However, this tool relies only on standard DICOM C-FIND and WADO-RS, so it works with **any** compliant PACS/VNA (SCP).
 
-## Quick Start
-
-```cmd
-# Build the project
-mvn clean package
-
-# Start the web interface
-mvn spring-boot:run
-
-# Or validate from command line
-java -cp target\DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.validator.CLIDICOMVerify your-file.dcm
-
-# Generate a sample KOS file
-java -cp target\DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.creator.samples.IHEKOSSampleCreator
+```bash
+# Example: Batch create MADO manifests for all studies in a date range (30-day windows)
+java -cp target/DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.creator.scu.cli.SCUManifestCli ^
+  --type mado ^
+  -aec ORTHANC ^
+  -aet DICOMPOLICE ^
+  --host 172.20.240.184 ^
+  --port 4242 ^
+  --begin-date 1992-01-01 ^
+  --end-date 2026-01-01 ^
+  --window-days 30 ^
+  --retrieve-location-uid 1.3.6.1.4.1.21297.150.1.2 ^
+  --issuer 1.3.6.1.4.1.21297.100.1.1 ^
+  --accissuer 1.3.6.1.4.1.21297.120.1.1 ^
+  --wado "https://ihebelgium.ehealthhub.be/orthanc/dicom-web/wado-rs/studies" ^
+  --out-dir .\MADO_FROM_SCU\
 ```
 
----
+### 3. Converter CLI
+Batch convert files between formats.
 
-## Features
+**Source**: [`MADOBatchConverter.java`](src/main/java/be/uzleuven/ihe/dicom/convertor/fhir/MADOBatchConverter.java)
 
-### Validation Capabilities
-- ✅ **IHE XDS-I.b KOS Validation**: Validates Key Object Selection documents for XDS-I Imaging Manifest compliance
-- ✅ **MADO Profile Support**: Validates MADO Manifest with Description requirements (incl. TID 1600 Image Library)
-- ✅ **Multi-Layer Validation**:
-  - DICOM Part 10 file format and meta information
-  - IOD compliance checks inspired by PixelMed's `dciodvfy`
-  - Structured Reporting (SR) content tree validation
-  - SR Template validation (TID 1600, TID 2010)
-  - Advanced encoding validation (character sets, padding, UIDs)
-  - Timezone consistency across MADO content
-  - Digital signature structure checks (presence validation)
-  - Evidence orphan detection
-  - Forbidden tag detection (pixel data, waveforms, etc.)
+```bash
+# Batch convert directory of DICOM MADO files to FHIR JSON
+java -cp target/DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.convertor.fhir.MADOBatchConverter \
+  ./dicom-input-dir ./fhir-output-dir
+```
 
-### Interfaces
-- 🖥️ **Command-Line Interface**: Batch validation with verbose output options
-- 🌐 **Web Interface**: Modern drag-and-drop UI for file validation with detailed reports
-- 🔌 **REST API**: Gazelle Validation Service compatible endpoints (`/validation/v2`)
-- 🏥 **MHD Document Responder**: IHE MHD (ITI-66/67/68) FHIR R4 server for on-the-fly MADO generation
-- 📊 **Detailed Reports**: Categorized validation results (ERROR, WARNING, INFO)
+**Source**: [`ConvertFHIRToMADOApp.java`](src/main/java/be/uzleuven/ihe/dicom/convertor/dicom/ConvertFHIRToMADOApp.java)
 
-### Sample Generation
-- ✅ **Valid Sample Creators**: Generate compliant IHE KOS and MADO manifests for testing
-- ✅ **API sample generation**: The REST API can also generate+validate a sample if you omit `inputs` in the request body
-- 🎲 **EVIL Generators**: Create intentionally malformed files with controlled randomness
-  - 20% chance of missing required elements
-  - 5% chance of explicit corruptions
-  - 30% chance of forbidden tags injection
-  - Deterministic mode with seed for reproducibility
-
----
-
-## Table of Contents
-
-- [Quick Start](#quick-start)
-- [Features](#features)
-- [Installation](#installation)
-- [Usage](#usage)
-  - [Web Interface](#web-interface)
-  - [Command-Line Validation](#command-line-validation)
-  - [Sample Creation](#sample-creation)
-  - [EVIL (intentionally broken) generators](#evil-intentionally-broken-generators)
-- [REST API](#rest-api)
-- [MHD Document Responder](#mhd-document-responder-demo)
-- [Validation Profiles](#validation-profiles)
-- [Architecture](#architecture)
-- [MADO Profile Notice](#mado-profile-notice)
-- [Building](#building)
-- [Third-Party Dependencies](#third-party-dependencies)
-- [License](#license)
+```bash
+# Convert single FHIR Bundle to DICOM MADO
+java -cp target/DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.convertor.dicom.ConvertFHIRToMADOApp \
+  bundle.json output.dcm
+```
 
 ---
 
@@ -156,329 +136,111 @@ mvn clean package
 
 The compiled JAR will be in `target\`.
 
----
+## Rest API
 
-## Usage
-
-### Web Interface
-
-DICOMPolice includes a modern web interface for interactive validation.
-
-#### Starting the Web Server
-
-```cmd
-REM Run as Spring Boot application
-mvn spring-boot:run
-```
-
-Or run the WAR file directly:
-
-```cmd
-java -jar target\DICOMPolice-0.1.0-SNAPSHOT.war
-```
-
-The web interface will be available at `http://localhost:8080`
-
-#### Using the Web Interface
-
-1. **Select a validation profile** from the dropdown (IHE XDS-I.b Manifest or MADO)
-2. **Upload a DICOM file** by:
-   - Dragging and dropping onto the upload area, or
-   - Clicking to browse and select a file
-3. **Click "Validate"** to process the file
-4. **View results** organized by severity:
-   - **Errors** (❌) - Critical validation failures
-   - **Warnings** (⚠️) - Non-critical issues that should be addressed
-   - **Info** (ℹ️) - Informational messages and recommendations
-5. **Filter messages** by severity using the category buttons
-6. **Download results** for reporting and documentation
-
-### Command-Line Validation
-
-Validate DICOM KOS/MADO files using the CLI:
-
-```cmd
-REM Basic validation
-java -cp target\DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.validator.CLIDICOMVerify kos.dcm
-
-REM Verbose output
-java -cp target\DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.validator.CLIDICOMVerify -v kos.dcm
-
-REM Validate with IHE XDS-I.b Manifest profile
-java -cp target\DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.validator.CLIDICOMVerify --profile IHEXDSIManifest kos.dcm
-
-REM Validate with MADO profile
-java -cp target\DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.validator.CLIDICOMVerify --profile IHEMADO mado_manifest.dcm
-
-REM Validate multiple files
-java -cp target\DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.validator.CLIDICOMVerify -v file1.dcm file2.dcm file3.dcm
-
-REM Use the “new format” message rendering
-java -cp target\DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.validator.CLIDICOMVerify --new-format --profile IHEMADO -v mado_manifest.dcm
-```
-
-**Command-Line Options:**
-
-- `-h, --help` - Display help message
-- `-v, --verbose` - Verbose output
-- `--new-format` - Print messages using the new `[SEVERITY] path: message` style
-- `--profile <name>` - Validation profile:
-  - `IHEXDSIManifest` - IHE XDS-I.b KOS Manifest
-  - `IHEMADO` - MADO Manifest with Description
-
-**Exit Codes:**
-
-- `0` - Validation successful
-- `1` - Validation failed or file error
-
-### Sample Creation
-
-Generated samples are written to the current working directory.
-
-#### SCU manifest creation (query a PACS via C-FIND)
-
-In addition to generating synthetic sample files, DICOMPolice can also act as a **DICOM SCU** (Query/Retrieve client) to **query a PACS using Study Root C-FIND** and create a manifest based on the returned metadata:
-
-- **KOS (IHE XDS-I.b Imaging Manifest)**: `be.uzleuven.ihe.dicom.creator.scu.KOSSCUManifestCreator`
-- **MADO (Manifest with Description / TID 1600 Image Library)**: `be.uzleuven.ihe.dicom.creator.scu.MADOSCUManifestCreator`
-
-This does **not** download DICOM objects. It builds a KOS/MADO document that references the study/series/instances and populates retrieval information (e.g. WADO-RS `RetrieveURL`) based on the provided `-wado` base URL.
-
-**Prerequisites**
-- The remote archive must support **Study Root Query/Retrieve Information Model - FIND (C-FIND)**.
-- AE titles/host/port must match the remote PACS configuration.
-
-**Command-line options (both KOS and MADO)**
-
-- `-study <StudyInstanceUID>` (required)
-- `-pid <PatientID>` (optional; if omitted, the creator queries without a PatientID constraint)
-- Connection:
-  - `-aec <CalledAET>` (default: `ORTHANC`)
-  - `-aet <CallingAET>` (default: `DICOMPOLICE`)
-  - `-host <hostname>` (default: `localhost`)
-  - `-port <port>` (default: `4242`)
-- Output:
-  - `-out <output.dcm>` (default: `KOS_FROM_SCU.dcm` / `MADO_FROM_SCU.dcm`)
-- Defaults injected when the PACS doesn’t return required IHE/MADO metadata:
-  - `-issuer <PatientIDIssuerOID>` (default: `1.2.3.4.5.6.7.8.9`)
-  - `-accissuer <AccessionIssuerOID>` (default: `1.2.3.4.5.6.7.8.10`)
-  - `-repouid <RetrieveLocationUID>` (default: `1.2.3.4.5.6.7.8.9.10`)
-  - `-wado <WADOBaseURL>` (default: `https://pacs.example.org/dicom-web/studies`)
-
-**Create a KOS from a PACS (C-FIND)**
-
-```cmd
-java -cp target\DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.creator.scu.KOSSCUManifestCreator -study <StudyInstanceUID> -pid <PatientID> -aec <CalledAET> -aet <CallingAET> -host <host> -port <port> -wado https://pacs.example.org/dicom-web/studies -out KOS_FROM_SCU.dcm
-```
-
-**Create a MADO from a PACS (C-FIND)**
-
-```cmd
-java -cp target\DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.creator.scu.MADOSCUManifestCreator -study <StudyInstanceUID> -pid <PatientID> -aec <CalledAET> -aet <CallingAET> -host <host> -port <port> -wado https://pacs.example.org/dicom-web/studies -out MADO_FROM_SCU.dcm
-```
-
-**Runnable code example**
-
-There is also a small Java runner you can execute (hardcoded example settings inside):
-
-```cmd
-java -cp target\DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.creator.scu.SCUExample kos
-java -cp target\DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.creator.scu.SCUExample mado
-```
-
-**Notes / limitations**
-- Retrieval URLs are constructed as: `{wadoBase}/{StudyUID}/series/{SeriesUID}`. Real PACS deployments may use different URL schemes.
-- For MADO, if the PACS does not return an `AccessionNumber`, the creator generates a placeholder `ACC-<random>` to satisfy MADO requirements.
-- Very large studies can be slow because the CLI creators query all series and instances and keep them in memory.
-
-#### IHE XDS-I.b KOS samples
-
-```cmd
-REM Create a single KOS sample (default behavior: random sizes)
-java -cp target\DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.creator.samples.IHEKOSSampleCreator
-
-REM Create deterministic default-size samples
-java -cp target\DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.creator.samples.IHEKOSSampleCreator --default-sizes
-
-REM Create N samples
-java -cp target\DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.creator.samples.IHEKOSSampleCreator 10
-```
-
-Notes:
-- The generator ensures **all Evidence instances are included in the SR content tree** (per IHE/DICOM KOS requirements). Older “key image count” style knobs are kept only for backward compatibility.
-
-#### MADO samples
-
-```cmd
-REM Create a single MADO sample (default behavior: random sizes)
-java -cp target\DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.creator.samples.IHEMADOSampleCreator
-
-REM Create deterministic default-size samples (aligned to KOS defaults)
-java -cp target\DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.creator.samples.IHEMADOSampleCreator --default-sizes
-
-REM Create N samples
-java -cp target\DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.creator.samples.IHEMADOSampleCreator 10
-```
-
-#### Helper “generate + validate” runners
-
-For quick local development runs, the repo includes small runners that generate a file and immediately validate it:
-
-```cmd
-java -cp target\DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.creator.samples.GenerateAndValidateKOS
-java -cp target\DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.creator.samples.GenerateAndValidateMado
-```
-
-### EVIL (intentionally broken) generators
-
-DICOMPolice includes specialized generators that create **intentionally malformed** DICOM files for negative testing and validator development.
-
-#### Key Features
-
-- **Probabilistic Corruption**: 20% missing elements, 5% explicit corruptions, 30% forbidden tags
-- **Forbidden Tag Injection**: Adds tags that violate KOS/MADO specifications:
-  - Critical violations: Pixel Data, Waveform Data, Audio Data
-  - Warning violations: Image Pixel Module, positioning, acquisition parameters
-- **Deterministic Mode**: Reproducible generation using seed values (`-Devil.seed=123`)
-- **Multiple Profiles**: Available for both KOS and MADO
-
-#### Quick Start
-
-```cmd
-REM Generate 5 intentionally broken KOS files
-java -cp target\DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.creator.evil.EVILKOSCreator 5
-
-REM Generate 5 broken MADO files deterministically
-java -cp target\DICOMPolice-0.1.0-SNAPSHOT.jar -Devil.seed=123 be.uzleuven.ihe.dicom.creator.evil.EVILMADOCreator 5
-```
-
-For complete documentation, see [EVIL_GENERATORS.md](EVIL_GENERATORS.md).
-
----
-
-## REST API
-
-DICOMPolice implements the **Gazelle Validation Service API** specification, enabling integration with IHE Gazelle Test Management and other validation frameworks.
-
-### API Endpoints
-
-The REST API is available at `/validation/v2` when the web server is running.
-
-**Base URL**: `http://localhost:8080/validation/v2`
-
-### Key Endpoints
-
-- **GET** `/validation/v2/profiles` - List available validation profiles
-- **POST** `/validation/v2/validate/{validationServiceName}` - Validate a DICOM file
-- **GET** `/validation/v2/validation-status/{uuid}` - Check validation status
-- **GET** `/validation/v2/validation-result-overview/{uuid}` - Get validation summary
-- **GET** `/validation/v2/validation-result-details/{uuid}` - Get detailed results
-
-### Supported Profiles
-
-- `IHEXDSIManifest` - IHE XDS-I.b Key Object Selection
-- `IHEMADO` - MADO Manifest with Descriptors
-
-### Generate + validate a sample (no input file)
-
-If you omit the `inputs` array in the request body, the service will generate a compliant sample (KOS or MADO), validate it, and return the report.
-
-```cmd
-curl -X POST http://localhost:8080/validation/v2/validate ^
-  -H "Content-Type: application/json" ^
-  -d "{\"validationProfileId\":\"IHE.RAD.MADO\"}"
-```
-
-### Example: list profiles
-
-```cmd
-curl -X GET http://localhost:8080/validation/v2/profiles -H "Accept: application/json"
-```
-
-See [API_README.md](API_README.md) for complete API documentation, request/response formats, and integration examples.
-
----
-
-## Validation Profiles
-
-### IHE XDS-I.b Manifest (`IHEXDSIManifest`)
-
-Validates Key Object Selection documents according to IHE XDS-I.b Imaging Manifest requirements.
-
-### MADO (Manifest-based Access to DICOM Objects) (`IHEMADO`)
-
-Validates the draft MADO profile, including TID 1600 Image Library structure.
-
-⚠️ Note: code values with the `ddd` prefix are **provisional** and may change when the final profile is published.
-
----
+See [API_README.md](API_README.md).
 
 ## Architecture
 
 See [ARCHITECTURE.md](ARCHITECTURE.md).
 
----
+## Third Party Notices
 
-## MADO Profile Notice
+The following third party notices are reproduced here for convenience. For the original, see `THIRD_PARTY_NOTICES`.
 
-⚠️ **Public Comment / Trial Implementation**
+```text
+DICOMPolice / MADOValidator - Third Party Notices
 
-The MADO profile is currently implemented against a **draft** specification (Public Comment / trial implementation phase). Expect changes when the final profile is published.
+This project is distributed under the GNU General Public License, version 2 (GPLv2). See the file "LICENSE".
 
----
+Portions of this project are based on, or derived from, third-party software listed below.
+Where third-party notices and license terms apply, they are reproduced here, and/or referenced.
+Redistributors must comply with the terms for this project (GPLv2) and any applicable third-party terms.
 
-## Building
+-------------------------------------------------------------------------------
+1) PixelMed (Portions based on dciodvfy.cc)
+-------------------------------------------------------------------------------
+The following source files contain portions based on PixelMed's dciodvfy.cc:
 
-```cmd
-mvn clean package
+- src/main/java/be/uzleuven/ihe/dicom/validator/CLIDICOMVerify.java
+- src/main/java/be/uzleuven/ihe/dicom/validator/validation/iod/IODValidator.java
+- src/main/java/be/uzleuven/ihe/dicom/validator/validation/iod/IODValidatorFactory.java
+
+PixelMed license (as included in dciodvfy.cc):
+
+Copyright (c) 1993-2024, David A. Clunie DBA PixelMed Publishing. All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification, are
+permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this list of
+   conditions and the following disclaimers.
+
+2. Redistributions in binary form must reproduce the above copyright notice, this list of
+   conditions and the following disclaimers in the documentation and/or other materials
+   provided with the distribution.
+
+3. Neither the name of PixelMed Publishing nor the names of its contributors may
+   be used to endorse or promote products derived from this software.
+
+This software is provided by the copyright holders and contributors "as is" and any
+express or implied warranties, including, but not limited to, the implied warranties
+of merchantability and fitness for a particular purpose are disclaimed. In no event
+shall the copyright owner or contributors be liable for any direct, indirect, incidental,
+special, exemplary, or consequential damages (including, but not limited to, procurement
+of substitute goods or services; loss of use, data or profits; or business interruption)
+however caused and on any theory of liability, whether in contract, strict liability, or
+tort (including negligence or otherwise) arising in any way out of the use of this software,
+even if advised of the possibility of such damage.
+
+This software has neither been tested nor approved for clinical use or for incorporation in
+a medical device. It is the redistributor's or user's responsibility to comply with any
+applicable local, state, national or international regulations.
+
+-------------------------------------------------------------------------------
+2) dcm4che (library dependency)
+-------------------------------------------------------------------------------
+This project depends on dcm4che libraries (e.g., org.dcm4che:dcm4che-core and org.dcm4che:dcm4che-net),
+which are licensed under GPLv2. Please refer to the dcm4che project for the complete license text and notices:
+
+- https://www.dcm4che.org/
+- https://github.com/dcm4che/dcm4che
+
+-------------------------------------------------------------------------------
+3) HAPI FHIR (library dependency)
+-------------------------------------------------------------------------------
+This project relies on the HAPI FHIR library (http://hapifhir.io/), which is licensed under the
+Apache License, Version 2.0.
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+
+-------------------------------------------------------------------------------
+4) Acknowledgements - Orthanc Server
+-------------------------------------------------------------------------------
+The samples and demos provided in this project (specifically the SCU client tests and WADO-RS retrieval examples)
+were developed and tested against an Orthanc PACS server (https://www.orthanc-server.com/).
+
+We have great respect for the Orthanc project and its contributors.
+
+Note: DICOMPolice does not use Orthanc code and does not depend on Orthanc specifically.
+The SCU / MADO generation tools are standard-compliant and will work against any DICOM SCP
+(Service Class Provider) or WADO-RS capable server.
+
+-------------------------------------------------------------------------------
+End of Third Party Notices
+-------------------------------------------------------------------------------
 ```
-
-This produces:
-- **JAR**: `target\DICOMPolice-0.1.0-SNAPSHOT.jar` - For command-line usage and sample generation
-- **WAR**: `target\DICOMPolice-0.1.0-SNAPSHOT.war` - For web interface deployment
-
----
-
-## Third-Party Dependencies
-
-### Spring Boot (Apache License 2.0)
-
-- **Framework**: Spring Boot
-- **Version used by this project**: **3.2.0**
-- Used for web interface and REST API
-
-### HAPI FHIR (Apache License 2.0)
-
-- **Library**: `hapi-fhir-base`, `hapi-fhir-structures-r4`, `hapi-fhir-server`
-- **Version used by this project**: **8.2.0**
-- Used for MHD Document Responder FHIR R4 server implementation
-
-### dcm4che (GPLv2)
-
-- **Library**: `dcm4che-core`, `dcm4che-net`
-- **Version used by this project**: **5.31.0**
-
-### PixelMed (BSD-style License)
-
-Portions of the IOD validation logic are based on PixelMed's `dciodvfy.cc`.
-See [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES) for details.
-
----
 
 ## License
 
-This project is licensed under **GPLv2** (to comply with dcm4che’s license terms).
-
-See [LICENSE](LICENSE).
-
----
-
-## Known Issues and Limitations
-
-See [ISSUES.md](ISSUES.md).
-
----
-
-## TODO
-
-See [TODO.md](TODO.md).
+This project is licensed under **GPLv2** (to comply with dcm4che’s license terms). See [LICENSE](LICENSE).

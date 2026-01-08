@@ -39,8 +39,8 @@ public class MHDConfiguration {
     // DICOM Connection Settings
     private String callingAet = "DICOMPOLICE";
     private String calledAet = "ORTHANC";
-    private String remoteHost = "localhost";
-    //private String remoteHost = "172.20.240.184";
+    //private String remoteHost = "localhost";
+    private String remoteHost = "172.20.240.184";
     private int remotePort = 4242;
     private int connectTimeout = 5000;
     private int responseTimeout = 10000;

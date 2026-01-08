@@ -30,11 +30,22 @@ public class MADOBatchConverter {
     private final boolean prettyPrint;
 
     public MADOBatchConverter() {
-        this(true);
+        this(true, true);
     }
 
     public MADOBatchConverter(boolean prettyPrint) {
+        this(prettyPrint, true);
+    }
+
+    /**
+     * Creates a batch converter with configurable options.
+     *
+     * @param prettyPrint Whether to pretty-print FHIR JSON output
+     * @param useDeterministicUuids Whether to use deterministic UUID generation (default: true)
+     */
+    public MADOBatchConverter(boolean prettyPrint, boolean useDeterministicUuids) {
         this.converter = new MADOToFHIRConverter();
+        this.converter.setUseDeterministicUuids(useDeterministicUuids);
         this.prettyPrint = prettyPrint;
     }
 
@@ -101,6 +112,8 @@ public class MADOBatchConverter {
                 // Write FHIR bundle to file
                 IParser parser = FHIR_CONTEXT.newJsonParser();
                 parser.setPrettyPrint(prettyPrint);
+                // Preserve resource IDs in Bundle entries for round-trip consistency
+                parser.setOverrideResourceIdWithBundleEntryFullUrl(false);
                 String json = parser.encodeResourceToString(bundle);
 
                 try (OutputStreamWriter writer = new OutputStreamWriter(
@@ -151,16 +164,19 @@ public class MADOBatchConverter {
         String inputDir = args[0];
         String outputDir = args[1];
         boolean prettyPrint = true;
+        boolean useDeterministicUuids = true; // Default: deterministic UUIDs enabled
 
         // Check for flags
         for (int i = 2; i < args.length; i++) {
             if ("--compact".equals(args[i])) {
                 prettyPrint = false;
+            } else if ("--random-uuids".equals(args[i])) {
+                useDeterministicUuids = false;
             }
         }
 
         try {
-            MADOBatchConverter batchConverter = new MADOBatchConverter(prettyPrint);
+            MADOBatchConverter batchConverter = new MADOBatchConverter(prettyPrint, useDeterministicUuids);
             ConversionResult result = batchConverter.convertDirectory(inputDir, outputDir);
 
             // Exit with error code if any conversions failed
@@ -195,7 +211,13 @@ public class MADOBatchConverter {
         System.out.println("  output-dir    Directory where FHIR JSON files will be written");
         System.out.println();
         System.out.println("Options:");
-        System.out.println("  --compact     Output compact JSON (no pretty printing)");
+        System.out.println("  --compact       Output compact JSON (no pretty printing)");
+        System.out.println("  --random-uuids  Use random UUIDs instead of deterministic UUIDs (default: deterministic)");
+        System.out.println();
+        System.out.println("Note:");
+        System.out.println("  By default, UUIDs are generated deterministically based on DICOM identifiers.");
+        System.out.println("  This ensures identical outputs when converting the same file multiple times,");
+        System.out.println("  making it easier to compare conversion results.");
         System.out.println();
         System.out.println("Example:");
         System.out.println("  java " + MADOBatchConverter.class.getName() + " MADO_FROM_SCU MADO_FHIR_FROM_DICOM");

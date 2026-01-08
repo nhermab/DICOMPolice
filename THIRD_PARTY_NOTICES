@@ -56,45 +56,34 @@ which are licensed under GPLv2. Please refer to the dcm4che project for the comp
 - https://github.com/dcm4che/dcm4che
 
 -------------------------------------------------------------------------------
-3) Spring Boot / Spring Framework (library dependency)
+3) HAPI FHIR (library dependency)
 -------------------------------------------------------------------------------
-This project depends on Spring Boot and Spring Framework libraries (for example: org.springframework.boot:spring-boot-starter-web
-and transitive Spring Framework artifacts) which are licensed under the Apache License, Version 2.0.
-Please refer to the Spring project pages and the Apache License for full license text and notices:
+This project relies on the HAPI FHIR library (http://hapifhir.io/), which is licensed under the
+Apache License, Version 2.0.
 
-- https://spring.io/projects/spring-boot
-- https://spring.io/projects/spring-framework
-- https://www.apache.org/licenses/LICENSE-2.0
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
 
-The Spring projects (Spring Boot and Spring Framework) are provided under the Apache License 2.0.
-Redistributors must include the Apache License 2.0 text when redistributing those components.
+       http://www.apache.org/licenses/LICENSE-2.0
 
--------------------------------------------------------------------------------
-4) HAPI FHIR (library dependency)
--------------------------------------------------------------------------------
-This project depends on HAPI FHIR libraries (ca.uhn.hapi.fhir:hapi-fhir-base, hapi-fhir-structures-r4,
-and hapi-fhir-server) which are licensed under the Apache License, Version 2.0.
-
-- **Version used by this project**: **8.2.0**
-- Used for MHD Document Responder FHIR R4 server implementation
-
-Please refer to the HAPI FHIR project and the Apache License for full license text and notices:
-
-- https://hapifhir.io/
-- https://github.com/hapifhir/hapi-fhir
-- https://www.apache.org/licenses/LICENSE-2.0
-
-HAPI FHIR is provided under the Apache License 2.0.
-Redistributors must include the Apache License 2.0 text when redistributing those components.
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
 
 -------------------------------------------------------------------------------
-5) SLF4J (library dependency)
+4) Acknowledgements - Orthanc Server
 -------------------------------------------------------------------------------
-This project may include the SLF4J API (e.g., org.slf4j:slf4j-api) as a logging facade used by Spring and other libraries.
-SLF4J is distributed under a permissive license (see SLF4J project for details). Please refer to:
+The samples and demos provided in this project (specifically the SCU client tests and WADO-RS retrieval examples)
+were developed and tested against an Orthanc PACS server (https://www.orthanc-server.com/).
 
-- https://www.slf4j.org/
-- https://www.slf4j.org/license.html
+We have great respect for the Orthanc project and its contributors.
+
+Note: DICOMPolice does not use Orthanc code and does not depend on Orthanc specifically.
+The SCU / MADO generation tools are standard-compliant and will work against any DICOM SCP
+(Service Class Provider) or WADO-RS capable server.
 
 -------------------------------------------------------------------------------
 End of Third Party Notices

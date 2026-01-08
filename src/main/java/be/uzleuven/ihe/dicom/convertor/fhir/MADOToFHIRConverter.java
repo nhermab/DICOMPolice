@@ -2,6 +2,7 @@ package be.uzleuven.ihe.dicom.convertor.fhir;
 
 import be.uzleuven.ihe.dicom.constants.CodeConstants;
 import be.uzleuven.ihe.dicom.constants.DicomConstants;
+import be.uzleuven.ihe.dicom.convertor.utils.DeterministicUuidGenerator;
 import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Sequence;
 import org.dcm4che3.data.Tag;
@@ -35,6 +36,19 @@ import static be.uzleuven.ihe.dicom.constants.CodeConstants.*;
 public class MADOToFHIRConverter {
 
     // ============================================================================
+    // CONFIGURATION
+    // ============================================================================
+
+    /**
+     * When true (default), UUIDs are generated deterministically based on DICOM identifiers.
+     * This ensures that converting the same DICOM file multiple times produces identical UUIDs,
+     * making it easier to compare outputs.
+     * <p>
+     * When false, random UUIDs are generated for each conversion (pre-existing behavior).
+     */
+    private boolean useDeterministicUuids = true;
+
+    // ============================================================================
     // CONSTANTS
     // ============================================================================
 
@@ -51,6 +65,32 @@ public class MADOToFHIRConverter {
     // ============================================================================
     // PUBLIC API
     // ============================================================================
+
+    /**
+     * Returns whether deterministic UUID generation is enabled.
+     *
+     * @return true if UUIDs are generated deterministically based on DICOM identifiers
+     */
+    public boolean isUseDeterministicUuids() {
+        return useDeterministicUuids;
+    }
+
+    /**
+     * Sets whether to use deterministic UUID generation.
+     * <p>
+     * When true (default), UUIDs are generated deterministically based on DICOM identifiers,
+     * ensuring identical outputs for the same input DICOM file. This makes it easier to
+     * compare conversion outputs across multiple conversions.
+     * <p>
+     * When false, random UUIDs are generated for each conversion.
+     *
+     * @param useDeterministicUuids true to enable deterministic UUIDs, false for random UUIDs
+     * @return this converter instance for method chaining
+     */
+    public MADOToFHIRConverter setUseDeterministicUuids(boolean useDeterministicUuids) {
+        this.useDeterministicUuids = useDeterministicUuids;
+        return this;
+    }
 
     /**
      * Converts a DICOM file to a FHIR Document Bundle.
@@ -98,7 +138,7 @@ public class MADOToFHIRConverter {
         MADOMetadata metadata = extractMetadata(attrs);
 
         // Generate UUIDs for cross-referencing
-        ResourceUUIDs uuids = new ResourceUUIDs();
+        ResourceUUIDs uuids = new ResourceUUIDs(metadata, useDeterministicUuids);
 
         // Create the FHIR Document Bundle
         Bundle bundle = createDocumentBundle(metadata);
@@ -114,7 +154,7 @@ public class MADOToFHIRConverter {
         practitioner.setId(uuids.practitionerUuid);
 
         // Create Endpoints
-        List<Endpoint> endpoints = createEndpoints(attrs, metadata, uuids);
+        List<Endpoint> endpoints = createEndpoints(attrs, metadata, uuids, useDeterministicUuids);
 
         // Create ImagingStudy
         ImagingStudy imagingStudy = createImagingStudy(attrs, metadata, uuids);
@@ -166,7 +206,32 @@ public class MADOToFHIRConverter {
 
         // 7. ImagingSelection resources (as Basic in R4)
         for (Basic selection : imagingSelections) {
-            String uuid = UUID.randomUUID().toString();
+            // Generate deterministic UUID based on the selection's extensions
+            String uuid;
+            if (useDeterministicUuids) {
+                // Extract key data from the selection for deterministic UUID generation
+                String sopInstanceUID = "";
+                for (Extension ext : selection.getExtension()) {
+                    if (EXT_SELECTED_INSTANCE.equals(ext.getUrl())) {
+                        for (Extension innerExt : ext.getExtension()) {
+                            if ("uid".equals(innerExt.getUrl()) && innerExt.getValue() instanceof StringType) {
+                                sopInstanceUID = ((StringType) innerExt.getValue()).getValue();
+                                break;
+                            }
+                        }
+                        if (!sopInstanceUID.isEmpty()) break;
+                    }
+                }
+                // Use the study UID and first SOP Instance UID to create a deterministic UUID
+                uuid = DeterministicUuidGenerator.generateImagingSelectionUuid(
+                    metadata.studyInstanceUID,
+                    "", // Series UID not easily available here, but study + SOP should be unique enough
+                    sopInstanceUID
+                );
+            } else {
+                uuid = UUID.randomUUID().toString();
+            }
+
             selection.setId(uuid);
             bundle.addEntry()
                 .setFullUrl("urn:uuid:" + uuid)
@@ -539,10 +604,18 @@ public class MADOToFHIRConverter {
             .setDisplay("Diagnostic imaging equipment");
         device.addCategory(deviceCategory);
 
-        // Manufacturer
-        if (metadata.manufacturer != null) {
+        // Manufacturer (always set for round-trip consistency, even if empty)
+        if (metadata.manufacturer != null && !metadata.manufacturer.isEmpty()) {
             device.setManufacturer(metadata.manufacturer);
+        } else {
+            // Set empty string to distinguish from null and ensure round-trip consistency
+            device.setManufacturer("");
         }
+
+        // Store original manufacturer value in extension for deterministic UUID generation
+        // This ensures the UUID remains consistent even if manufacturer is null/empty
+        String originalManufacturer = metadata.manufacturer != null ? metadata.manufacturer : "";
+        device.addExtension(new Extension(EXT_ORIGINAL_MANUFACTURER, new StringType(originalManufacturer)));
 
         // Device name (R5: use name instead of deviceName)
         if (metadata.manufacturerModelName != null) {
@@ -594,7 +667,7 @@ public class MADOToFHIRConverter {
     /**
      * Creates Endpoint resources for WADO-RS and IHE-IID access.
      */
-    private List<Endpoint> createEndpoints(Attributes attrs, MADOMetadata metadata, ResourceUUIDs uuids) {
+    private List<Endpoint> createEndpoints(Attributes attrs, MADOMetadata metadata, ResourceUUIDs uuids, boolean useDeterministicUuids) {
         List<Endpoint> endpoints = new ArrayList<>();
         Set<String> processedUrls = new HashSet<>();
 
@@ -611,7 +684,9 @@ public class MADOToFHIRConverter {
                             String baseUrl = extractBaseWadoUrl(retrieveUrl);
                             if (!processedUrls.contains(baseUrl)) {
                                 Endpoint wadoEndpoint = createWadoRsEndpoint(baseUrl);
-                                String uuid = UUID.randomUUID().toString();
+                                String uuid = useDeterministicUuids
+                                    ? DeterministicUuidGenerator.generateEndpointUuid(baseUrl)
+                                    : UUID.randomUUID().toString();
                                 wadoEndpoint.setId(uuid);
                                 uuids.endpointUuids.put(baseUrl, uuid);
                                 endpoints.add(wadoEndpoint);
@@ -1593,13 +1668,39 @@ public class MADOToFHIRConverter {
      * Container for generated UUIDs.
      */
     private static class ResourceUUIDs {
-        String compositionUuid = UUID.randomUUID().toString();
-        String patientUuid = UUID.randomUUID().toString();
-        String studyUuid = UUID.randomUUID().toString();
-        String deviceUuid = UUID.randomUUID().toString();
-        String practitionerUuid = UUID.randomUUID().toString();
+        String compositionUuid;
+        String patientUuid;
+        String studyUuid;
+        String deviceUuid;
+        String practitionerUuid;
         Map<String, String> endpointUuids = new HashMap<>();
         Composition.SectionComponent keyImageSelectionSection = null; // For populating Key Image Selection references
+
+        /**
+         * Constructs ResourceUUIDs with deterministic or random UUIDs based on configuration.
+         *
+         * @param metadata The MADO metadata extracted from DICOM
+         * @param useDeterministic If true, generate deterministic UUIDs; if false, use random UUIDs
+         */
+        ResourceUUIDs(MADOMetadata metadata, boolean useDeterministic) {
+            if (useDeterministic) {
+                // Generate deterministic UUIDs based on DICOM identifiers
+                this.compositionUuid = DeterministicUuidGenerator.generateCompositionUuid(metadata.sopInstanceUID);
+                this.patientUuid = DeterministicUuidGenerator.generatePatientUuid(metadata.patientId, metadata.issuerOfPatientId);
+                this.studyUuid = DeterministicUuidGenerator.generateStudyUuid(metadata.studyInstanceUID);
+                this.deviceUuid = DeterministicUuidGenerator.generateDeviceUuid(metadata.manufacturer, metadata.sopInstanceUID);
+                this.practitionerUuid = DeterministicUuidGenerator.generatePractitionerUuid(
+                    metadata.referringPhysicianName != null ? metadata.referringPhysicianName : "unknown"
+                );
+            } else {
+                // Generate random UUIDs (original behavior)
+                this.compositionUuid = UUID.randomUUID().toString();
+                this.patientUuid = UUID.randomUUID().toString();
+                this.studyUuid = UUID.randomUUID().toString();
+                this.deviceUuid = UUID.randomUUID().toString();
+                this.practitionerUuid = UUID.randomUUID().toString();
+            }
+        }
     }
 }
 

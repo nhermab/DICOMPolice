@@ -31,6 +31,8 @@ import java.io.IOException;
  */
 public class FHIRToMADOExample {
 
+    private static final FhirContext FHIR_CONTEXT = FhirContext.forR5();
+
     public static void main(String[] args) {
         if (args.length < 1) {
             printUsage();
@@ -85,8 +87,7 @@ public class FHIRToMADOExample {
         System.out.println("\nStep 3: Saving FHIR Bundle to JSON...");
         System.out.println("  Output: " + fhirJsonPath);
 
-        FhirContext ctx = FhirContext.forR5();
-        IParser parser = ctx.newJsonParser().setPrettyPrint(true);
+        IParser parser = FHIR_CONTEXT.newJsonParser().setPrettyPrint(true);
         String fhirJson = parser.encodeResourceToString(fhirBundle);
 
         try (FileWriter writer = new FileWriter(fhirJsonPath)) {

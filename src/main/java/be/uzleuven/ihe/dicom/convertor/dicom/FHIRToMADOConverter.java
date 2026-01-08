@@ -27,6 +27,9 @@ import static be.uzleuven.ihe.dicom.creator.utils.SRContentItemUtils.*;
  */
 public class FHIRToMADOConverter {
 
+    // Shared FHIR context (initialization is expensive, so create once and reuse)
+    private static final ca.uhn.fhir.context.FhirContext FHIR_CONTEXT = ca.uhn.fhir.context.FhirContext.forR5();
+
     // IHE UID prefix used in FHIR identifiers
     public static final String IHE_UID_PREFIX = "ihe:urn:oid:";
 
@@ -54,8 +57,7 @@ public class FHIRToMADOConverter {
      * @throws IllegalArgumentException If the JSON is not a valid MADO manifest
      */
     public Attributes convertFromJson(String fhirJson) {
-        ca.uhn.fhir.context.FhirContext ctx = ca.uhn.fhir.context.FhirContext.forR5();
-        Bundle bundle = ctx.newJsonParser().parseResource(Bundle.class, fhirJson);
+        Bundle bundle = FHIR_CONTEXT.newJsonParser().parseResource(Bundle.class, fhirJson);
         return convert(bundle);
     }
 
@@ -451,9 +453,19 @@ public class FHIRToMADOConverter {
 
     private void populateEquipmentModule(Attributes mado, Device device) {
         if (device != null) {
-            if (device.hasManufacturer()) {
+            // Try to get original manufacturer from extension first (for round-trip)
+            String originalManufacturer = getExtensionStringValue(device, EXT_ORIGINAL_MANUFACTURER);
+
+            if (originalManufacturer != null) {
+                // Use the original value from extension (could be empty)
+                if (!originalManufacturer.isEmpty()) {
+                    mado.setString(Tag.Manufacturer, VR.LO, originalManufacturer);
+                }
+                // If empty, don't set the tag to preserve null/empty state
+            } else if (device.hasManufacturer() && !device.getManufacturer().isEmpty()) {
                 mado.setString(Tag.Manufacturer, VR.LO, device.getManufacturer());
             } else {
+                // Only use default if we have no information at all
                 mado.setString(Tag.Manufacturer, VR.LO, DEFAULT_MANUFACTURER);
             }
 

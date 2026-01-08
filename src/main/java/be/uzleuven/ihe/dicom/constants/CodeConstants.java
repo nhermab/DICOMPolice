@@ -179,6 +179,7 @@ public final class CodeConstants {
     public static final String EXT_SOP_INSTANCE_UID = "http://dicom.nema.org/fhir/StructureDefinition/sop-instance-uid";
     public static final String EXT_SERIES_INSTANCE_UID = "http://dicom.nema.org/fhir/StructureDefinition/series-instance-uid";
     public static final String EXT_REFERRING_PHYSICIAN = "http://dicom.nema.org/fhir/StructureDefinition/referring-physician";
+    public static final String EXT_ORIGINAL_MANUFACTURER = "http://dicom.nema.org/fhir/StructureDefinition/original-manufacturer";
     // Extensions for series-level metadata (within ImagingStudy.series)
     public static final String EXT_IMAGING_SERIES_DATE = "http://dicom.nema.org/fhir/StructureDefinition/imaging-series-date";
     public static final String EXT_IMAGING_SERIES_TIME = "http://dicom.nema.org/fhir/StructureDefinition/imaging-series-time";

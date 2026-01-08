@@ -61,6 +61,7 @@ public class MADOToFHIRExample {
             if (prettyPrint) {
                 parser.setPrettyPrint(true);
             }
+            parser.setOverrideResourceIdWithBundleEntryFullUrl(false);  // Preserve resource IDs
 
             String json = parser.encodeResourceToString(bundle);
 
@@ -145,6 +146,7 @@ public class MADOToFHIRExample {
 
         IParser parser = FHIR_CONTEXT.newJsonParser();
         parser.setPrettyPrint(prettyPrint);
+        parser.setOverrideResourceIdWithBundleEntryFullUrl(false);  // Preserve resource IDs
 
         return parser.encodeResourceToString(bundle);
     }

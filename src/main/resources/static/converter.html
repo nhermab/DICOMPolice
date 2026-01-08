@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DICOM↔FHIR Bridge - The DICOM Police</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="converter.css">
+</head>
+<body class="converter-page">
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <div class="logo-section">
+                    <div class="logo-placeholder">
+                        <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <rect width="40" height="40" rx="8" fill="white" opacity="0.2"/>
+                            <path d="M20 10L30 15V25L20 30L10 25V15L20 10Z" stroke="white" stroke-width="2" stroke-linejoin="round"/>
+                            <circle cx="20" cy="20" r="3" fill="white"/>
+                        </svg>
+                    </div>
+                    <div class="logo-text">
+                        <h1>The DICOM Police - DICOM↔FHIR Bridge</h1>
+                        <p class="subtitle">UZ Leuven - Universitaire Ziekenhuizen Leuven</p>
+                    </div>
+                </div>
+                <div class="header-nav">
+                    <a href="./" class="nav-link">MADO Visualizer</a>
+                    <a href="./xtehdsMADO" class="nav-link">MADO on XDS / MHD</a>
+                    <a href="./converter" class="nav-link active">DICOM↔FHIR Bridge</a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="container">
+            <!-- Upload Section -->
+            <section class="card upload-section" id="upload-section">
+                <div class="card-header">
+                    <h2>🔄 DICOM↔FHIR Converter</h2>
+                    <p class="description">Convert between DICOM MADO and FHIR ImagingStudy formats. Supports round-trip conversion and comparison.</p>
+                </div>
+                <div class="card-body">
+                    <div class="upload-area" id="upload-area">
+                        <input type="file" id="file-input" accept=".dcm,.dicom,.json" hidden>
+                        <div class="upload-content" id="upload-content">
+                            <div class="upload-icon">🔄</div>
+                            <h3>Drop DICOM or FHIR file here</h3>
+                            <p>or <button type="button" class="link-button" id="browse-button">browse files</button></p>
+                            <p class="upload-hint">Supports .dcm, .dicom (DICOM) and .json (FHIR) files</p>
+                        </div>
+                        <div class="file-info" id="file-info" style="display: none;">
+                            <div class="file-icon">📄</div>
+                            <div class="file-details">
+                                <p class="file-name" id="file-name"></p>
+                                <p class="file-size" id="file-size"></p>
+                                <p class="file-type-badge" id="file-type-badge"></p>
+                            </div>
+                            <button type="button" class="btn-icon" id="remove-file-btn">✕</button>
+                        </div>
+                    </div>
+                    <div class="action-buttons">
+                        <button id="convert-btn" class="btn btn-primary" disabled>
+                            <span class="btn-icon">🔄</span>
+                            <span class="btn-text">Convert</span>
+                        </button>
+                        <button id="roundtrip-btn" class="btn btn-secondary" disabled>
+                            <span class="btn-icon">↩️</span>
+                            <span class="btn-text">Round-Trip & Compare</span>
+                        </button>
+                    </div>
+                    <div class="loading-indicator" id="loading-indicator" style="display: none;">
+                        <div class="spinner"></div>
+                        <p id="loading-text">Converting file...</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Conversion Result Section -->
+            <section class="card" id="result-section" style="display: none;">
+                <div class="card-header collapsible-header" data-section="result">
+                    <div class="header-title-row">
+                        <h2 id="result-title">📋 Conversion Result</h2>
+                        <button class="collapse-toggle" aria-label="Toggle collapse">
+                            <svg class="collapse-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="conversion-info" id="conversion-info">
+                        <span class="conversion-badge source" id="source-format">DICOM</span>
+                        <span class="conversion-arrow">→</span>
+                        <span class="conversion-badge target" id="target-format">FHIR</span>
+                    </div>
+                </div>
+                <div class="card-body collapsible-body">
+                    <div class="result-actions">
+                        <div class="download-options" id="download-options">
+                            <!-- Downloads will be populated dynamically -->
+                        </div>
+                        <div class="view-options">
+                            <button class="btn btn-small active" id="view-formatted" data-view="formatted">Formatted</button>
+                            <button class="btn btn-small" id="view-raw" data-view="raw">Raw</button>
+                        </div>
+                    </div>
+                    <div class="result-content" id="result-content">
+                        <!-- Result will be rendered here -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Round-Trip Comparison Section -->
+            <section class="card" id="comparison-section" style="display: none;">
+                <div class="card-header collapsible-header" data-section="comparison">
+                    <div class="header-title-row">
+                        <h2>🔍 Round-Trip Comparison</h2>
+                        <button class="collapse-toggle" aria-label="Toggle collapse">
+                            <svg class="collapse-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="comparison-summary" id="comparison-summary">
+                        <span class="diff-stats" id="diff-stats"></span>
+                    </div>
+                </div>
+                <div class="card-body collapsible-body">
+                    <div class="comparison-controls">
+                        <div class="comparison-legend">
+                            <span class="legend-item removed">− Removed</span>
+                            <span class="legend-item added">+ Added</span>
+                            <span class="legend-item unchanged">= Unchanged</span>
+                        </div>
+                        <div class="comparison-options">
+                            <label class="toggle-option">
+                                <input type="checkbox" id="show-unchanged" checked>
+                                <span>Show unchanged lines</span>
+                            </label>
+                            <label class="toggle-option">
+                                <input type="checkbox" id="sync-scroll" checked>
+                                <span>Sync scroll</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="diff-container" id="diff-container">
+                        <div class="diff-panel original">
+                            <div class="diff-panel-header">
+                                <span class="diff-panel-title">📁 Original</span>
+                                <span class="diff-panel-info" id="original-info"></span>
+                            </div>
+                            <div class="diff-panel-content" id="original-content">
+                                <!-- Original content -->
+                            </div>
+                        </div>
+                        <div class="diff-gutter" id="diff-gutter">
+                            <!-- Line connectors -->
+                        </div>
+                        <div class="diff-panel converted">
+                            <div class="diff-panel-header">
+                                <span class="diff-panel-title">🔄 Round-Trip Result</span>
+                                <span class="diff-panel-info" id="converted-info"></span>
+                            </div>
+                            <div class="diff-panel-content" id="converted-content">
+                                <!-- Converted content -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <p>&copy; 2026 UZ Leuven - Universitaire Ziekenhuizen Leuven</p>
+                <p class="footer-links">
+                    <span>DICOM↔FHIR Bridge</span>
+                    <span class="separator">•</span>
+                    <span>Powered by The DICOM Police</span>
+                </p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="js/converter.js"></script>
+</body>
+</html>
+

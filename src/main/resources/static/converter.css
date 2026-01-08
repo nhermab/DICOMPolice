@@ -1,0 +1,718 @@
+/* =============================================
+   DICOM↔FHIR Bridge Converter Styles
+   ============================================= */
+
+:root {
+    /* Converter-specific tokens */
+    --conv-dicom-color: #6366f1;
+    --conv-dicom-bg: #eef2ff;
+    --conv-fhir-color: #059669;
+    --conv-fhir-bg: #ecfdf5;
+
+    --diff-added-bg: rgba(40, 167, 69, 0.2);
+    --diff-added-border: #28a745;
+    --diff-added-color: #98c379;
+    --diff-removed-bg: rgba(220, 53, 69, 0.2);
+    --diff-removed-border: #dc3545;
+    --diff-removed-color: #e06c75;
+    --diff-changed-bg: rgba(255, 193, 7, 0.15);
+    --diff-changed-color: #e5c07b;
+    --diff-unchanged-bg: transparent;
+
+    --code-font: 'JetBrains Mono', 'Fira Code', 'Consolas', 'Monaco', monospace;
+}
+
+/* =========================
+   Full-Width Layout for Converter
+   ========================= */
+.converter-page .main-content {
+    padding: 24px 0;
+}
+
+.converter-page .main-content > .container {
+    max-width: 100%;
+    padding: 0 24px;
+}
+
+/* Keep upload section narrower for better UX */
+.converter-page .upload-section {
+    max-width: 800px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* Result section can be wider */
+.converter-page #result-section {
+    max-width: 1400px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* Comparison section uses full width */
+.converter-page #comparison-section {
+    max-width: none;
+}
+
+/* =========================
+   Upload Area Enhancements
+   ========================= */
+.converter-page .upload-area {
+    border: 2px dashed var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 48px 32px;
+    text-align: center;
+    transition: all var(--transition-normal);
+    background: linear-gradient(135deg, var(--background-primary) 0%, var(--background-white) 100%);
+}
+
+.converter-page .upload-area.drag-over {
+    border-color: var(--primary-blue);
+    background: linear-gradient(135deg, var(--accent-blue) 0%, var(--background-white) 100%);
+    transform: scale(1.01);
+}
+
+.converter-page .upload-icon {
+    font-size: 56px;
+    margin-bottom: 16px;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+}
+
+.converter-page .file-info {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 20px;
+    background: var(--background-white);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+}
+
+.file-type-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 4px;
+}
+
+.file-type-badge.dicom {
+    background: var(--conv-dicom-bg);
+    color: var(--conv-dicom-color);
+}
+
+.file-type-badge.fhir {
+    background: var(--conv-fhir-bg);
+    color: var(--conv-fhir-color);
+}
+
+/* =========================
+   Action Buttons
+   ========================= */
+.converter-page .action-buttons {
+    display: flex;
+    gap: 12px;
+    margin-top: 24px;
+    justify-content: center;
+}
+
+.converter-page .btn {
+    min-width: 180px;
+}
+
+.converter-page .btn-primary {
+    background: linear-gradient(135deg, var(--conv-dicom-color) 0%, var(--primary-blue) 100%);
+}
+
+.converter-page .btn-primary:hover:not(:disabled) {
+    background: linear-gradient(135deg, var(--primary-blue) 0%, var(--conv-dicom-color) 100%);
+}
+
+.converter-page .btn-secondary {
+    background: linear-gradient(135deg, var(--conv-fhir-color) 0%, #10b981 100%);
+    color: white;
+    border: none;
+}
+
+.converter-page .btn-secondary:hover:not(:disabled) {
+    background: linear-gradient(135deg, #10b981 0%, var(--conv-fhir-color) 100%);
+}
+
+/* =========================
+   Conversion Info Badge
+   ========================= */
+.conversion-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 8px;
+}
+
+.conversion-badge {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.conversion-badge.source {
+    background: var(--conv-dicom-bg);
+    color: var(--conv-dicom-color);
+}
+
+.conversion-badge.target {
+    background: var(--conv-fhir-bg);
+    color: var(--conv-fhir-color);
+}
+
+.conversion-badge.source.fhir {
+    background: var(--conv-fhir-bg);
+    color: var(--conv-fhir-color);
+}
+
+.conversion-badge.target.dicom {
+    background: var(--conv-dicom-bg);
+    color: var(--conv-dicom-color);
+}
+
+.conversion-arrow {
+    font-size: 20px;
+    color: var(--text-secondary);
+}
+
+/* =========================
+   Result Section
+   ========================= */
+.result-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border-light);
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.download-options {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.download-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: var(--background-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.download-btn:hover {
+    background: var(--primary-blue);
+    border-color: var(--primary-blue);
+    color: white;
+}
+
+.download-btn .download-icon {
+    font-size: 16px;
+}
+
+.view-options {
+    display: flex;
+    gap: 4px;
+    background: var(--background-primary);
+    padding: 4px;
+    border-radius: var(--radius-md);
+}
+
+.view-options .btn-small {
+    padding: 6px 14px;
+    font-size: 12px;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.view-options .btn-small.active {
+    background: var(--primary-blue);
+    color: white;
+}
+
+.view-options .btn-small:hover:not(.active) {
+    background: var(--border-color);
+}
+
+/* =========================
+   Result Content Display
+   ========================= */
+.result-content {
+    background: #1e1e1e;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    max-height: 600px;
+    overflow-y: auto;
+}
+
+.result-content pre {
+    margin: 0;
+    padding: 20px;
+    font-family: var(--code-font);
+    font-size: 13px;
+    line-height: 1.6;
+    color: #d4d4d4;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+/* JSON Syntax Highlighting */
+.json-key { color: #9cdcfe; }
+.json-string { color: #ce9178; }
+.json-number { color: #b5cea8; }
+.json-boolean { color: #569cd6; }
+.json-null { color: #569cd6; }
+.json-bracket { color: #ffd700; }
+
+/* DICOM Tag Display */
+.dicom-tag { color: #569cd6; font-weight: 600; }
+.dicom-vr { color: #dcdcaa; }
+.dicom-value { color: #ce9178; }
+.dicom-name { color: #9cdcfe; }
+
+/* =========================
+   Comparison Section
+   ========================= */
+.comparison-summary {
+    margin-top: 8px;
+}
+
+.diff-stats {
+    font-size: 14px;
+    color: var(--text-secondary);
+}
+
+.diff-stats .added { color: #28a745; font-weight: 600; }
+.diff-stats .removed { color: #dc3545; font-weight: 600; }
+.diff-stats .unchanged { color: #888; font-weight: 600; }
+
+.comparison-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.comparison-legend {
+    display: flex;
+    gap: 16px;
+}
+
+.legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    padding: 4px 10px;
+    border-radius: var(--radius-sm);
+}
+
+.legend-item.added {
+    background: var(--diff-added-bg);
+    color: var(--diff-added-color);
+    border-left: 3px solid var(--diff-added-border);
+}
+
+.legend-item.removed {
+    background: var(--diff-removed-bg);
+    color: var(--diff-removed-color);
+    border-left: 3px solid var(--diff-removed-border);
+}
+
+.legend-item.unchanged {
+    background: rgba(255, 255, 255, 0.05);
+    color: #888;
+}
+
+.comparison-options {
+    display: flex;
+    gap: 16px;
+}
+
+.toggle-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+
+.toggle-option input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--primary-blue);
+}
+
+/* =========================
+   Diff Container (Side-by-Side)
+   ========================= */
+.diff-container {
+    display: grid;
+    grid-template-columns: 1fr 4px 1fr;
+    gap: 0;
+    background: #1e1e1e;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    height: calc(100vh - 400px);
+    min-height: 500px;
+    max-height: none;
+}
+
+.diff-panel {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-width: 0; /* Allow shrinking */
+}
+
+.diff-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: #2d2d2d;
+    border-bottom: 1px solid #404040;
+    flex-shrink: 0;
+}
+
+.diff-panel-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #d4d4d4;
+}
+
+.diff-panel-info {
+    font-size: 12px;
+    color: #808080;
+}
+
+.diff-panel-content {
+    flex: 1;
+    overflow: auto;
+    font-family: var(--code-font);
+    font-size: 12px;
+    line-height: 1.5;
+    padding: 0;
+}
+
+.diff-gutter {
+    background: #404040;
+    flex-shrink: 0;
+}
+
+/* =========================
+   Diff Lines
+   ========================= */
+.diff-line {
+    display: flex;
+    min-height: 20px;
+    border-left: 3px solid transparent;
+}
+
+.diff-line-number {
+    width: 45px;
+    min-width: 45px;
+    padding: 0 8px;
+    text-align: right;
+    color: #6e6e6e;
+    background: #252526;
+    user-select: none;
+    flex-shrink: 0;
+    font-size: 11px;
+}
+
+.diff-line-content {
+    flex: 1;
+    padding: 0 12px;
+    white-space: pre;
+    color: #d4d4d4;
+    overflow: visible;
+}
+
+/* Diff line status colors */
+.diff-line.added {
+    background: var(--diff-added-bg);
+    border-left-color: var(--diff-added-border);
+}
+
+.diff-line.added .diff-line-number {
+    background: rgba(40, 167, 69, 0.3);
+    color: #98c379;
+}
+
+.diff-line.added .diff-line-content {
+    color: var(--diff-added-color);
+}
+
+.diff-line.removed {
+    background: var(--diff-removed-bg);
+    border-left-color: var(--diff-removed-border);
+}
+
+.diff-line.removed .diff-line-number {
+    background: rgba(220, 53, 69, 0.3);
+    color: #e06c75;
+}
+
+.diff-line.removed .diff-line-content {
+    color: var(--diff-removed-color);
+}
+
+.diff-line.changed {
+    background: var(--diff-changed-bg);
+    border-left-color: #ffc107;
+}
+
+.diff-line.changed .diff-line-number {
+    background: rgba(255, 193, 7, 0.2);
+    color: #e5c07b;
+}
+
+.diff-line.changed .diff-line-content {
+    color: var(--diff-changed-color);
+}
+
+.diff-line.unchanged {
+    opacity: 0.6;
+}
+
+.diff-line.empty {
+    background: #2a2a2a;
+}
+
+.diff-line.empty .diff-line-number {
+    color: #444;
+}
+
+.diff-line.hidden {
+    display: none;
+}
+
+/* Separator for diff chunks */
+.diff-separator {
+    background: #1a1a1a;
+    padding: 4px 12px;
+    color: #666;
+    font-size: 11px;
+    text-align: center;
+    border-top: 1px solid #333;
+    border-bottom: 1px solid #333;
+}
+
+/* Line highlight on hover */
+.diff-line:hover:not(.empty) {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+/* =========================
+   Loading & Empty States
+   ========================= */
+.converter-page .loading-indicator {
+    text-align: center;
+    padding: 40px;
+}
+
+.converter-page .spinner {
+    width: 48px;
+    height: 48px;
+    margin: 0 auto 16px;
+    border: 4px solid var(--border-color);
+    border-top-color: var(--conv-dicom-color);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-secondary);
+}
+
+.empty-state-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+}
+
+/* =========================
+   Collapsible (shared pattern)
+   ========================= */
+.collapsible-header {
+    cursor: pointer;
+    user-select: none;
+}
+
+.header-title-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.collapse-toggle {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+    transition: all var(--transition-normal);
+    color: var(--text-secondary);
+}
+
+.collapse-toggle:hover {
+    background: var(--background-primary);
+    color: var(--text-primary);
+}
+
+.collapse-icon {
+    transition: transform var(--transition-normal);
+}
+
+.collapsible-header.collapsed .collapse-icon {
+    transform: rotate(-90deg);
+}
+
+.collapsible-body {
+    overflow: visible;
+    opacity: 1;
+}
+
+.collapsible-header.collapsed + .collapsible-body {
+    display: none;
+}
+
+/* =========================
+   Responsive Design
+   ========================= */
+@media (max-width: 1200px) {
+    .converter-page .main-content > .container {
+        padding: 0 16px;
+    }
+}
+
+@media (max-width: 1024px) {
+    .diff-container {
+        grid-template-columns: 1fr;
+        grid-template-rows: 1fr 1fr;
+        height: auto;
+        min-height: auto;
+    }
+
+    .diff-gutter {
+        display: none;
+    }
+
+    .diff-panel {
+        height: 400px;
+        max-height: 400px;
+    }
+
+    .diff-panel.converted {
+        border-top: 2px solid #404040;
+    }
+}
+
+@media (max-width: 768px) {
+    .converter-page .action-buttons {
+        flex-direction: column;
+    }
+
+    .converter-page .btn {
+        width: 100%;
+    }
+
+    .result-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .download-options {
+        justify-content: center;
+    }
+
+    .view-options {
+        justify-content: center;
+    }
+
+    .comparison-controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .comparison-legend {
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+
+    .comparison-options {
+        justify-content: center;
+    }
+
+    .diff-panel {
+        height: 300px;
+        max-height: 300px;
+    }
+}
+
+/* =========================
+   Scrollbar Styling
+   ========================= */
+.result-content::-webkit-scrollbar,
+.diff-panel-content::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+.result-content::-webkit-scrollbar-track,
+.diff-panel-content::-webkit-scrollbar-track {
+    background: #1e1e1e;
+}
+
+.result-content::-webkit-scrollbar-thumb,
+.diff-panel-content::-webkit-scrollbar-thumb {
+    background: #424242;
+    border-radius: 5px;
+}
+
+.result-content::-webkit-scrollbar-thumb:hover,
+.diff-panel-content::-webkit-scrollbar-thumb:hover {
+    background: #555555;
+}
+
