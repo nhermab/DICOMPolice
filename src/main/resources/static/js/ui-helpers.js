@@ -29,8 +29,70 @@ const UIHelpers = {
    */
   showNotification(message, type = 'info') {
     console.log(`[${type.toUpperCase()}] ${message}`);
-    // Could implement toast notifications here
-    alert(message);
+
+    // Create toast container if it doesn't exist
+    let container = document.getElementById('notification-container');
+    if (!container) {
+      container = document.createElement('div');
+      container.id = 'notification-container';
+      container.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        z-index: 10000;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      `;
+      document.body.appendChild(container);
+    }
+
+    // Create toast
+    const toast = document.createElement('div');
+    const colors = {
+      success: '#28a745',
+      error: '#dc3545',
+      warning: '#ffc107',
+      info: '#0066cc'
+    };
+    const icons = {
+      success: '✅',
+      error: '❌',
+      warning: '⚠️',
+      info: 'ℹ️'
+    };
+
+    toast.style.cssText = `
+      background: white;
+      padding: 12px 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+      border-left: 4px solid ${colors[type] || colors.info};
+      font-size: 14px;
+      font-weight: 500;
+      min-width: 280px;
+      max-width: 400px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      animation: slideInRight 0.3s ease-out;
+    `;
+
+    toast.innerHTML = `
+      <span>${icons[type] || icons.info}</span>
+      <span style="flex: 1;">${this.escapeHtml(message)}</span>
+      <button onclick="this.parentElement.remove()" style="background: none; border: none; cursor: pointer; font-size: 18px; color: #999;">&times;</button>
+    `;
+
+    container.appendChild(toast);
+
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+      if (toast.parentElement) {
+        toast.style.animation = 'fadeOutRight 0.3s ease-out';
+        setTimeout(() => toast.remove(), 300);
+      }
+    }, 5000);
   },
 
   /**

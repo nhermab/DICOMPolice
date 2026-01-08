@@ -95,6 +95,136 @@
         setupCollapsibles();
         setupViewToggle();
         setupComparisonOptions();
+
+        // Check for URL parameters to auto-load files
+        checkUrlParameters();
+    }
+
+    // =========================
+    // URL Parameter Handling
+    // =========================
+    async function checkUrlParameters() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const loadUrl = urlParams.get('loadUrl');
+
+        if (loadUrl) {
+            console.log('Auto-loading file from URL:', loadUrl);
+            await loadFileFromUrl(loadUrl);
+        }
+    }
+
+    async function loadFileFromUrl(url) {
+        try {
+            showUrlLoadingState('Loading DICOM file from URL...');
+
+            const response = await fetch(url, {
+                headers: {
+                    'Accept': 'application/dicom, application/octet-stream, */*'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to fetch file: HTTP ${response.status}`);
+            }
+
+            const blob = await response.blob();
+
+            // Extract filename from URL or use default
+            let filename = 'mado-manifest.dcm';
+            try {
+                const urlObj = new URL(url);
+                const pathParts = urlObj.pathname.split('/');
+                const lastPart = pathParts[pathParts.length - 1];
+                if (lastPart && lastPart.length > 0) {
+                    filename = lastPart.includes('.') ? lastPart : lastPart + '.dcm';
+                }
+            } catch (e) {
+                // Keep default filename
+            }
+
+            // Create a File object from the blob
+            const file = new File([blob], filename, { type: 'application/dicom' });
+
+            // Handle the file
+            hideUrlLoadingState();
+            handleFile(file);
+
+            // Show success notification
+            showSuccess(`Loaded: ${filename}`);
+
+            // Auto-convert after a short delay
+            setTimeout(() => {
+                handleConvert();
+            }, 500);
+
+        } catch (error) {
+            console.error('Failed to load file from URL:', error);
+            hideUrlLoadingState();
+            showError('Failed to load file: ' + error.message);
+        }
+    }
+
+    function showUrlLoadingState(message) {
+        if (elements.uploadContent) {
+            elements.uploadContent.innerHTML = `
+                <div class="loading-indicator" style="text-align: center; padding: 40px;">
+                    <div class="spinner" style="width: 40px; height: 40px; border: 3px solid #e0e0e0; border-top-color: #0066cc; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px;"></div>
+                    <p style="color: #666; font-weight: 500;">${message}</p>
+                </div>
+            `;
+        }
+    }
+
+    function hideUrlLoadingState() {
+        if (elements.uploadContent) {
+            elements.uploadContent.innerHTML = `
+                <div class="upload-icon">
+                    <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect x="8" y="8" width="48" height="48" rx="8" stroke="currentColor" stroke-width="2" stroke-dasharray="4 4"/>
+                        <path d="M32 20V44M32 20L24 28M32 20L40 28" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <h3>Drag & Drop your file here</h3>
+                <p>or</p>
+                <button type="button" class="btn btn-secondary" id="browse-button">Browse Files</button>
+                <p class="supported-formats">Supported: DICOM (.dcm) or FHIR (.json)</p>
+            `;
+            // Re-attach browse button listener
+            const newBrowseBtn = document.getElementById('browse-button');
+            if (newBrowseBtn) {
+                newBrowseBtn.addEventListener('click', () => {
+                    elements.fileInput.click();
+                });
+            }
+        }
+    }
+
+    function showSuccess(message) {
+        // Remove any existing success message
+        const existing = document.querySelector('.converter-success-toast');
+        if (existing) existing.remove();
+
+        const toast = document.createElement('div');
+        toast.className = 'converter-success-toast';
+        toast.style.cssText = `
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            border-left: 4px solid #28a745;
+            z-index: 1000;
+            animation: slideInRight 0.3s ease-out;
+        `;
+        toast.innerHTML = `✅ ${message}`;
+        document.body.appendChild(toast);
+
+        setTimeout(() => {
+            toast.style.animation = 'fadeOut 0.3s ease-out';
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
     }
 
     // =========================
@@ -297,6 +427,9 @@
             ? '📋 FHIR Output'
             : '📋 DICOM Output';
 
+        // Display file size comparison
+        displaySizeComparison(result, sourceFormat, targetFormat);
+
         // Setup download options
         setupDownloadOptions(result, targetFormat);
 
@@ -305,6 +438,93 @@
 
         // Scroll to result
         elements.resultSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function displaySizeComparison(result, sourceFormat, targetFormat) {
+        // Calculate sizes
+        const originalSize = state.file ? state.file.size : 0;
+        let convertedSize = 0;
+
+        if (targetFormat === 'FHIR') {
+            // JSON size
+            convertedSize = new Blob([JSON.stringify(result.converted)]).size;
+        } else {
+            // DICOM size from base64
+            if (result.convertedBase64) {
+                convertedSize = Math.ceil((result.convertedBase64.length * 3) / 4);
+            }
+        }
+
+        // Calculate difference and percentage
+        const difference = convertedSize - originalSize;
+        const percentageChange = originalSize > 0 ? ((difference / originalSize) * 100) : 0;
+        const isLarger = difference > 0;
+
+        // Find or create size comparison container
+        let sizeContainer = document.getElementById('size-comparison-container');
+        if (!sizeContainer) {
+            sizeContainer = document.createElement('div');
+            sizeContainer.id = 'size-comparison-container';
+            sizeContainer.className = 'size-comparison-container';
+
+            // Insert at the beginning of card body
+            const cardBody = elements.resultSection.querySelector('.card-body');
+            if (cardBody) {
+                cardBody.insertBefore(sizeContainer, cardBody.firstChild);
+            }
+        }
+
+        // Determine message based on actual comparison
+        let comparisonMessage = '';
+        if (isLarger) {
+            // Output is larger than input
+            comparisonMessage = `<strong>${targetFormat} is ${Math.abs(percentageChange).toFixed(1)}% larger than ${sourceFormat}</strong>`;
+        } else {
+            // Output is smaller than input
+            comparisonMessage = `<strong>${targetFormat} is ${Math.abs(percentageChange).toFixed(1)}% smaller than ${sourceFormat}</strong>`;
+        }
+
+        // Create the comparison HTML
+        sizeContainer.innerHTML = `
+            <div class="size-comparison-card ${isLarger ? 'size-increase' : 'size-decrease'}">
+                <div class="size-comparison-title">
+                    📊 File Size Comparison
+                </div>
+                <div class="size-comparison-content">
+                    <div class="size-box original">
+                        <div class="size-label">${sourceFormat} Original</div>
+                        <div class="size-value">${formatBytes(originalSize)}</div>
+                        <div class="size-bytes">(${originalSize.toLocaleString()} bytes)</div>
+                    </div>
+                    <div class="size-arrow">
+                        ${isLarger ? '📈' : '📉'}
+                    </div>
+                    <div class="size-box converted">
+                        <div class="size-label">${targetFormat} Output</div>
+                        <div class="size-value">${formatBytes(convertedSize)}</div>
+                        <div class="size-bytes">(${convertedSize.toLocaleString()} bytes)</div>
+                    </div>
+                </div>
+                <div class="size-comparison-summary ${isLarger ? 'increase' : 'decrease'}">
+                    <div class="size-difference">
+                        ${isLarger ? '⚠️ ' : '✅ '}
+                        <strong>${isLarger ? '+' : ''}${formatBytes(Math.abs(difference))}</strong>
+                        <span class="percentage">(${isLarger ? '+' : ''}${Math.abs(percentageChange).toFixed(1)}%)</span>
+                    </div>
+                    <div class="size-message">
+                        ${comparisonMessage}
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    function formatBytes(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     }
 
     function setupDownloadOptions(result, targetFormat) {

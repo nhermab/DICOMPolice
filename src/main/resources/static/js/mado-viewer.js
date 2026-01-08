@@ -1,45 +1,69 @@
 /**
  * MADO Viewer Module
- * Handles searching and viewing MADO manifests
+ * Handles searching and viewing MADO manifests with advanced actions
  */
 
 const MadoViewer = (function() {
+    // Configuration defaults
+    const CONFIG_KEY = 'madoViewerConfig';
+    const DEFAULT_CONFIG = {
+        fhirEndpoint: '',  // Empty means use local
+        ohifViewerUrl: 'https://ihebelgium.ehealthhub.be/ohif/mado'
+    };
+
     // Application State
     const state = {
         allDocuments: [],
         filteredDocuments: [],
+        rawBundle: null,  // Store raw FHIR Bundle for inspection
         currentPage: 1,
         pageSize: 50,
         sortColumn: 'date',
-        sortDirection: 'desc'
+        sortDirection: 'desc',
+        selectedDocument: null,  // For actions modal
+        jsonViewMode: 'formatted',
+        config: { ...DEFAULT_CONFIG }
     };
 
     // DOM Elements
     let elements = {};
 
     function init() {
+        // Load saved configuration
+        loadConfig();
+
         // Initialize DOM elements
         elements = {
             searchBtn: document.getElementById('searchBtn'),
             clearBtn: document.getElementById('clearBtn'),
             refreshBtn: document.getElementById('refreshBtn'),
             exportBtn: document.getElementById('exportBtn'),
+            configBtn: document.getElementById('configBtn'),
+            inspectJsonBtn: document.getElementById('inspectJsonBtn'),
             quickSearch: document.getElementById('quickSearch'),
             tableContent: document.getElementById('tableContent'),
             pagination: document.getElementById('pagination'),
             paginationControls: document.getElementById('paginationControls'),
             statsGrid: document.getElementById('statsGrid'),
             errorBanner: document.getElementById('errorBanner'),
+            endpointBadge: document.getElementById('endpointBadge'),
             // Search fields
             patientId: document.getElementById('patientId'),
             studyUid: document.getElementById('studyUid'),
             accessionNumber: document.getElementById('accessionNumber'),
             modality: document.getElementById('modality'),
             dateFrom: document.getElementById('dateFrom'),
-            dateTo: document.getElementById('dateTo')
+            dateTo: document.getElementById('dateTo'),
+            // Config modal fields
+            fhirEndpoint: document.getElementById('fhirEndpoint'),
+            ohifViewerUrl: document.getElementById('ohifViewerUrl'),
+            // JSON display
+            jsonContent: document.getElementById('jsonContent'),
+            docJsonContent: document.getElementById('docJsonContent')
         };
 
         setupEventListeners();
+        updateEndpointBadge();
     }
 
     function setupEventListeners() {
@@ -47,6 +71,8 @@ const MadoViewer = (function() {
         if (elements.clearBtn) elements.clearBtn.addEventListener('click', clearSearch);
         if (elements.refreshBtn) elements.refreshBtn.addEventListener('click', performSearch);
         if (elements.exportBtn) elements.exportBtn.addEventListener('click', exportToCSV);
+        if (elements.configBtn) elements.configBtn.addEventListener('click', openConfigModal);
+        if (elements.inspectJsonBtn) elements.inspectJsonBtn.addEventListener('click', openJsonInspector);
         if (elements.quickSearch) elements.quickSearch.addEventListener('input', handleQuickFilter);
 
         // Enter key in search fields
@@ -55,6 +81,110 @@ const MadoViewer = (function() {
                 if (e.key === 'Enter') performSearch();
             });
         });
+
+        // Close modals on Escape
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeAllModals();
+            }
+        });
+    }
+
+    // ==============================
+    // Configuration Management
+    // ==============================
+
+    function loadConfig() {
+        try {
+            const saved = localStorage.getItem(CONFIG_KEY);
+            if (saved) {
+                state.config = { ...DEFAULT_CONFIG, ...JSON.parse(saved) };
+            }
+        } catch (e) {
+            console.warn('Failed to load config:', e);
+        }
+    }
+
+    function saveConfig() {
+        const fhirEndpoint = elements.fhirEndpoint?.value.trim() || '';
+        const ohifViewerUrl = elements.ohifViewerUrl?.value.trim() || DEFAULT_CONFIG.ohifViewerUrl;
+
+        state.config = {
+            fhirEndpoint,
+            ohifViewerUrl
+        };
+
+        try {
+            localStorage.setItem(CONFIG_KEY, JSON.stringify(state.config));
+            showToast('Configuration saved successfully', 'success');
+        } catch (e) {
+            showToast('Failed to save configuration', 'error');
+        }
+
+        closeModal('configModal');
+        updateEndpointBadge();
+    }
+
+    function applyPreset(preset) {
+        switch (preset) {
+            case 'local':
+                elements.fhirEndpoint.value = '';
+                elements.ohifViewerUrl.value = 'https://ihebelgium.ehealthhub.be/ohif/mado';
+                break;
+            case 'ihe':
+                elements.fhirEndpoint.value = 'https://ihebelgium.ehealthhub.be/fhir';
+                elements.ohifViewerUrl.value = 'https://ihebelgium.ehealthhub.be/ohif/mado';
+                break;
+        }
+        showToast(`Applied ${preset} preset`, 'info');
+    }
+
+    function openConfigModal() {
+        elements.fhirEndpoint.value = state.config.fhirEndpoint || '';
+        elements.ohifViewerUrl.value = state.config.ohifViewerUrl || DEFAULT_CONFIG.ohifViewerUrl;
+        openModal('configModal');
+    }
+
+    function updateEndpointBadge() {
+        if (elements.endpointBadge) {
+            const endpoint = state.config.fhirEndpoint;
+            if (endpoint) {
+                try {
+                    const url = new URL(endpoint);
+                    elements.endpointBadge.textContent = url.hostname;
+                    elements.endpointBadge.title = endpoint;
+                } catch {
+                    elements.endpointBadge.textContent = endpoint;
+                }
+            } else {
+                elements.endpointBadge.textContent = 'Local';
+                elements.endpointBadge.title = 'Using local server';
+            }
+        }
+    }
+
+    // ==============================
+    // Modal Management
+    // ==============================
+
+    function openModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (modal) {
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        }
+    }
+
+    function closeModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (modal) {
+            modal.style.display = 'none';
+            document.body.style.overflow = '';
+        }
+    }
+
+    function closeAllModals() {
+        ['configModal', 'jsonModal', 'actionsModal', 'docJsonModal'].forEach(closeModal);
     }
 
     async function performSearch() {
@@ -97,8 +227,10 @@ const MadoViewer = (function() {
 
             console.log('Search params:', params.toString());
 
-            // Fetch from FHIR endpoint
-            const url = `./fhir/DocumentReference${params.toString() ? '?' + params.toString() : ''}`;
+            // Determine FHIR endpoint
+            const baseUrl = state.config.fhirEndpoint || './fhir';
+            const url = `${baseUrl}/DocumentReference${params.toString() ? '?' + params.toString() : ''}`;
+
             const response = await fetch(url, {
                 headers: {
                     'Accept': 'application/fhir+json'
@@ -111,6 +243,9 @@ const MadoViewer = (function() {
 
             const bundle = await response.json();
 
+            // Store raw bundle for inspection
+            state.rawBundle = bundle;
+
             // Extract documents from bundle
             state.allDocuments = parseDocumentBundle(bundle);
             state.filteredDocuments = [...state.allDocuments];
@@ -120,11 +255,17 @@ const MadoViewer = (function() {
             updateStats();
             sortAndRender();
 
+            // Show success toast
+            if (state.allDocuments.length > 0) {
+                showToast(`Found ${state.allDocuments.length} document(s)`, 'success');
+            }
+
         } catch (error) {
             console.error('Search error:', error);
             showError(`Failed to fetch documents: ${error.message}`);
             state.allDocuments = [];
             state.filteredDocuments = [];
+            state.rawBundle = null;
             renderEmptyState('Error loading data');
         }
     }
@@ -175,7 +316,8 @@ const MadoViewer = (function() {
                 accessionNumber,
                 author,
                 binaryUrl,
-                size: doc.content?.[0]?.attachment?.size || 0
+                size: doc.content?.[0]?.attachment?.size || 0,
+                rawResource: doc  // Store raw resource for inspection
             };
         });
     }
@@ -303,16 +445,12 @@ const MadoViewer = (function() {
                                 Accession
                                 <span class="sort-indicator"></span>
                             </th>
-                            <th data-sort="author">
-                                Author
-                                <span class="sort-indicator"></span>
-                            </th>
-                            <th>Action</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
-                        ${pageDocuments.map(doc => `
-                            <tr onclick="openMADOViewer('${escapeHtml(doc.binaryUrl)}', event)">
+                        ${pageDocuments.map((doc, idx) => `
+                            <tr data-doc-index="${startIdx + idx}">
                                 <td class="date-cell">${doc.dateString}</td>
                                 <td class="patient-cell">${escapeHtml(doc.patientId)}</td>
                                 <td class="patient-cell">${escapeHtml(doc.patientName)}</td>
@@ -323,11 +461,21 @@ const MadoViewer = (function() {
                                     ${escapeHtml(doc.description)}
                                 </td>
                                 <td>${escapeHtml(doc.accessionNumber)}</td>
-                                <td>${escapeHtml(doc.author)}</td>
                                 <td class="action-cell">
-                                    <button class="view-btn" onclick="openMADOViewer('${escapeHtml(doc.binaryUrl)}', event)">
-                                        👁️ View
-                                    </button>
+                                    <div class="action-buttons">
+                                        <button class="action-btn view" onclick="MadoViewer.quickAction('view', ${startIdx + idx}, event)" title="View in OHIF">
+                                            👁️
+                                        </button>
+                                        <button class="action-btn validate" onclick="MadoViewer.quickAction('validate', ${startIdx + idx}, event)" title="Validate MADO">
+                                            ✅
+                                        </button>
+                                        <button class="action-btn bridge" onclick="MadoViewer.quickAction('bridge', ${startIdx + idx}, event)" title="DICOM↔FHIR Bridge">
+                                            🔄
+                                        </button>
+                                        <button class="action-btn more" onclick="MadoViewer.openActionsModal(${startIdx + idx}, event)" title="More Actions">
+                                            ⋯
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                         `).join('')}
@@ -481,16 +629,312 @@ const MadoViewer = (function() {
         }
 
         if (!binaryUrl) {
-            alert('No manifest URL available for this document');
+            showToast('No manifest URL available for this document', 'error');
             return;
         }
 
         // Construct full URL (handle relative URLs)
         const fullBinaryUrl = binaryUrl.startsWith('http') ? binaryUrl : window.location.origin + '/' + binaryUrl.replace(/^\.\//, '');
 
-        // Open in OHIF viewer
-        const ohifUrl = `https://ihebelgium.ehealthhub.be/ohif/mado?manifestUrl=${encodeURIComponent(fullBinaryUrl)}`;
+        // Open in OHIF viewer using configured URL
+        const ohifBaseUrl = state.config.ohifViewerUrl || DEFAULT_CONFIG.ohifViewerUrl;
+        const ohifUrl = `${ohifBaseUrl}?manifestUrl=${encodeURIComponent(fullBinaryUrl)}`;
         window.open(ohifUrl, '_blank');
+    }
+
+    // ==============================
+    // Quick Actions
+    // ==============================
+
+    function quickAction(action, docIndex, event) {
+        if (event) {
+            event.stopPropagation();
+        }
+
+        const doc = state.filteredDocuments[docIndex];
+        if (!doc) {
+            showToast('Document not found', 'error');
+            return;
+        }
+
+        state.selectedDocument = doc;
+        executeAction(action);
+    }
+
+    function openActionsModal(docIndex, event) {
+        if (event) {
+            event.stopPropagation();
+        }
+
+        const doc = state.filteredDocuments[docIndex];
+        if (!doc) {
+            showToast('Document not found', 'error');
+            return;
+        }
+
+        state.selectedDocument = doc;
+
+        // Populate document preview
+        const preview = document.getElementById('documentPreview');
+        if (preview) {
+            preview.innerHTML = `
+                <div class="document-preview-title">${escapeHtml(doc.description)}</div>
+                <div class="document-preview-meta">
+                    <span><strong>Patient:</strong> ${escapeHtml(doc.patientName)} (${escapeHtml(doc.patientId)})</span>
+                    <span><strong>Date:</strong> ${doc.dateString}</span>
+                    <span><strong>Modality:</strong> ${doc.modalities.join(', ')}</span>
+                    <span><strong>Accession:</strong> ${escapeHtml(doc.accessionNumber)}</span>
+                </div>
+            `;
+        }
+
+        openModal('actionsModal');
+    }
+
+    function executeAction(action) {
+        const doc = state.selectedDocument;
+        if (!doc) {
+            showToast('No document selected', 'error');
+            return;
+        }
+
+        closeModal('actionsModal');
+
+        switch (action) {
+            case 'view':
+                openMADOViewer(doc.binaryUrl);
+                break;
+
+            case 'validate':
+                navigateToValidator(doc);
+                break;
+
+            case 'bridge':
+                navigateToBridge(doc);
+                break;
+
+            case 'inspect':
+                openDocJsonInspector(doc);
+                break;
+
+            default:
+                showToast('Unknown action', 'error');
+        }
+    }
+
+    function navigateToValidator(doc) {
+        if (!doc.binaryUrl) {
+            showToast('No manifest URL available for validation', 'error');
+            return;
+        }
+
+        // Store document info for the validator page
+        const validationData = {
+            url: doc.binaryUrl,
+            description: doc.description,
+            patientId: doc.patientId,
+            studyUid: doc.studyUid
+        };
+
+        try {
+            sessionStorage.setItem('madoValidationData', JSON.stringify(validationData));
+        } catch (e) {
+            console.warn('Could not store validation data:', e);
+        }
+
+        // Navigate to validator with URL parameter
+        const fullUrl = doc.binaryUrl.startsWith('http')
+            ? doc.binaryUrl
+            : window.location.origin + '/' + doc.binaryUrl.replace(/^\.\//, '');
+
+        window.open(`./?loadUrl=${encodeURIComponent(fullUrl)}`, '_blank');
+        showToast('Opening validator...', 'info');
+    }
+
+    function navigateToBridge(doc) {
+        if (!doc.binaryUrl) {
+            showToast('No manifest URL available', 'error');
+            return;
+        }
+
+        // Store document info for the bridge page
+        const bridgeData = {
+            url: doc.binaryUrl,
+            description: doc.description,
+            patientId: doc.patientId,
+            studyUid: doc.studyUid
+        };
+
+        try {
+            sessionStorage.setItem('madoBridgeData', JSON.stringify(bridgeData));
+        } catch (e) {
+            console.warn('Could not store bridge data:', e);
+        }
+
+        // Navigate to converter/bridge
+        const fullUrl = doc.binaryUrl.startsWith('http')
+            ? doc.binaryUrl
+            : window.location.origin + '/' + doc.binaryUrl.replace(/^\.\//, '');
+
+        window.open(`./converter?loadUrl=${encodeURIComponent(fullUrl)}`, '_blank');
+        showToast('Opening DICOM↔FHIR Bridge...', 'info');
+    }
+
+    // ==============================
+    // JSON Inspector Functions
+    // ==============================
+
+    function openJsonInspector() {
+        if (!state.rawBundle) {
+            showToast('No data available. Please perform a search first.', 'error');
+            return;
+        }
+
+        renderJsonContent(state.rawBundle, 'jsonContent');
+        updateJsonStats(state.rawBundle, state.allDocuments.length);
+        openModal('jsonModal');
+    }
+
+    function openDocJsonInspector(doc) {
+        if (!doc || !doc.rawResource) {
+            showToast('No document data available', 'error');
+            return;
+        }
+
+        renderJsonContent(doc.rawResource, 'docJsonContent');
+        openModal('docJsonModal');
+    }
+
+    function renderJsonContent(data, elementId) {
+        const container = document.getElementById(elementId);
+        if (!container) return;
+
+        if (state.jsonViewMode === 'formatted') {
+            container.innerHTML = syntaxHighlight(JSON.stringify(data, null, 2));
+        } else {
+            container.textContent = JSON.stringify(data);
+        }
+    }
+
+    function setJsonView(mode) {
+        state.jsonViewMode = mode;
+
+        // Update button states
+        document.getElementById('viewFormattedBtn')?.classList.toggle('active', mode === 'formatted');
+        document.getElementById('viewRawBtn')?.classList.toggle('active', mode === 'raw');
+
+        // Re-render
+        if (state.rawBundle) {
+            renderJsonContent(state.rawBundle, 'jsonContent');
+        }
+    }
+
+    function syntaxHighlight(json) {
+        return json
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function(match) {
+                let cls = 'number';
+                if (/^"/.test(match)) {
+                    if (/:$/.test(match)) {
+                        cls = 'key';
+                        match = match.slice(0, -1) + '</span>:';
+                        return '<span class="' + cls + '">' + match;
+                    } else {
+                        cls = 'string';
+                    }
+                } else if (/true|false/.test(match)) {
+                    cls = 'boolean';
+                } else if (/null/.test(match)) {
+                    cls = 'null';
+                }
+                return '<span class="' + cls + '">' + match + '</span>';
+            });
+    }
+
+    function updateJsonStats(bundle, entryCount) {
+        document.getElementById('jsonEntryCount').textContent = `${entryCount} entries`;
+
+        const jsonStr = JSON.stringify(bundle);
+        const sizeKb = (new Blob([jsonStr]).size / 1024).toFixed(1);
+        document.getElementById('jsonSize').textContent = `${sizeKb} KB`;
+    }
+
+    function copyJson() {
+        if (!state.rawBundle) return;
+
+        const jsonStr = JSON.stringify(state.rawBundle, null, 2);
+        navigator.clipboard.writeText(jsonStr)
+            .then(() => showToast('JSON copied to clipboard', 'success'))
+            .catch(() => showToast('Failed to copy JSON', 'error'));
+    }
+
+    function downloadJson() {
+        if (!state.rawBundle) return;
+
+        const jsonStr = JSON.stringify(state.rawBundle, null, 2);
+        const blob = new Blob([jsonStr], { type: 'application/json' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `mhd-bundle-${new Date().toISOString().split('T')[0]}.json`;
+        link.click();
+
+        showToast('JSON downloaded', 'success');
+    }
+
+    function copyDocJson() {
+        if (!state.selectedDocument?.rawResource) return;
+
+        const jsonStr = JSON.stringify(state.selectedDocument.rawResource, null, 2);
+        navigator.clipboard.writeText(jsonStr)
+            .then(() => showToast('DocumentReference JSON copied', 'success'))
+            .catch(() => showToast('Failed to copy JSON', 'error'));
+    }
+
+    function downloadDocJson() {
+        if (!state.selectedDocument?.rawResource) return;
+
+        const jsonStr = JSON.stringify(state.selectedDocument.rawResource, null, 2);
+        const blob = new Blob([jsonStr], { type: 'application/json' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `document-reference-${state.selectedDocument.id || 'unknown'}.json`;
+        link.click();
+
+        showToast('DocumentReference JSON downloaded', 'success');
+    }
+
+    // ==============================
+    // Toast Notifications
+    // ==============================
+
+    function showToast(message, type = 'info') {
+        const container = document.getElementById('toastContainer');
+        if (!container) return;
+
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+
+        const icons = {
+            success: '✅',
+            error: '❌',
+            info: 'ℹ️'
+        };
+
+        toast.innerHTML = `
+            <span>${icons[type] || 'ℹ️'}</span>
+            <span>${escapeHtml(message)}</span>
+            <button class="toast-close" onclick="this.parentElement.remove()">&times;</button>
+        `;
+
+        container.appendChild(toast);
+
+        // Auto-remove after 4 seconds
+        setTimeout(() => {
+            toast.style.animation = 'fadeOut 0.3s ease-out';
+            setTimeout(() => toast.remove(), 300);
+        }, 4000);
     }
 
     function exportToCSV() {
@@ -552,7 +996,23 @@ const MadoViewer = (function() {
     return {
         init: init,
         openMADOViewer: openMADOViewer,
-        goToPage: goToPage
+        goToPage: goToPage,
+        // Modal management
+        openModal: openModal,
+        closeModal: closeModal,
+        // Configuration
+        saveConfig: saveConfig,
+        applyPreset: applyPreset,
+        // Actions
+        quickAction: quickAction,
+        openActionsModal: openActionsModal,
+        executeAction: executeAction,
+        // JSON inspector
+        setJsonView: setJsonView,
+        copyJson: copyJson,
+        downloadJson: downloadJson,
+        copyDocJson: copyDocJson,
+        downloadDocJson: downloadDocJson
     };
 })();
 

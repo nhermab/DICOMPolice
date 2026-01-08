@@ -71,6 +71,112 @@ const Visualizer = {
     UIHelpers.setupCollapsibleSections();
     UIHelpers.restoreCollapsedStates();
     this.setupTabSwitching();
+
+    // Check for URL parameters to auto-load files
+    this.checkUrlParameters();
+  },
+
+  /**
+   * Check URL parameters for auto-load functionality
+   */
+  async checkUrlParameters() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const loadUrl = urlParams.get('loadUrl');
+
+    if (loadUrl) {
+      console.log('Visualizer: Auto-loading file from URL:', loadUrl);
+      await this.loadFileFromUrl(loadUrl);
+    }
+  },
+
+  /**
+   * Load a file from a remote URL
+   */
+  async loadFileFromUrl(url) {
+    try {
+      // Show loading state
+      this.showUrlLoadingState('Loading DICOM file from URL...');
+
+      const response = await fetch(url, {
+        headers: {
+          'Accept': 'application/dicom, application/octet-stream, */*'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch file: HTTP ${response.status}`);
+      }
+
+      const blob = await response.blob();
+
+      // Extract filename from URL or use default
+      let filename = 'mado-manifest.dcm';
+      try {
+        const urlObj = new URL(url);
+        const pathParts = urlObj.pathname.split('/');
+        const lastPart = pathParts[pathParts.length - 1];
+        if (lastPart && lastPart.length > 0) {
+          filename = lastPart.includes('.') ? lastPart : lastPart + '.dcm';
+        }
+      } catch (e) {
+        // Keep default filename
+      }
+
+      // Create a File object from the blob
+      const file = new File([blob], filename, { type: 'application/dicom' });
+
+      // Set the file (skip validation since it's from URL)
+      this.hideUrlLoadingState();
+      this.setFile(file, true);
+
+      // Show notification
+      UIHelpers.showNotification(`Loaded: ${filename}`, 'success');
+
+      // Auto-parse the file after a short delay
+      setTimeout(() => {
+        this.parseFile();
+      }, 300);
+
+    } catch (error) {
+      console.error('Failed to load file from URL:', error);
+      this.hideUrlLoadingState();
+      UIHelpers.showNotification(`Failed to load file: ${error.message}`, 'error');
+    }
+  },
+
+  /**
+   * Show loading state in upload area
+   */
+  showUrlLoadingState(message) {
+    if (this.elements.uploadContent) {
+      this.elements.uploadContent.innerHTML = `
+        <div class="loading-indicator" style="text-align: center; padding: 40px;">
+          <div class="spinner" style="width: 40px; height: 40px; border: 3px solid #e0e0e0; border-top-color: #0066cc; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px;"></div>
+          <p style="color: #666; font-weight: 500;">${message}</p>
+        </div>
+      `;
+    }
+  },
+
+  /**
+   * Hide loading state and restore upload area
+   */
+  hideUrlLoadingState() {
+    if (this.elements.uploadContent) {
+      this.elements.uploadContent.innerHTML = `
+        <div class="upload-icon">📋</div>
+        <h3>Drop DICOM file here</h3>
+        <p>or</p>
+        <button type="button" class="btn btn-secondary" id="browse-button">Browse Files</button>
+        <p class="file-types">Supports: .dcm, .dicom</p>
+      `;
+      // Re-attach browse button listener
+      const newBrowseBtn = this.elements.uploadContent.querySelector('#browse-button') ||
+                           this.elements.uploadContent.querySelector('.btn');
+      if (newBrowseBtn && this.elements.fileInput) {
+        newBrowseBtn.addEventListener('click', () => this.elements.fileInput.click());
+      }
+    }
   },
 
   /**
@@ -134,9 +240,11 @@ const Visualizer = {
 
   /**
    * Set selected file
+   * @param {File} file - The file to set
+   * @param {boolean} skipValidation - Skip file extension validation (for URL-loaded files)
    */
-  setFile(file) {
-    if (!FileUtils.isDicomFile(file)) {
+  setFile(file, skipValidation = false) {
+    if (!skipValidation && !FileUtils.isDicomFile(file)) {
       UIHelpers.showNotification('Please select a valid DICOM file (.dcm or .dicom)', 'error');
       return;
     }

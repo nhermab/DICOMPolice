@@ -145,6 +145,9 @@
                         </div>
                     </div>
                     <div class="search-actions">
+                        <button type="button" class="btn-icon" id="configBtn" title="Configure FHIR Endpoint">
+                            ⚙️
+                        </button>
                         <button type="button" class="btn-secondary" id="clearBtn">Clear</button>
                         <button type="button" class="btn btn-primary" id="searchBtn">
                             <span>🔍 Search</span>
@@ -184,9 +187,13 @@
                     <div class="datagrid-title">
                         <span>📊</span>
                         <span>MADO Manifests</span>
+                        <span class="endpoint-badge" id="endpointBadge" title="Current FHIR Endpoint"></span>
                     </div>
                     <div class="datagrid-controls">
                         <input type="text" id="quickSearch" class="quick-search" placeholder="Quick filter..." aria-label="Quick filter">
+                        <button type="button" class="btn-small btn-accent" id="inspectJsonBtn" title="Inspect FHIR Response">
+                            📋 Inspect JSON
+                        </button>
                         <button type="button" class="btn-small" id="exportBtn">📥 Export CSV</button>
                         <button type="button" class="btn-small" id="refreshBtn">🔄 Refresh</button>
                     </div>
@@ -211,6 +218,154 @@
             </div> <!-- End right-content -->
         </div>
     </main>
+
+    <!-- Configuration Modal -->
+    <div id="configModal" class="modal" style="display: none;">
+        <div class="modal-backdrop" onclick="MadoViewer.closeModal('configModal')"></div>
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h3>⚙️ FHIR MHD Endpoint Configuration</h3>
+                <button class="modal-close" onclick="MadoViewer.closeModal('configModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="fhirEndpoint">FHIR Base URL</label>
+                    <input type="text" id="fhirEndpoint" placeholder="e.g., https://your-server/fhir" class="form-input">
+                    <small class="form-hint">Leave empty to use the local server endpoint</small>
+                </div>
+                <div class="form-group">
+                    <label for="ohifViewerUrl">OHIF Viewer URL</label>
+                    <input type="text" id="ohifViewerUrl" placeholder="e.g., https://viewer.example.com/ohif/mado" class="form-input">
+                    <small class="form-hint">Base URL for the OHIF MADO viewer</small>
+                </div>
+                <div class="endpoint-presets">
+                    <label>Quick Presets:</label>
+                    <div class="preset-buttons">
+                        <button type="button" class="preset-btn" onclick="MadoViewer.applyPreset('local')">
+                            🏠 Local
+                        </button>
+                        <button type="button" class="preset-btn" onclick="MadoViewer.applyPreset('ihe')">
+                            🌐 IHE Belgium
+                        </button>
+                    </div>
+                </div>
+                <div class="config-info-box">
+                    <strong>ℹ️ About Configuration</strong>
+                    <p>Configure the FHIR MHD endpoint to connect to different document registries. The OHIF Viewer URL determines where MADO manifests will be opened for visualization.</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="MadoViewer.closeModal('configModal')">Cancel</button>
+                <button class="btn btn-primary" onclick="MadoViewer.saveConfig()">💾 Save Configuration</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JSON Inspector Modal -->
+    <div id="jsonModal" class="modal" style="display: none;">
+        <div class="modal-backdrop" onclick="MadoViewer.closeModal('jsonModal')"></div>
+        <div class="modal-content modal-lg">
+            <div class="modal-header">
+                <h3>📋 FHIR MHD Response Inspector</h3>
+                <span class="keyboard-hint">Press ESC to close</span>
+                <button class="modal-close" onclick="MadoViewer.closeModal('jsonModal')">&times;</button>
+            </div>
+            <div class="modal-toolbar">
+                <div class="toolbar-group">
+                    <button class="toolbar-btn active" id="viewFormattedBtn" onclick="MadoViewer.setJsonView('formatted')">
+                        📝 Formatted
+                    </button>
+                    <button class="toolbar-btn" id="viewRawBtn" onclick="MadoViewer.setJsonView('raw')">
+                        📄 Raw
+                    </button>
+                </div>
+                <div class="toolbar-group">
+                    <button class="toolbar-btn" onclick="MadoViewer.copyJson()">
+                        📋 Copy
+                    </button>
+                    <button class="toolbar-btn" onclick="MadoViewer.downloadJson()">
+                        💾 Download
+                    </button>
+                </div>
+            </div>
+            <div class="modal-body json-body">
+                <pre id="jsonContent" class="json-viewer"></pre>
+            </div>
+            <div class="modal-footer">
+                <div class="json-stats">
+                    <span id="jsonEntryCount">0 entries</span>
+                    <span class="separator">•</span>
+                    <span id="jsonSize">0 KB</span>
+                </div>
+                <button class="btn-secondary" onclick="MadoViewer.closeModal('jsonModal')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Document Actions Modal -->
+    <div id="actionsModal" class="modal" style="display: none;">
+        <div class="modal-backdrop" onclick="MadoViewer.closeModal('actionsModal')"></div>
+        <div class="modal-content modal-md">
+            <div class="modal-header">
+                <h3>🎯 Document Actions</h3>
+                <button class="modal-close" onclick="MadoViewer.closeModal('actionsModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="document-preview" id="documentPreview">
+                    <!-- Document info will be inserted here -->
+                </div>
+                <div class="actions-grid">
+                    <button class="action-card" onclick="MadoViewer.executeAction('view')">
+                        <span class="action-icon">👁️</span>
+                        <span class="action-title">View in OHIF</span>
+                        <span class="action-desc">Open MADO manifest in OHIF viewer</span>
+                    </button>
+                    <button class="action-card" onclick="MadoViewer.executeAction('validate')">
+                        <span class="action-icon">✅</span>
+                        <span class="action-title">Validate MADO</span>
+                        <span class="action-desc">Validate against DICOM/IHE profiles</span>
+                    </button>
+                    <button class="action-card" onclick="MadoViewer.executeAction('bridge')">
+                        <span class="action-icon">🔄</span>
+                        <span class="action-title">DICOM↔FHIR Bridge</span>
+                        <span class="action-desc">Convert between DICOM and FHIR</span>
+                    </button>
+                    <button class="action-card" onclick="MadoViewer.executeAction('inspect')">
+                        <span class="action-icon">📋</span>
+                        <span class="action-title">Inspect FHIR JSON</span>
+                        <span class="action-desc">View raw DocumentReference</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Document JSON Inspector Modal -->
+    <div id="docJsonModal" class="modal" style="display: none;">
+        <div class="modal-backdrop" onclick="MadoViewer.closeModal('docJsonModal')"></div>
+        <div class="modal-content modal-lg">
+            <div class="modal-header">
+                <h3>📄 DocumentReference JSON</h3>
+                <button class="modal-close" onclick="MadoViewer.closeModal('docJsonModal')">&times;</button>
+            </div>
+            <div class="modal-toolbar">
+                <div class="toolbar-group">
+                    <button class="toolbar-btn" onclick="MadoViewer.copyDocJson()">
+                        📋 Copy
+                    </button>
+                    <button class="toolbar-btn" onclick="MadoViewer.downloadDocJson()">
+                        💾 Download
+                    </button>
+                </div>
+            </div>
+            <div class="modal-body json-body">
+                <pre id="docJsonContent" class="json-viewer"></pre>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast Container -->
+    <div id="toastContainer" class="toast-container"></div>
 
     <!-- Footer -->
     <footer class="footer">
