@@ -880,6 +880,8 @@ public class MADOToFHIRConverter {
      * Creates the ImagingStudy resource with series and instances.
      */
     private ImagingStudy createImagingStudy(Attributes attrs, MADOMetadata metadata, ResourceUUIDs uuids) {
+        System.out.println("DEBUG MADOToFHIRConverter.createImagingStudy: Starting conversion");
+
         ImagingStudy study = new ImagingStudy();
 
         // Add profile
@@ -1004,7 +1006,11 @@ public class MADOToFHIRConverter {
             boolean looksLikeViewer = key.contains("/viewer");
 
             if (isHttpBase && !looksLikeViewer) {
-                study.addEndpoint(new Reference("urn:uuid:" + uuid));
+                // Add type information to help validators match the correct slice
+                // The endpoint resource itself has meta.profile set to ImWadoRsEndpoint
+                Reference endpointRef = new Reference("urn:uuid:" + uuid);
+                endpointRef.setType("Endpoint");
+                study.addEndpoint(endpointRef);
             }
         }
 
@@ -1064,6 +1070,9 @@ public class MADOToFHIRConverter {
                                 int columns = sopItem.getInt(Tag.Columns, 0);
                                 int instanceNumber = sopItem.getInt(Tag.InstanceNumber, 0);
 
+                                System.out.println("DEBUG MADOToFHIRConverter: Reading from Evidence - SOP=" + sopInstanceUID +
+                                                   ", InstanceNumber from Evidence=" + instanceNumber);
+
                                 ImagingStudy.ImagingStudySeriesInstanceComponent instance =
                                     new ImagingStudy.ImagingStudySeriesInstanceComponent();
                                 instance.setUid(sopInstanceUID);
@@ -1077,6 +1086,11 @@ public class MADOToFHIRConverter {
                                 // Instance number (DICOM Instance Number tag)
                                 if (instanceNumber > 0) {
                                     instance.setNumber(instanceNumber);
+                                    System.out.println("DEBUG MADOToFHIRConverter: Set InstanceNumber=" + instanceNumber +
+                                                       " from Evidence on FHIR instance " + sopInstanceUID);
+                                } else {
+                                    System.out.println("DEBUG MADOToFHIRConverter: NO InstanceNumber in Evidence for " + sopInstanceUID +
+                                                       ", will check ContentSequence later");
                                 }
 
                                 // Instance description extension (MADO IG URL)
@@ -1151,8 +1165,13 @@ public class MADOToFHIRConverter {
      */
     private void enrichSeriesFromContentTree(Attributes attrs,
                                              Map<String, ImagingStudy.ImagingStudySeriesComponent> seriesMap) {
+        System.out.println("DEBUG MADOToFHIRConverter.enrichSeriesFromContentTree: Starting to enrich from ContentSequence");
         Sequence contentSeq = attrs.getSequence(Tag.ContentSequence);
-        if (contentSeq == null) return;
+        if (contentSeq == null) {
+            System.out.println("DEBUG MADOToFHIRConverter.enrichSeriesFromContentTree: NO ContentSequence found!");
+            return;
+        }
+        System.out.println("DEBUG MADOToFHIRConverter.enrichSeriesFromContentTree: ContentSequence has " + contentSeq.size() + " items");
 
         for (Attributes item : contentSeq) {
             String valueType = item.getString(Tag.ValueType);
@@ -1171,8 +1190,13 @@ public class MADOToFHIRConverter {
      */
     private void processImageLibrary(Attributes imageLibrary,
                                       Map<String, ImagingStudy.ImagingStudySeriesComponent> seriesMap) {
+        System.out.println("DEBUG MADOToFHIRConverter.processImageLibrary: Processing Image Library");
         Sequence contentSeq = imageLibrary.getSequence(Tag.ContentSequence);
-        if (contentSeq == null) return;
+        if (contentSeq == null) {
+            System.out.println("DEBUG MADOToFHIRConverter.processImageLibrary: NO ContentSequence in Image Library!");
+            return;
+        }
+        System.out.println("DEBUG MADOToFHIRConverter.processImageLibrary: Image Library ContentSequence has " + contentSeq.size() + " items");
 
         for (Attributes item : contentSeq) {
             String valueType = item.getString(Tag.ValueType);
@@ -1191,8 +1215,13 @@ public class MADOToFHIRConverter {
      */
     private void processImageLibraryGroup(Attributes group,
                                            Map<String, ImagingStudy.ImagingStudySeriesComponent> seriesMap) {
+        System.out.println("DEBUG MADOToFHIRConverter.processImageLibraryGroup: Processing Image Library Group");
         Sequence contentSeq = group.getSequence(Tag.ContentSequence);
-        if (contentSeq == null) return;
+        if (contentSeq == null) {
+            System.out.println("DEBUG MADOToFHIRConverter.processImageLibraryGroup: NO ContentSequence in group!");
+            return;
+        }
+        System.out.println("DEBUG MADOToFHIRConverter.processImageLibraryGroup: Group ContentSequence has " + contentSeq.size() + " items");
 
         String seriesUID = null;
         String seriesDescription = null;
@@ -1200,6 +1229,7 @@ public class MADOToFHIRConverter {
         String seriesDate = null;
         String seriesTime = null;
         Map<String, Integer> instanceNumbers = new HashMap<>(); // SOP Instance UID -> Instance Number
+        Map<String, Integer> instanceFrameCounts = new HashMap<>(); // SOP Instance UID -> Number of Frames
 
         for (Attributes item : contentSeq) {
             String valueType = item.getString(Tag.ValueType);
@@ -1207,6 +1237,8 @@ public class MADOToFHIRConverter {
             if (conceptName == null) continue;
 
             String codeValue = conceptName.getString(Tag.CodeValue);
+
+            System.out.println("DEBUG MADOToFHIRConverter.processImageLibraryGroup: Item valueType=" + valueType + ", codeValue=" + codeValue);
 
             if ("UIDREF".equals(valueType) && CODE_SERIES_INSTANCE_UID.equals(codeValue)) {
                 seriesUID = item.getString(Tag.UID);
@@ -1223,8 +1255,9 @@ public class MADOToFHIRConverter {
             } else if ("TEXT".equals(valueType) && CODE_SERIES_TIME.equals(codeValue)) {
                 seriesTime = item.getString(Tag.TextValue);
             } else if ("IMAGE".equals(valueType)) {
-                // Process IMAGE items to extract instance numbers
-                extractInstanceNumberFromImage(item, instanceNumbers);
+                // Process IMAGE items to extract instance numbers and frame counts
+                System.out.println("DEBUG MADOToFHIRConverter.processImageLibraryGroup: Found IMAGE item, calling extractInstanceMetadataFromImage");
+                extractInstanceMetadataFromImage(item, instanceNumbers, instanceFrameCounts);
             }
         }
 
@@ -1244,12 +1277,38 @@ public class MADOToFHIRConverter {
                 if (seriesTime != null && !seriesTime.isEmpty()) {
                     series.addExtension(new Extension(EXT_IMAGING_SERIES_TIME, new StringType(seriesTime)));
                 }
-                // Populate instance numbers from SR content tree
-                if (!instanceNumbers.isEmpty() && series.hasInstance()) {
-                    for (ImagingStudy.ImagingStudySeriesInstanceComponent instance : series.getInstance()) {
-                        String instanceUID = instance.getUid();
-                        if (instanceNumbers.containsKey(instanceUID)) {
-                            instance.setNumber(instanceNumbers.get(instanceUID));
+
+                // Populate instance numbers and frame counts from SR content tree
+                if (series.hasInstance()) {
+                    if (!instanceNumbers.isEmpty() || !instanceFrameCounts.isEmpty()) {
+                        // We have instance-level metadata from IMAGE entries
+                        for (ImagingStudy.ImagingStudySeriesInstanceComponent instance : series.getInstance()) {
+                            String instanceUID = instance.getUid();
+
+                            // Set instance number from content tree if available
+                            if (instanceNumbers.containsKey(instanceUID)) {
+                                instance.setNumber(instanceNumbers.get(instanceUID));
+                                System.out.println("DEBUG MADOToFHIRConverter: Set InstanceNumber=" + instanceNumbers.get(instanceUID) +
+                                                   " on FHIR instance " + instanceUID);
+                            } else {
+                                System.out.println("DEBUG MADOToFHIRConverter: NO InstanceNumber in map for instance " + instanceUID);
+                            }
+
+                            // Update instance description with frame count from content tree if available
+                            if (instanceFrameCounts.containsKey(instanceUID)) {
+                                int frameCount = instanceFrameCounts.get(instanceUID);
+                                updateInstanceDescriptionWithFrameCount(instance, frameCount);
+                            }
+                        }
+                    } else {
+                        // No IMAGE entries found in ContentSequence - assign sequential instance numbers
+                        System.out.println("DEBUG MADOToFHIRConverter: No IMAGE entries in ContentSequence, assigning sequential instance numbers");
+                        int sequentialNumber = 1;
+                        for (ImagingStudy.ImagingStudySeriesInstanceComponent instance : series.getInstance()) {
+                            instance.setNumber(sequentialNumber);
+                            System.out.println("DEBUG MADOToFHIRConverter: Assigned sequential InstanceNumber=" + sequentialNumber +
+                                               " to instance " + instance.getUid());
+                            sequentialNumber++;
                         }
                     }
                 }
@@ -1258,37 +1317,99 @@ public class MADOToFHIRConverter {
     }
 
     /**
-     * Extracts instance number from an IMAGE item in the SR content tree.
+     * Extracts instance metadata (instance number and number of frames) from an IMAGE item in the SR content tree.
      */
-    private void extractInstanceNumberFromImage(Attributes imageItem, Map<String, Integer> instanceNumbers) {
+    private void extractInstanceMetadataFromImage(Attributes imageItem,
+                                                   Map<String, Integer> instanceNumbers,
+                                                   Map<String, Integer> instanceFrameCounts) {
+        System.out.println("DEBUG MADOToFHIRConverter.extractInstanceMetadataFromImage: Extracting metadata from IMAGE item");
         // Get the SOP Instance UID from ReferencedSOPSequence
         Sequence refSopSeq = imageItem.getSequence(Tag.ReferencedSOPSequence);
         if (refSopSeq != null && !refSopSeq.isEmpty()) {
             Attributes sopItem = refSopSeq.get(0);
             String sopInstanceUID = sopItem.getString(Tag.ReferencedSOPInstanceUID);
 
+            System.out.println("DEBUG MADOToFHIRConverter.extractInstanceMetadataFromImage: SOP Instance UID = " + sopInstanceUID);
+
             if (sopInstanceUID != null) {
-                // Look for instance number in the image item's content sequence
+                // Look for instance metadata in the image item's content sequence
                 Sequence contentSeq = imageItem.getSequence(Tag.ContentSequence);
                 if (contentSeq != null) {
+                    System.out.println("DEBUG MADOToFHIRConverter.extractInstanceMetadataFromImage: IMAGE ContentSequence has " + contentSeq.size() + " items");
                     for (Attributes item : contentSeq) {
                         String valueType = item.getString(Tag.ValueType);
                         Attributes conceptName = getConceptNameCode(item);
-                        if (conceptName != null && DicomConstants.VALUE_TYPE_TEXT.equals(valueType)) {
+                        if (conceptName != null) {
                             String codeValue = conceptName.getString(Tag.CodeValue);
-                            if (CODE_INSTANCE_NUMBER.equals(codeValue)) {
+
+                            // Extract Instance Number (TEXT value type)
+                            if (DicomConstants.VALUE_TYPE_TEXT.equals(valueType) && CODE_INSTANCE_NUMBER.equals(codeValue)) {
                                 try {
                                     Integer instanceNumber = Integer.parseInt(item.getString(Tag.TextValue).trim());
                                     instanceNumbers.put(sopInstanceUID, instanceNumber);
+                                    System.out.println("DEBUG MADOToFHIRConverter: Extracted InstanceNumber=" + instanceNumber +
+                                                       " from ContentSequence for SOP " + sopInstanceUID);
                                 } catch (NumberFormatException e) {
-                                    // Ignore invalid instance number
+                                    System.out.println("DEBUG MADOToFHIRConverter: Failed to parse InstanceNumber from ContentSequence for SOP " + sopInstanceUID);
                                 }
-                                break;
+                            }
+
+                            // Extract Number of Frames (NUM value type, code 121140)
+                            if (DicomConstants.VALUE_TYPE_NUM.equals(valueType) && "121140".equals(codeValue)) {
+                                try {
+                                    // Number of Frames is stored in MeasuredValueSequence
+                                    Sequence measuredValueSeq = item.getSequence(Tag.MeasuredValueSequence);
+                                    if (measuredValueSeq != null && !measuredValueSeq.isEmpty()) {
+                                        Attributes measuredValue = measuredValueSeq.get(0);
+                                        String numericValue = measuredValue.getString(Tag.NumericValue);
+                                        if (numericValue != null) {
+                                            int frameCount = (int) Double.parseDouble(numericValue.trim());
+                                            instanceFrameCounts.put(sopInstanceUID, frameCount);
+                                        }
+                                    }
+                                } catch (NumberFormatException e) {
+                                    // Ignore invalid frame count
+                                }
                             }
                         }
                     }
                 }
             }
+        }
+    }
+
+    /**
+     * Updates the instance description extension with frame count information.
+     * If the description already exists, merges the frame count. Otherwise, creates new description.
+     */
+    private void updateInstanceDescriptionWithFrameCount(ImagingStudy.ImagingStudySeriesInstanceComponent instance,
+                                                          int frameCount) {
+        // Find existing description extension
+        Extension descExt = null;
+        for (Extension ext : instance.getExtension()) {
+            if (EXT_INSTANCE_DESCRIPTION.equals(ext.getUrl())) {
+                descExt = ext;
+                break;
+            }
+        }
+
+        if (descExt != null) {
+            // Update existing description
+            String existingDesc = ((StringType) descExt.getValue()).getValue();
+            if (existingDesc != null && !existingDesc.contains("frames")) {
+                // Add frame count to existing dimensions
+                descExt.setValue(new StringType(existingDesc + " (" + frameCount + " frames)"));
+            } else if (existingDesc == null) {
+                // Replace null description
+                descExt.setValue(new StringType(frameCount + " frames"));
+            }
+            // If already has frames, don't update (prefer Evidence Sequence data)
+        } else {
+            // Create new description extension with frame count
+            Extension newDescExt = new Extension();
+            newDescExt.setUrl(EXT_INSTANCE_DESCRIPTION);
+            newDescExt.setValue(new StringType(frameCount + " frames"));
+            instance.addExtension(newDescExt);
         }
     }
 

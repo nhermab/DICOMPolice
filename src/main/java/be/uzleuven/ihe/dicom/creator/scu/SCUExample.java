@@ -1,5 +1,6 @@
 package be.uzleuven.ihe.dicom.creator.scu;
 
+import be.uzleuven.ihe.dicom.creator.model.MADOOptions;
 import org.dcm4che3.data.Attributes;
 
 import java.io.File;
@@ -68,8 +69,10 @@ public class SCUExample {
             .withRetrieveLocationUid("1.2.3.4.5.6.7.8.9.10")
             .withWadoRsBaseUrl("https://pacs.example.org/dicom-web/studies");
 
-        // Create MADO manifest
-        MADOSCUManifestCreator madoCreator = new MADOSCUManifestCreator(defaults);
+        // Create MADO manifest with standard-compliant instance metadata (default)
+        // This includes only Instance Number and Number of Frames per MADO standard
+        MADOOptions standardOptions = new MADOOptions();
+        MADOSCUManifestCreator madoCreator = new MADOSCUManifestCreator(defaults, standardOptions);
 
         String studyUID = "1.3.46.670589.11.0.1.1996082307380006";
         String patientID = "7";
@@ -78,6 +81,7 @@ public class SCUExample {
         System.out.println("Patient ID: " + patientID);
         System.out.println("Remote: " + defaults.calledAET + " @ " +
             defaults.remoteHost + ":" + defaults.remotePort);
+        System.out.println("Mode: Standard MADO (Instance Number + Number of Frames only)");
         System.out.println();
 
         Attributes madoManifest = madoCreator.createManifest(studyUID, patientID);
@@ -92,12 +96,58 @@ public class SCUExample {
     }
 
     /**
+     * Example: Create a MADO manifest with extended instance metadata.
+     * This is non-standard but can be useful for viewers that need additional metadata.
+     */
+    public static void createExtendedMADOFromPACS() throws Exception {
+        System.out.println("=== Creating Extended MADO Manifest from PACS Query ===\n");
+
+        // Configure connection and defaults
+        DefaultMetadata defaults = new DefaultMetadata()
+            .withCallingAET("DICOMPOLICE")
+            .withCalledAET("ORTHANC")
+            .withRemoteHost("172.20.240.184")
+            .withRemotePort(4242)
+            .withPatientIdIssuerOid("1.2.840.113619.6.197")
+            .withAccessionNumberIssuerOid("1.2.840.113619.6.197.1")
+            .withRetrieveLocationUid("1.2.3.4.5.6.7.8.9.10")
+            .withWadoRsBaseUrl("https://pacs.example.org/dicom-web/studies");
+
+        // Create MADO manifest with extended instance metadata
+        // This includes Rows, Columns, Bits Allocated, etc. for viewer compatibility
+        MADOOptions extendedOptions = new MADOOptions()
+            .withIncludeExtendedInstanceMetadata(false);
+        MADOSCUManifestCreator madoCreator = new MADOSCUManifestCreator(defaults, extendedOptions);
+
+        String studyUID = "1.3.46.670589.11.0.1.1996082307380006";
+        String patientID = "7";
+
+        System.out.println("Querying PACS for study: " + studyUID);
+        System.out.println("Patient ID: " + patientID);
+        System.out.println("Remote: " + defaults.calledAET + " @ " +
+            defaults.remoteHost + ":" + defaults.remotePort);
+        System.out.println("Mode: Extended MADO (includes Rows, Columns, Bits Allocated, etc.)");
+        System.out.println();
+
+        Attributes madoManifest = madoCreator.createManifest(studyUID, patientID);
+
+        // Save to file
+        File outputFile = new File("MADO_FROM_SCU_EXTENDED.dcm");
+        madoCreator.saveToFile(madoManifest, outputFile);
+
+        System.out.println("✓ Extended MADO manifest created: " + outputFile.getAbsolutePath());
+        System.out.println("  SOP Instance UID: " + madoManifest.getString(0x00080018)); // Tag.SOPInstanceUID
+        System.out.println();
+    }
+
+    /**
      * Main method - runs both examples if PACS is available.
      * Usage:
      *   java -cp DICOMPolice.jar be.uzleuven.ihe.dicom.creator.scu.SCUExample
      * Or run individual examples:
      *   java -cp DICOMPolice.jar be.uzleuven.ihe.dicom.creator.scu.SCUExample kos
      *   java -cp DICOMPolice.jar be.uzleuven.ihe.dicom.creator.scu.SCUExample mado
+     *   java -cp DICOMPolice.jar be.uzleuven.ihe.dicom.creator.scu.SCUExample mado-extended
      */
     public static void main(String[] args) {
         try {
@@ -107,15 +157,18 @@ public class SCUExample {
                     createKOSFromPACS();
                 } else if ("mado".equals(mode)) {
                     createMADOFromPACS();
+                } else if ("mado-extended".equals(mode)) {
+                    createExtendedMADOFromPACS();
                 } else {
                     System.err.println("Unknown mode: " + mode);
-                    System.err.println("Usage: SCUExample [kos|mado]");
+                    System.err.println("Usage: SCUExample [kos|mado|mado-extended]");
                     System.exit(1);
                 }
             } else {
-                // Run both examples
+                // Run all examples
                 createKOSFromPACS();
                 createMADOFromPACS();
+                createExtendedMADOFromPACS();
             }
 
             System.out.println("=== All examples completed successfully ===");

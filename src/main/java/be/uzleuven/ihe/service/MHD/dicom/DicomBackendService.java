@@ -5,6 +5,7 @@ import be.uzleuven.ihe.dicom.creator.scu.CFindService;
 import be.uzleuven.ihe.dicom.creator.scu.DefaultMetadata;
 import be.uzleuven.ihe.dicom.creator.scu.MADOSCUManifestCreator;
 import be.uzleuven.ihe.dicom.creator.scu.MetadataApplier;
+import be.uzleuven.ihe.dicom.creator.model.MADOOptions;
 import be.uzleuven.ihe.service.MHD.config.MHDConfiguration;
 import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Tag;
@@ -27,12 +28,20 @@ public class DicomBackendService {
     private final MHDConfiguration config;
     private final CFindService cFindService;
     private final DefaultMetadata defaultMetadata;
+    private final boolean includeExtendedInstanceMetadata;
 
     @Autowired
     public DicomBackendService(MHDConfiguration config) {
         this.config = config;
         this.defaultMetadata = config.toDefaultMetadata();
         this.cFindService = new CFindService(defaultMetadata);
+        this.includeExtendedInstanceMetadata = config.isIncludeExtendedInstanceMetadata();
+
+        // DEBUG: Log configuration value
+        System.out.println("===========================================");
+        System.out.println("DEBUG DicomBackendService initialized:");
+        System.out.println("  includeExtendedInstanceMetadata = " + includeExtendedInstanceMetadata);
+        System.out.println("===========================================");
     }
 
     /**
@@ -123,7 +132,16 @@ public class DicomBackendService {
      * @throws IOException if manifest creation fails
      */
     public Attributes createMADOManifest(String studyInstanceUid, String patientId) throws IOException {
-        MADOSCUManifestCreator creator = new MADOSCUManifestCreator(defaultMetadata);
+        // DEBUG: Log when creating MADO
+        System.out.println("DEBUG createMADOManifest: Creating MADO with includeExtendedInstanceMetadata = " + includeExtendedInstanceMetadata);
+
+        // Use configured setting for extended instance metadata
+        MADOOptions options = new MADOOptions()
+            .withIncludeExtendedInstanceMetadata(includeExtendedInstanceMetadata);
+
+        System.out.println("DEBUG createMADOManifest: MADOOptions.isIncludeExtendedInstanceMetadata() = " + options.isIncludeExtendedInstanceMetadata());
+
+        MADOSCUManifestCreator creator = new MADOSCUManifestCreator(defaultMetadata, options);
         return creator.createManifest(studyInstanceUid, patientId);
     }
 

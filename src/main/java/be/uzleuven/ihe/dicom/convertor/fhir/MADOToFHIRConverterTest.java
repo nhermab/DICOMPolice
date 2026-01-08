@@ -16,7 +16,7 @@ import static be.uzleuven.ihe.dicom.constants.CodeConstants.*;
  */
 public class MADOToFHIRConverterTest {
 
-    private static final FhirContext FHIR_CONTEXT = FhirContext.forR5();
+    private static final FhirContext FHIR_R5_CONTEXT = FhirContext.forR5();
 
     public static void main(String[] args) {
         System.out.println("MADO to FHIR Converter Test (MADO IG Compliant)");
@@ -157,7 +157,7 @@ public class MADOToFHIRConverterTest {
         System.out.println("FHIR JSON Output:");
         System.out.println("=".repeat(60) + "\n");
 
-        IParser parser = FHIR_CONTEXT.newJsonParser();
+        IParser parser = FHIR_R5_CONTEXT.newJsonParser();
         parser.setPrettyPrint(true);
         parser.setOverrideResourceIdWithBundleEntryFullUrl(false);  // Preserve resource IDs
         String json = parser.encodeResourceToString(bundle);

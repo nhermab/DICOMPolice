@@ -24,14 +24,25 @@ class MADOContentBuilder {
     private final String studyDate;
     private final String studyTime;
     private final List<SeriesData> allSeries;
+    private final boolean includeExtendedInstanceMetadata;
 
     MADOContentBuilder(DefaultMetadata defaults, String normalizedStudyInstanceUID,
                        String studyDate, String studyTime,
                        List<SeriesData> allSeries) {
+        this(defaults, normalizedStudyInstanceUID, studyDate, studyTime, allSeries, false);
+    }
+
+    MADOContentBuilder(DefaultMetadata defaults, String normalizedStudyInstanceUID,
+                       String studyDate, String studyTime,
+                       List<SeriesData> allSeries, boolean includeExtendedInstanceMetadata) {
         this.normalizedStudyInstanceUID = normalizedStudyInstanceUID;
         this.studyDate = studyDate;
         this.studyTime = studyTime;
         this.allSeries = allSeries;
+        this.includeExtendedInstanceMetadata = includeExtendedInstanceMetadata;
+
+        // DEBUG: Log the flag value
+        System.out.println("DEBUG MADOContentBuilder: includeExtendedInstanceMetadata = " + includeExtendedInstanceMetadata);
     }
 
     /**
@@ -209,51 +220,74 @@ class MADOContentBuilder {
             normalizeUidNoLeadingZeros(instAttrs.getString(Tag.SOPInstanceUID)));
         refSop.add(refItem);
 
-        // Content sequence with comprehensive instance metadata
+        // Content sequence with instance metadata
         Sequence entryContent = entry.newSequence(Tag.ContentSequence, 30);
 
-        // Core identifiers
-        String instanceNumber = instAttrs.getString(Tag.InstanceNumber, "1");
+        // Core identifiers - always included
+        // Use the same logic as getInstanceNumber() to extract the value
+        int instNum = getInstanceNumber(instAttrs);
+        String instanceNumber;
+        if (instNum == Integer.MAX_VALUE) {
+            // Instance number not present or invalid - use "1" as fallback
+            instanceNumber = "1";
+            System.out.println("DEBUG buildInstanceEntry: Instance Number not found in attributes, using default '1'");
+        } else {
+            instanceNumber = String.valueOf(instNum);
+            System.out.println("DEBUG buildInstanceEntry: Instance Number = " + instanceNumber);
+        }
+
         entryContent.add(createTextItem("HAS ACQ CONTEXT", CODE_INSTANCE_NUMBER,
             SCHEME_DCM, CodeConstants.MEANING_INSTANCE_NUMBER, instanceNumber));
 
-        // Add Number of Frames if multiframe
+        // Add Number of Frames if multiframe - always included per MADO standard
         addNumberOfFramesIfRequired(entryContent, instAttrs);
 
-        // Image dimensions
-        addIfPresent(entryContent, instAttrs, Tag.Rows, "Rows");
-        addIfPresent(entryContent, instAttrs, Tag.Columns, "Columns");
+        // DEBUG: Log before checking the flag
+        System.out.println("DEBUG buildInstanceEntry: includeExtendedInstanceMetadata = " + includeExtendedInstanceMetadata);
+        System.out.println("DEBUG buildInstanceEntry: Content items before extended metadata = " + entryContent.size());
 
-        // Pixel Module attributes (critical for OHIF viewer)
-        addIfPresent(entryContent, instAttrs, Tag.BitsAllocated, "Bits Allocated");
-        addIfPresent(entryContent, instAttrs, Tag.BitsStored, "Bits Stored");
-        addIfPresent(entryContent, instAttrs, Tag.HighBit, "High Bit");
-        addIfPresent(entryContent, instAttrs, Tag.PixelRepresentation, "Pixel Representation");
-        addIfPresent(entryContent, instAttrs, Tag.SamplesPerPixel, "Samples per Pixel");
-        addTextIfPresent(entryContent, instAttrs, Tag.PhotometricInterpretation, "Photometric Interpretation");
+        // Extended metadata - only if enabled
+        if (includeExtendedInstanceMetadata) {
+            System.out.println("DEBUG: Adding extended metadata (should NOT see this in standard mode!)");
+            // Image dimensions
+            addIfPresent(entryContent, instAttrs, Tag.Rows, "Rows");
+            addIfPresent(entryContent, instAttrs, Tag.Columns, "Columns");
 
-        // Geometry and spatial information (critical for MPR/3D)
-        addArrayIfPresent(entryContent, instAttrs, Tag.ImagePositionPatient, "Image Position (Patient)");
-        addArrayIfPresent(entryContent, instAttrs, Tag.ImageOrientationPatient, "Image Orientation (Patient)");
-        addArrayIfPresent(entryContent, instAttrs, Tag.PixelSpacing, "Pixel Spacing");
-        addIfPresent(entryContent, instAttrs, Tag.SliceThickness, "Slice Thickness");
-        addIfPresent(entryContent, instAttrs, Tag.SliceLocation, "Slice Location");
-        addIfPresent(entryContent, instAttrs, Tag.SpacingBetweenSlices, "Spacing Between Slices");
+            // Pixel Module attributes (critical for OHIF viewer)
+            addIfPresent(entryContent, instAttrs, Tag.BitsAllocated, "Bits Allocated");
+            addIfPresent(entryContent, instAttrs, Tag.BitsStored, "Bits Stored");
+            addIfPresent(entryContent, instAttrs, Tag.HighBit, "High Bit");
+            addIfPresent(entryContent, instAttrs, Tag.PixelRepresentation, "Pixel Representation");
+            addIfPresent(entryContent, instAttrs, Tag.SamplesPerPixel, "Samples per Pixel");
+            addTextIfPresent(entryContent, instAttrs, Tag.PhotometricInterpretation, "Photometric Interpretation");
 
-        // Window/Level and rescale (for proper display)
-        addArrayIfPresent(entryContent, instAttrs, Tag.WindowCenter, "Window Center");
-        addArrayIfPresent(entryContent, instAttrs, Tag.WindowWidth, "Window Width");
-        addIfPresent(entryContent, instAttrs, Tag.RescaleIntercept, "Rescale Intercept");
-        addIfPresent(entryContent, instAttrs, Tag.RescaleSlope, "Rescale Slope");
-        addTextIfPresent(entryContent, instAttrs, Tag.RescaleType, "Rescale Type");
+            // Geometry and spatial information (critical for MPR/3D)
+            addArrayIfPresent(entryContent, instAttrs, Tag.ImagePositionPatient, "Image Position (Patient)");
+            addArrayIfPresent(entryContent, instAttrs, Tag.ImageOrientationPatient, "Image Orientation (Patient)");
+            addArrayIfPresent(entryContent, instAttrs, Tag.PixelSpacing, "Pixel Spacing");
+            addIfPresent(entryContent, instAttrs, Tag.SliceThickness, "Slice Thickness");
+            addIfPresent(entryContent, instAttrs, Tag.SliceLocation, "Slice Location");
+            addIfPresent(entryContent, instAttrs, Tag.SpacingBetweenSlices, "Spacing Between Slices");
 
-        // Additional useful metadata
-        addArrayIfPresent(entryContent, instAttrs, Tag.ImageType, "Image Type");
-        addIfPresent(entryContent, instAttrs, Tag.AcquisitionNumber, "Acquisition Number");
-        addTextIfPresent(entryContent, instAttrs, Tag.AcquisitionDate, "Acquisition Date");
-        addTextIfPresent(entryContent, instAttrs, Tag.AcquisitionTime, "Acquisition Time");
-        addTextIfPresent(entryContent, instAttrs, Tag.ContentDate, "Content Date");
-        addTextIfPresent(entryContent, instAttrs, Tag.ContentTime, "Content Time");
+            // Window/Level and rescale (for proper display)
+            addArrayIfPresent(entryContent, instAttrs, Tag.WindowCenter, "Window Center");
+            addArrayIfPresent(entryContent, instAttrs, Tag.WindowWidth, "Window Width");
+            addIfPresent(entryContent, instAttrs, Tag.RescaleIntercept, "Rescale Intercept");
+            addIfPresent(entryContent, instAttrs, Tag.RescaleSlope, "Rescale Slope");
+            addTextIfPresent(entryContent, instAttrs, Tag.RescaleType, "Rescale Type");
+
+            // Additional useful metadata
+            addArrayIfPresent(entryContent, instAttrs, Tag.ImageType, "Image Type");
+            addIfPresent(entryContent, instAttrs, Tag.AcquisitionNumber, "Acquisition Number");
+            addTextIfPresent(entryContent, instAttrs, Tag.AcquisitionDate, "Acquisition Date");
+            addTextIfPresent(entryContent, instAttrs, Tag.AcquisitionTime, "Acquisition Time");
+            addTextIfPresent(entryContent, instAttrs, Tag.ContentDate, "Content Date");
+            addTextIfPresent(entryContent, instAttrs, Tag.ContentTime, "Content Time");
+
+            System.out.println("DEBUG: Finished adding extended metadata. Total items = " + entryContent.size());
+        } else {
+            System.out.println("DEBUG: Skipping extended metadata (STANDARD MODE). Total items = " + entryContent.size());
+        }
 
         return entry;
     }

@@ -10,6 +10,8 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
 
+import static be.uzleuven.ihe.singletons.HAPI.FHIR_R5_CONTEXT;
+
 /**
  * Command-line interface for converting DICOM MADO KOS manifests to FHIR Bundles.
  *
@@ -21,7 +23,6 @@ import java.nio.charset.StandardCharsets;
  */
 public class MADOToFHIRExample {
 
-    private static final FhirContext FHIR_CONTEXT = FhirContext.forR5();
 
     public static void main(String[] args) {
         if (args.length < 1) {
@@ -57,7 +58,7 @@ public class MADOToFHIRExample {
             Bundle bundle = converter.convert(dicomFile);
 
             // Serialize to JSON
-            IParser parser = FHIR_CONTEXT.newJsonParser();
+            IParser parser = FHIR_R5_CONTEXT.newJsonParser();
             if (prettyPrint) {
                 parser.setPrettyPrint(true);
             }
@@ -144,7 +145,7 @@ public class MADOToFHIRExample {
         MADOToFHIRConverter converter = new MADOToFHIRConverter();
         Bundle bundle = converter.convert(dicomFilePath);
 
-        IParser parser = FHIR_CONTEXT.newJsonParser();
+        IParser parser = FHIR_R5_CONTEXT.newJsonParser();
         parser.setPrettyPrint(prettyPrint);
         parser.setOverrideResourceIdWithBundleEntryFullUrl(false);  // Preserve resource IDs
 

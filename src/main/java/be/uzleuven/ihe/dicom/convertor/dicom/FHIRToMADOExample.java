@@ -11,6 +11,8 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 
+import static be.uzleuven.ihe.singletons.HAPI.FHIR_R5_CONTEXT;
+
 /**
  * Example application demonstrating FHIR to DICOM MADO conversion.
  *
@@ -31,7 +33,6 @@ import java.io.IOException;
  */
 public class FHIRToMADOExample {
 
-    private static final FhirContext FHIR_CONTEXT = FhirContext.forR5();
 
     public static void main(String[] args) {
         if (args.length < 1) {
@@ -87,7 +88,7 @@ public class FHIRToMADOExample {
         System.out.println("\nStep 3: Saving FHIR Bundle to JSON...");
         System.out.println("  Output: " + fhirJsonPath);
 
-        IParser parser = FHIR_CONTEXT.newJsonParser().setPrettyPrint(true);
+        IParser parser = FHIR_R5_CONTEXT.newJsonParser().setPrettyPrint(true);
         String fhirJson = parser.encodeResourceToString(fhirBundle);
 
         try (FileWriter writer = new FileWriter(fhirJsonPath)) {

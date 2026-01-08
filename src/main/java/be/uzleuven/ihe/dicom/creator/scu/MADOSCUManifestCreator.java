@@ -10,6 +10,7 @@ import static be.uzleuven.ihe.dicom.constants.CodeConstants.*;
 import be.uzleuven.ihe.dicom.creator.utils.ManifestHeaderUtils;
 import be.uzleuven.ihe.dicom.creator.utils.ManifestHeaderUtils.HeaderConfig;
 import be.uzleuven.ihe.dicom.creator.utils.CommandLineParser;
+import be.uzleuven.ihe.dicom.creator.model.MADOOptions;
 
 /**
  * SCU client for creating IHE RAD MADO (Manifest for Advanced Document Organization)
@@ -38,12 +39,21 @@ import be.uzleuven.ihe.dicom.creator.utils.CommandLineParser;
  */
 public class MADOSCUManifestCreator extends SCUManifestCreator {
 
+    private final MADOOptions madoOptions;
+
     public MADOSCUManifestCreator() {
         super();
+        this.madoOptions = new MADOOptions();
     }
 
     public MADOSCUManifestCreator(DefaultMetadata defaults) {
         super(defaults);
+        this.madoOptions = new MADOOptions();
+    }
+
+    public MADOSCUManifestCreator(DefaultMetadata defaults, MADOOptions madoOptions) {
+        super(defaults);
+        this.madoOptions = madoOptions != null ? madoOptions : new MADOOptions();
     }
 
     /**
@@ -132,7 +142,8 @@ public class MADOSCUManifestCreator extends SCUManifestCreator {
         // addAll()'d the items into the real dataset, which can trigger:
         //   "Item already contained by Sequence".
         // Build directly on the target dataset instead.
-        MADOEvidenceBuilder evidenceBuilder = new MADOEvidenceBuilder(defaults, normalizedStudyInstanceUID, allSeries);
+        MADOEvidenceBuilder evidenceBuilder = new MADOEvidenceBuilder(defaults, normalizedStudyInstanceUID,
+            allSeries, madoOptions.isIncludeExtendedInstanceMetadata());
         evidenceBuilder.populateEvidenceSequence(mado);
 
         // ReferencedRequestSequence
@@ -140,7 +151,7 @@ public class MADOSCUManifestCreator extends SCUManifestCreator {
 
         // SR Document Content Module with TID 1600 Image Library
         MADOContentBuilder contentBuilder = new MADOContentBuilder(defaults, normalizedStudyInstanceUID,
-            studyDate, studyTime, allSeries);
+            studyDate, studyTime, allSeries, madoOptions.isIncludeExtendedInstanceMetadata());
         contentBuilder.populateContentSequence(mado);
 
         return mado;

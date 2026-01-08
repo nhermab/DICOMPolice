@@ -18,12 +18,19 @@ class MADOEvidenceBuilder {
     private final DefaultMetadata defaults;
     private final String normalizedStudyInstanceUID;
     private final List<SeriesData> allSeries;
+    private final boolean includeExtendedInstanceMetadata;
 
     MADOEvidenceBuilder(DefaultMetadata defaults, String normalizedStudyInstanceUID,
                         List<SeriesData> allSeries) {
+        this(defaults, normalizedStudyInstanceUID, allSeries, false);
+    }
+
+    MADOEvidenceBuilder(DefaultMetadata defaults, String normalizedStudyInstanceUID,
+                        List<SeriesData> allSeries, boolean includeExtendedInstanceMetadata) {
         this.defaults = defaults;
         this.normalizedStudyInstanceUID = normalizedStudyInstanceUID;
         this.allSeries = allSeries;
+        this.includeExtendedInstanceMetadata = includeExtendedInstanceMetadata;
     }
 
     /**
@@ -125,12 +132,14 @@ class MADOEvidenceBuilder {
         sopItem.setString(Tag.ReferencedSOPInstanceUID, VR.UI,
             normalizeUidNoLeadingZeros(instAttrs.getString(Tag.SOPInstanceUID)));
 
-        // MADO Appendix B: Add NumberOfFrames if multiframe
+        // MADO Appendix B: Add NumberOfFrames if multiframe (always included per standard)
         addOptionalAttribute(sopItem, instAttrs, Tag.NumberOfFrames, VR.IS);
 
-        // MADO Appendix B: Rows/Columns recommended for bandwidth estimation
-        addOptionalAttribute(sopItem, instAttrs, Tag.Rows, VR.US);
-        addOptionalAttribute(sopItem, instAttrs, Tag.Columns, VR.US);
+        // MADO Appendix B: Rows/Columns recommended for bandwidth estimation (only if extended metadata enabled)
+        if (includeExtendedInstanceMetadata) {
+            addOptionalAttribute(sopItem, instAttrs, Tag.Rows, VR.US);
+            addOptionalAttribute(sopItem, instAttrs, Tag.Columns, VR.US);
+        }
 
         return sopItem;
     }

@@ -15,6 +15,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
 
+import static be.uzleuven.ihe.singletons.HAPI.FHIR_R5_CONTEXT;
+
 /**
  * Batch converter for processing multiple DICOM MADO files to FHIR format.
  *
@@ -25,7 +27,6 @@ import java.util.stream.Stream;
  */
 public class MADOBatchConverter {
 
-    private static final FhirContext FHIR_CONTEXT = FhirContext.forR5();
     private final MADOToFHIRConverter converter;
     private final boolean prettyPrint;
 
@@ -110,7 +111,7 @@ public class MADOBatchConverter {
                 Bundle bundle = converter.convert(dicomFile.toFile());
 
                 // Write FHIR bundle to file
-                IParser parser = FHIR_CONTEXT.newJsonParser();
+                IParser parser = FHIR_R5_CONTEXT.newJsonParser();
                 parser.setPrettyPrint(prettyPrint);
                 // Preserve resource IDs in Bundle entries for round-trip consistency
                 parser.setOverrideResourceIdWithBundleEntryFullUrl(false);

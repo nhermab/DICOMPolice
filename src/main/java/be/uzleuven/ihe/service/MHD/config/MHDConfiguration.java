@@ -31,7 +31,7 @@ public class MHDConfiguration {
     private String retrieveLocationUid = DicomConstants.DEMO_RETRIEVE_LOCATION_UID;
 
     // FHIR Server Base URL (used to construct absolute URLs)
-    private String fhirBaseUrl = "https://ihebelgium.ehealthhub.be/TheDICOMPolice/fhir";
+    private String fhirBaseUrl = "http://localhost:8080/fhir";
 
     // WADO-RS Base URL for DICOM retrieval
     private String wadoRsBaseUrl = "https://ihebelgium.ehealthhub.be/orthanc/dicom-web/wado-rs/studies";
@@ -39,8 +39,7 @@ public class MHDConfiguration {
     // DICOM Connection Settings
     private String callingAet = "DICOMPOLICE";
     private String calledAet = "ORTHANC";
-    private String remoteHost = "localhost";
-    //private String remoteHost = "172.20.240.184";
+    private String remoteHost = "172.20.240.184";
     private int remotePort = 4242;
     private int connectTimeout = 5000;
     private int responseTimeout = 10000;
@@ -52,6 +51,11 @@ public class MHDConfiguration {
     private String typeCodeSystem = "http://loinc.org";
     private String classCode = "IMAGES";
     private String classCodeSystem = "urn:oid:1.3.6.1.4.1.19376.1.2.6.1";
+
+    // MADO Manifest Generation Settings
+    // If true, include extended instance-level metadata (Rows, Columns, Bits Allocated, etc.)
+    // If false (default), only include standard MADO metadata (Instance Number, Number of Frames)
+    private boolean includeExtendedInstanceMetadata = false;
 
     // Getters and Setters
 
@@ -229,6 +233,14 @@ public class MHDConfiguration {
 
     public void setClassCodeSystem(String classCodeSystem) {
         this.classCodeSystem = classCodeSystem;
+    }
+
+    public boolean isIncludeExtendedInstanceMetadata() {
+        return includeExtendedInstanceMetadata;
+    }
+
+    public void setIncludeExtendedInstanceMetadata(boolean includeExtendedInstanceMetadata) {
+        this.includeExtendedInstanceMetadata = includeExtendedInstanceMetadata;
     }
 
     /**

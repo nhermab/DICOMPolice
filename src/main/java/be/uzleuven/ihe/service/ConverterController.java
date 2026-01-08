@@ -23,6 +23,8 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 
+import static be.uzleuven.ihe.singletons.HAPI.FHIR_R5_CONTEXT;
+
 /**
  * REST Controller for DICOM↔FHIR conversion.
  * Provides endpoints for:
@@ -39,7 +41,6 @@ public class ConverterController {
 
     private final MADOToFHIRConverter matoToFhirConverter = new MADOToFHIRConverter();
     private final FHIRToMADOConverter fhirToMadoConverter = new FHIRToMADOConverter();
-    private final FhirContext fhirContext = FhirContext.forR5();
 
     /**
      * Convert a file from one format to another.
@@ -124,7 +125,7 @@ public class ConverterController {
             }
 
             Bundle fhirBundle = matoToFhirConverter.convert(attrs);
-            IParser parser = fhirContext.newJsonParser();
+            IParser parser = FHIR_R5_CONTEXT.newJsonParser();
             parser.setPrettyPrint(true);
             parser.setOverrideResourceIdWithBundleEntryFullUrl(false);
             String fhirJson = parser.encodeResourceToString(fhirBundle);
@@ -189,7 +190,7 @@ public class ConverterController {
 
             // Step 2: Convert to FHIR
             Bundle fhirBundle = matoToFhirConverter.convert(originalAttrs);
-            IParser fhirParser = fhirContext.newJsonParser();
+            IParser fhirParser = FHIR_R5_CONTEXT.newJsonParser();
             fhirParser.setPrettyPrint(true);
             fhirParser.setOverrideResourceIdWithBundleEntryFullUrl(false);
             String fhirJson = fhirParser.encodeResourceToString(fhirBundle);
@@ -236,8 +237,12 @@ public class ConverterController {
     private Map<String, Object> roundtripFhir(MultipartFile file) throws IOException {
         String originalFhirJson = new String(file.getBytes(), StandardCharsets.UTF_8);
 
-        // Step 1: Use original file content as-is (don't re-parse to preserve exact content)
-        String prettyOriginalJson = originalFhirJson;
+        // Step 1: Parse and re-format original to ensure consistent formatting for comparison
+        Bundle originalBundle = (Bundle) FHIR_R5_CONTEXT.newJsonParser().parseResource(originalFhirJson);
+        IParser originalParser = FHIR_R5_CONTEXT.newJsonParser();
+        originalParser.setPrettyPrint(true);
+        originalParser.setOverrideResourceIdWithBundleEntryFullUrl(false);
+        String prettyOriginalJson = originalParser.encodeResourceToString(originalBundle);
 
         // Step 2: Convert to DICOM
         Attributes dicomAttrs = fhirToMadoConverter.convertFromJson(originalFhirJson);
@@ -247,7 +252,7 @@ public class ConverterController {
 
         // Step 3: Convert back to FHIR (this is where we apply our ID preservation settings)
         Bundle roundtripBundle = matoToFhirConverter.convert(dicomAttrs);
-        IParser roundtripParser = fhirContext.newJsonParser();
+        IParser roundtripParser = FHIR_R5_CONTEXT.newJsonParser();
         roundtripParser.setPrettyPrint(true);
         roundtripParser.setOverrideResourceIdWithBundleEntryFullUrl(false);
         String roundtripFhirJson = roundtripParser.encodeResourceToString(roundtripBundle);

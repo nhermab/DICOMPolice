@@ -132,7 +132,7 @@ const MadoViewer = (function() {
                 elements.ohifViewerUrl.value = 'https://ihebelgium.ehealthhub.be/ohif/mado';
                 break;
             case 'ihe':
-                elements.fhirEndpoint.value = 'https://ihebelgium.ehealthhub.be/fhir';
+                elements.fhirEndpoint.value = 'https://ihebelgium.ehealthhub.be/TheDICOMPolice/fhir';
                 elements.ohifViewerUrl.value = 'https://ihebelgium.ehealthhub.be/ohif/mado';
                 break;
         }

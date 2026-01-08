@@ -13,6 +13,7 @@ import java.util.stream.Collectors;
 import static be.uzleuven.ihe.dicom.constants.CodeConstants.*;
 import static be.uzleuven.ihe.dicom.creator.utils.DicomCreatorUtils.*;
 import static be.uzleuven.ihe.dicom.creator.utils.SRContentItemUtils.*;
+import static be.uzleuven.ihe.singletons.HAPI.FHIR_R5_CONTEXT;
 
 /**
  * Converts FHIR MADO Bundles back to DICOM MADO KOS manifests.
@@ -28,7 +29,7 @@ import static be.uzleuven.ihe.dicom.creator.utils.SRContentItemUtils.*;
 public class FHIRToMADOConverter {
 
     // Shared FHIR context (initialization is expensive, so create once and reuse)
-    private static final ca.uhn.fhir.context.FhirContext FHIR_CONTEXT = ca.uhn.fhir.context.FhirContext.forR5();
+
 
     // IHE UID prefix used in FHIR identifiers
     public static final String IHE_UID_PREFIX = "ihe:urn:oid:";
@@ -57,7 +58,7 @@ public class FHIRToMADOConverter {
      * @throws IllegalArgumentException If the JSON is not a valid MADO manifest
      */
     public Attributes convertFromJson(String fhirJson) {
-        Bundle bundle = FHIR_CONTEXT.newJsonParser().parseResource(Bundle.class, fhirJson);
+        Bundle bundle = FHIR_R5_CONTEXT.newJsonParser().parseResource(Bundle.class, fhirJson);
         return convert(bundle);
     }
 
@@ -393,13 +394,18 @@ public class FHIRToMADOConverter {
             Reference basedOn = study.getBasedOnFirstRep();
             if (basedOn.hasIdentifier()) {
                 Identifier accessionId = basedOn.getIdentifier();
-                mado.setString(Tag.AccessionNumber, VR.SH, accessionId.getValue());
+                String accessionValue = accessionId.getValue();
 
-                // Issuer of Accession Number
-                String system = accessionId.getSystem();
-                String issuerOid = extractOidFromSystem(system);
-                if (issuerOid != null) {
-                    addAccessionNumberIssuer(mado, issuerOid);
+                // Only set if value is not null or empty
+                if (accessionValue != null && !accessionValue.isEmpty()) {
+                    mado.setString(Tag.AccessionNumber, VR.SH, accessionValue);
+
+                    // Issuer of Accession Number
+                    String system = accessionId.getSystem();
+                    String issuerOid = extractOidFromSystem(system);
+                    if (issuerOid != null) {
+                        addAccessionNumberIssuer(mado, issuerOid);
+                    }
                 }
             }
         }
@@ -634,6 +640,9 @@ public class FHIRToMADOConverter {
             // Instance Number
             if (instance.hasNumber()) {
                 sopItem.setString(Tag.InstanceNumber, VR.IS, String.valueOf(instance.getNumber()));
+                System.out.println("DEBUG FHIRToMADOConverter.buildSeriesEvidenceItem: Adding InstanceNumber=" + instance.getNumber() + " to evidence for SOP " + instance.getUid());
+            } else {
+                System.out.println("DEBUG FHIRToMADOConverter.buildSeriesEvidenceItem: NO InstanceNumber for SOP " + instance.getUid());
             }
 
             // Extract dimensions from extension if available
@@ -701,28 +710,33 @@ public class FHIRToMADOConverter {
         // Process each basedOn as a separate request
         for (Reference basedOn : study.getBasedOn()) {
             if (basedOn.hasIdentifier()) {
-                Attributes reqItem = new Attributes();
                 Identifier accessionId = basedOn.getIdentifier();
+                String accessionValue = accessionId.getValue();
 
-                reqItem.setString(Tag.AccessionNumber, VR.SH, accessionId.getValue());
+                // Only process if accession number is not null or empty
+                if (accessionValue != null && !accessionValue.isEmpty()) {
+                    Attributes reqItem = new Attributes();
 
-                // Issuer of Accession Number
-                String system = accessionId.getSystem();
-                String issuerOid = extractOidFromSystem(system);
-                if (issuerOid != null) {
-                    Sequence issuerAccSeq = reqItem.newSequence(Tag.IssuerOfAccessionNumberSequence, 1);
-                    Attributes issuerAcc = new Attributes();
-                    issuerAcc.setString(Tag.UniversalEntityID, VR.UT, issuerOid);
-                    issuerAcc.setString(Tag.UniversalEntityIDType, VR.CS, "ISO");
-                    issuerAccSeq.add(issuerAcc);
+                    reqItem.setString(Tag.AccessionNumber, VR.SH, accessionValue);
+
+                    // Issuer of Accession Number
+                    String system = accessionId.getSystem();
+                    String issuerOid = extractOidFromSystem(system);
+                    if (issuerOid != null) {
+                        Sequence issuerAccSeq = reqItem.newSequence(Tag.IssuerOfAccessionNumberSequence, 1);
+                        Attributes issuerAcc = new Attributes();
+                        issuerAcc.setString(Tag.UniversalEntityID, VR.UT, issuerOid);
+                        issuerAcc.setString(Tag.UniversalEntityIDType, VR.CS, "ISO");
+                        issuerAccSeq.add(issuerAcc);
+                    }
+
+                    reqItem.setString(Tag.StudyInstanceUID, VR.UI, studyUID);
+                    reqItem.setString(Tag.RequestedProcedureID, VR.SH, "RP001");
+                    reqItem.setString(Tag.PlacerOrderNumberImagingServiceRequest, VR.LO, "PO001");
+                    reqItem.setString(Tag.FillerOrderNumberImagingServiceRequest, VR.LO, "FO001");
+
+                    refRequestSeq.add(reqItem);
                 }
-
-                reqItem.setString(Tag.StudyInstanceUID, VR.UI, studyUID);
-                reqItem.setString(Tag.RequestedProcedureID, VR.SH, "RP001");
-                reqItem.setString(Tag.PlacerOrderNumberImagingServiceRequest, VR.LO, "PO001");
-                reqItem.setString(Tag.FillerOrderNumberImagingServiceRequest, VR.LO, "FO001");
-
-                refRequestSeq.add(reqItem);
             }
         }
 
@@ -923,9 +937,10 @@ public class FHIRToMADOConverter {
         Attributes refItem = new Attributes();
 
         // SOP Class UID
+        String sopClassUID = null;
         if (instance.hasSopClass()) {
             String sopClassCode = instance.getSopClass().getCode();
-            String sopClassUID = extractUidFromIhePrefix(sopClassCode);
+            sopClassUID = extractUidFromIhePrefix(sopClassCode);
             refItem.setString(Tag.ReferencedSOPClassUID, VR.UI, sopClassUID);
         }
 
@@ -938,10 +953,49 @@ public class FHIRToMADOConverter {
 
         // Instance Number
         String instanceNumber = instance.hasNumber() ? String.valueOf(instance.getNumber()) : "1";
+        System.out.println("DEBUG FHIRToMADOConverter.buildInstanceEntry: instance.hasNumber()=" + instance.hasNumber() +
+                           ", instance.getNumber()=" + (instance.hasNumber() ? instance.getNumber() : "N/A") +
+                           ", using instanceNumber='" + instanceNumber + "'");
         entryContent.add(createTextItem("HAS ACQ CONTEXT", CODE_INSTANCE_NUMBER,
             SCHEME_DCM, MEANING_INSTANCE_NUMBER, instanceNumber));
 
+        // Number of Frames - extract from instance description extension and add if multiframe SOP Class
+        Integer numberOfFrames = extractNumberOfFramesFromExtension(instance);
+        if (numberOfFrames != null && sopClassUID != null &&
+            be.uzleuven.ihe.dicom.validator.validation.tid1600.TID1600Rules.isMultiframeSOP(sopClassUID)) {
+            entryContent.add(createNumericItem("HAS ACQ CONTEXT", CODE_NUMBER_OF_FRAMES,
+                SCHEME_DCM, MEANING_NUMBER_OF_FRAMES, numberOfFrames));
+        }
+
         return entry;
+    }
+
+    /**
+     * Extracts number of frames from the instance description extension.
+     * Parses patterns like "512x512 (1 frames)" or "10 frames"
+     */
+    private Integer extractNumberOfFramesFromExtension(ImagingStudy.ImagingStudySeriesInstanceComponent instance) {
+        for (Extension ext : instance.getExtension()) {
+            if (EXT_INSTANCE_DESCRIPTION.equals(ext.getUrl())) {
+                String desc = ((StringType) ext.getValue()).getValue();
+                if (desc != null && desc.contains("frames")) {
+                    try {
+                        // Extract number before "frames"
+                        String framesPart = desc;
+                        if (desc.contains("(")) {
+                            framesPart = desc.substring(desc.indexOf("(") + 1);
+                        }
+                        String numFrames = framesPart.replaceAll("[^0-9]", "");
+                        if (!numFrames.isEmpty()) {
+                            return Integer.parseInt(numFrames);
+                        }
+                    } catch (Exception e) {
+                        // Ignore parsing errors
+                    }
+                }
+            }
+        }
+        return null;
     }
 
     // ============================================================================

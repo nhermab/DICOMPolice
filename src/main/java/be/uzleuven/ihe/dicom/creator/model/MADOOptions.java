@@ -34,6 +34,14 @@ public class MADOOptions {
      */
     private int keyImageCount = 3;
 
+    /**
+     * If true, include extended instance-level metadata (Rows, Columns, Bits Allocated, etc.)
+     * in the MADO content sequence and evidence sequence.
+     * If false (default), only include standard MADO instance-level attributes:
+     * Instance Number and Number of Frames (for multiframe images).
+     */
+    private boolean includeExtendedInstanceMetadata = false;
+
     public MADOOptions withSeriesCount(int v) {
         this.seriesCount = Math.max(1, v);
         return this;
@@ -69,6 +77,11 @@ public class MADOOptions {
         return this;
     }
 
+    public MADOOptions withIncludeExtendedInstanceMetadata(boolean v) {
+        this.includeExtendedInstanceMetadata = v;
+        return this;
+    }
+
     // Getters
     public int getSeriesCount() {
         return seriesCount;
@@ -96,6 +109,10 @@ public class MADOOptions {
 
     public int getKeyImageCount() {
         return keyImageCount;
+    }
+
+    public boolean isIncludeExtendedInstanceMetadata() {
+        return includeExtendedInstanceMetadata;
     }
 }
 
