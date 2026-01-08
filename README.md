@@ -20,7 +20,7 @@ mvn spring-boot:run
 ```
 
 ### 1. Validator (MADO & KOS)
-> **URL**: [http://localhost:8080](http://localhost:8080)
+> **URL**: [https://ihebelgium.ehealthhub.be/TheDICOMPolice/](https://ihebelgium.ehealthhub.be/TheDICOMPolice/)
 
 Drag-and-drop DICOM files to validate them against IHE profiles.
 - **Profiles**: IHE XDS-I.b Key Object Selection (KOS), MADO Draft Profile (TID 1600).
@@ -30,7 +30,7 @@ Drag-and-drop DICOM files to validate them against IHE profiles.
   - [`GazelleValidatorAPIController.java`](src/main/java/be/uzleuven/ihe/service/GazelleValidatorAPIController.java) (Validation logic)
 
 ### 2. MHD Viewer & MADO SCU Client
-> **URL**: [http://localhost:8080/MHDMADOViewer.html](http://localhost:8080/MHDMADOViewer.html)
+> **URL**: [https://ihebelgium.ehealthhub.be/TheDICOMPolice/xtehdsMADO](https://ihebelgium.ehealthhub.be/TheDICOMPolice/xtehdsMADO)
 
 A **FHIR MHD (Mobile access to Health Documents)** Document Responder facade that sits on top of a standard DICOM PACS.
 - **Workflow**:
@@ -43,7 +43,7 @@ A **FHIR MHD (Mobile access to Health Documents)** Document Responder facade tha
   - [`MADOSCUManifestCreator.java`](src/main/java/be/uzleuven/ihe/dicom/creator/scu/MADOSCUManifestCreator.java) (Builds MADO from PACS responses)
 
 ### 3. DICOM ↔ FHIR Converter
-> **URL**: [http://localhost:8080/converter.html](http://localhost:8080/converter.html)
+> **URL**: [https://ihebelgium.ehealthhub.be/TheDICOMPolice/converter](https://ihebelgium.ehealthhub.be/TheDICOMPolice/converter)
 
 Visualize and test the bidirectional conversion between DICOM MADO manifests and FHIR R5 Document Bundles.
 - **MADO to FHIR**: Converts DICOM attributes and SR tree to FHIR Composition/DocumentReference.
@@ -235,10 +235,6 @@ We have great respect for the Orthanc project and its contributors.
 Note: DICOMPolice does not use Orthanc code and does not depend on Orthanc specifically.
 The SCU / MADO generation tools are standard-compliant and will work against any DICOM SCP
 (Service Class Provider) or WADO-RS capable server.
-
--------------------------------------------------------------------------------
-End of Third Party Notices
--------------------------------------------------------------------------------
 ```
 
 ## License
