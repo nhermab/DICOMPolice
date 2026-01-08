@@ -6,9 +6,12 @@ import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
 import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Tag;
+import org.dcm4che3.data.UID;
 import org.dcm4che3.io.DicomInputStream;
 import org.dcm4che3.io.DicomOutputStream;
 import org.hl7.fhir.r5.model.Bundle;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -32,6 +35,8 @@ import java.util.Map;
 @CrossOrigin(origins = "*")
 public class ConverterController {
 
+    private static final Logger LOG = LoggerFactory.getLogger(ConverterController.class);
+
     private final MADOToFHIRConverter matoToFhirConverter = new MADOToFHIRConverter();
     private final FHIRToMADOConverter fhirToMadoConverter = new FHIRToMADOConverter();
     private final FhirContext fhirContext = FhirContext.forR5();
@@ -49,6 +54,8 @@ public class ConverterController {
                 return badRequest("No file provided");
             }
 
+            LOG.info("Converting {} file: {}, size: {} bytes", sourceType, file.getOriginalFilename(), file.getSize());
+
             Map<String, Object> response;
 
             if ("dicom".equalsIgnoreCase(sourceType)) {
@@ -64,7 +71,7 @@ public class ConverterController {
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-            System.err.println("Conversion failed: " + e.getMessage());
+            LOG.error("Conversion failed: {}", e.getMessage(), e);
             return serverError("Conversion failed: " + e.getMessage());
         }
     }
@@ -82,6 +89,8 @@ public class ConverterController {
                 return badRequest("No file provided");
             }
 
+            LOG.info("Round-trip conversion for {} file: {}, size: {} bytes", sourceType, file.getOriginalFilename(), file.getSize());
+
             Map<String, Object> response;
 
             if ("dicom".equalsIgnoreCase(sourceType)) {
@@ -97,7 +106,7 @@ public class ConverterController {
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-            System.err.println("Round-trip conversion failed: " + e.getMessage());
+            LOG.error("Round-trip conversion failed: {}", e.getMessage(), e);
             return serverError("Round-trip conversion failed: " + e.getMessage());
         }
     }
@@ -129,7 +138,7 @@ public class ConverterController {
             return response;
         } finally {
             if (!tempFile.delete()) {
-                System.err.println("Failed to delete temp file: " + tempFile.getAbsolutePath());
+                LOG.warn("Failed to delete temp file: {}", tempFile.getAbsolutePath());
             }
         }
     }
@@ -215,7 +224,7 @@ public class ConverterController {
             return response;
         } finally {
             if (!tempFile.delete()) {
-                System.err.println("Failed to delete temp file: " + tempFile.getAbsolutePath());
+                LOG.warn("Failed to delete temp file: {}", tempFile.getAbsolutePath());
             }
         }
     }
@@ -280,10 +289,28 @@ public class ConverterController {
         return attrs.toString(Integer.MAX_VALUE, 120);
     }
 
+    /**
+     * Generate DICOM bytes in Part 10 format (with 128-byte preamble, "DICM" prefix, and File Meta Information).
+     * 
+     * @param attrs The DICOM dataset to serialize
+     * @return DICOM Part 10 formatted bytes
+     * @throws IOException if writing fails
+     */
     private byte[] generateDicomBytes(Attributes attrs) throws IOException {
+        // Determine transfer syntax, defaulting to Explicit VR Little Endian
+        String transferSyntax = attrs.getString(Tag.TransferSyntaxUID, UID.ExplicitVRLittleEndian);
+        
+        LOG.debug("Generating DICOM Part 10 bytes with transfer syntax: {}", transferSyntax);
+        
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        try (DicomOutputStream dos = new DicomOutputStream(baos, attrs.getString(Tag.TransferSyntaxUID, "1.2.840.10008.1.2.1"))) {
-            dos.writeDataset(null, attrs);
+        try (DicomOutputStream dos = new DicomOutputStream(baos, transferSyntax)) {
+            // Write File Meta Information + Dataset in Part 10 format
+            // This creates the 128-byte preamble, "DICM" prefix, and File Meta tags
+            Attributes fmi = attrs.createFileMetaInformation(transferSyntax);
+            dos.writeDataset(fmi, attrs);
+            
+            LOG.info("Generated DICOM Part 10 file: {} bytes, SOP Instance UID: {}", 
+                    baos.size(), attrs.getString(Tag.SOPInstanceUID, "unknown"));
         }
         return baos.toByteArray();
     }
