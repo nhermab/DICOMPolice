@@ -26,8 +26,10 @@
                     </div>
                 </div>
                 <div class="header-nav">
-                    <a href="./" class="nav-link">MADO Visualizer</a>
                     <a href="./xtehdsMADO" class="nav-link active">MADO on XDS / MHD</a>
+                    <a href="./" class="nav-link">MADO Validator</a>
+                    <a href="./qido-explorer" class="nav-link">QIDO-RS Explorer</a>
+                    <a href="./dicom-downloader" class="nav-link">DICOM Downloader</a>
                     <a href="./converter" class="nav-link">DICOM↔FHIR Bridge</a>
                 </div>
             </div>
@@ -319,6 +321,11 @@
                         <span class="action-icon">👁️</span>
                         <span class="action-title">View in OHIF</span>
                         <span class="action-desc">Open MADO manifest in OHIF viewer</span>
+                    </button>
+                    <button class="action-card" onclick="MadoViewer.executeAction('download')">
+                        <span class="action-icon">💾</span>
+                        <span class="action-title">Download DICOM</span>
+                        <span class="action-desc">Download images from this study</span>
                     </button>
                     <button class="action-card" onclick="MadoViewer.executeAction('validate')">
                         <span class="action-icon">✅</span>

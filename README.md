@@ -53,6 +53,35 @@ Visualize and test the bidirectional conversion between DICOM MADO manifests and
   - [`FHIRToMADOConverter.java`](src/main/java/be/uzleuven/ihe/dicom/convertor/dicom/FHIRToMADOConverter.java)
   - [`MADOToFHIRConverter.java`](src/main/java/be/uzleuven/ihe/dicom/convertor/fhir/MADOToFHIRConverter.java)
 
+### 4. QIDO-RS MADO Explorer
+> **URL**: [http://localhost:8080/qido-explorer](http://localhost:8080/qido-explorer)
+
+An interactive web application for exploring DICOM studies, series, and instances via **QIDO-RS** (DICOMweb Query).
+- **Workflow**:
+  1. Search for studies using various DICOM query parameters (Patient ID, Study UID, Modality, Date, etc.).
+  2. Drill down into series and instances with hierarchical navigation.
+  3. View all DICOM tags with human-readable names and values.
+  4. Export metadata as CSV or JSON.
+- **Features**:
+  - Configurable QIDO-RS endpoint (local or remote).
+  - Study/Series/Instance level queries.
+  - Tag dictionary with common DICOM attribute names.
+  - Responsive UI matching the MHD MADO Viewer style.
+- **Core Code**:
+  - [`QIDORestController.java`](src/main/java/be/uzleuven/ihe/service/qido/QIDORestController.java) (QIDO-RS backend)
+  - [`QIDOExplorerController.java`](src/main/java/be/uzleuven/ihe/service/qido/QIDOExplorerController.java) (Web page controller)
+  - Frontend: `qido-explorer.html`, `qido-explorer.css`, `js/qido-explorer.js`
+
+### 5. DICOM Downloader
+> **URL**: [http://localhost:8080/dicom-downloader](http://localhost:8080/dicom-downloader)
+
+A compact web utility to load a MADO (FHIR) manifest (URL, file or paste), inspect the Study → Series → Instance hierarchy, and download selected DICOM instances from a WADO‑RS endpoint. Supports automatic conversion of DICOM MADO files to FHIR via the built-in converter.
+
+- Input: URL, drag‑&‑drop (.json / .dcm), or paste.
+- Key features: hierarchical tree view, select-by-study/series/instance, key-image highlighting, progress reporting, File System Access API (native folder save) with ZIP fallback.
+- Download settings: export folder name, naming schemes (SOP UID / numbered / Series_Instance), option to include the source manifest.
+
+**Core files**: `dicom-downloader.html`, `dicom-downloader.css`, `js/dicom-downloader.js` (frontend) and [`ConverterController.java`](src/main/java/be/uzleuven/ihe/service/ConverterController.java) for on-server conversion.
 
 ---
 

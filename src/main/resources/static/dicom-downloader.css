@@ -1,0 +1,651 @@
+/* ==============================
+   DICOM Downloader Specific Styles
+   ============================== */
+
+/* Downloader Container */
+.downloader-container {
+    width: 100%;
+    margin: 0;
+    padding: 0 8px;
+    display: flex;
+    flex-direction: row;
+    gap: 12px;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.downloader-sidebar {
+    width: 360px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow-y: auto;
+}
+
+/* Input Panel */
+.input-panel {
+    background: var(--background-white);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    padding: 16px;
+    flex-shrink: 0;
+}
+
+.input-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 16px;
+    background: var(--background-primary);
+    padding: 4px;
+    border-radius: var(--radius-md);
+}
+
+.input-tab {
+    flex: 1;
+    padding: 8px 12px;
+    border: none;
+    background: transparent;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    transition: all var(--transition-fast);
+}
+
+.input-tab:hover {
+    color: var(--text-primary);
+}
+
+.input-tab.active {
+    background: var(--primary-blue);
+    color: white;
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+/* File Drop Zone */
+.file-drop-zone {
+    border: 2px dashed var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 32px 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    background: var(--background-primary);
+}
+
+.file-drop-zone:hover,
+.file-drop-zone.drag-over {
+    border-color: var(--primary-blue);
+    background: var(--accent-blue);
+}
+
+.file-drop-zone.drag-over {
+    transform: scale(1.02);
+}
+
+.drop-icon {
+    font-size: 36px;
+    margin-bottom: 8px;
+}
+
+.drop-text {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+}
+
+.drop-subtext {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+/* Form Elements */
+.form-textarea {
+    width: 100%;
+    min-height: 120px;
+    padding: 10px 12px;
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-md);
+    font-size: 12px;
+    font-family: 'Consolas', 'Monaco', monospace;
+    resize: vertical;
+    transition: all var(--transition-fast);
+    box-sizing: border-box;
+}
+
+.form-textarea:focus {
+    outline: none;
+    border-color: var(--primary-blue);
+    box-shadow: 0 0 0 3px var(--accent-blue);
+}
+
+/* Checkbox Group */
+.checkbox-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+.checkbox-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--primary-blue);
+}
+
+.checkbox-text {
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+/* Manifest Info Panel */
+.manifest-info-panel {
+    background: var(--background-white);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    padding: 16px;
+    flex-shrink: 0;
+}
+
+.info-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+}
+
+.info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.info-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.info-value {
+    font-size: 13px;
+    color: var(--text-primary);
+    font-weight: 500;
+    word-break: break-all;
+}
+
+.info-value.highlight {
+    color: var(--primary-blue);
+}
+
+/* Download Settings Panel */
+.download-settings-panel {
+    background: var(--background-white);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    padding: 16px;
+    flex-shrink: 0;
+}
+
+/* Study Tree Panel */
+.study-tree-panel {
+    background: var(--background-white);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+
+.panel-header {
+    padding: 12px 16px;
+    border-bottom: 2px solid var(--border-light);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    flex-shrink: 0;
+    background: var(--background-white);
+}
+
+.panel-title-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.selection-badge {
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 12px;
+    background: var(--accent-blue);
+    color: var(--primary-blue);
+    font-weight: 600;
+}
+
+.tree-controls {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+/* Tree Container */
+.tree-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+    min-height: 0;
+}
+
+/* Tree Nodes */
+.tree-node {
+    margin-bottom: 2px;
+}
+
+.tree-node-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    background: var(--background-primary);
+    border: 1px solid transparent;
+}
+
+.tree-node-header:hover {
+    background: var(--accent-blue);
+    border-color: var(--primary-blue);
+}
+
+.tree-node-header.selected {
+    background: var(--accent-blue);
+    border-color: var(--primary-blue);
+}
+
+.tree-node-header.key-image {
+    border-left: 3px solid var(--warning-orange);
+}
+
+.tree-expand-btn {
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    color: var(--text-secondary);
+    border: none;
+    background: none;
+    cursor: pointer;
+    transition: transform var(--transition-fast);
+    flex-shrink: 0;
+}
+
+.tree-expand-btn.expanded {
+    transform: rotate(90deg);
+}
+
+.tree-expand-btn.no-children {
+    visibility: hidden;
+}
+
+.tree-checkbox {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--primary-blue);
+    flex-shrink: 0;
+}
+
+.tree-icon {
+    font-size: 16px;
+    flex-shrink: 0;
+}
+
+.tree-label {
+    flex: 1;
+    min-width: 0;
+}
+
+.tree-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tree-subtitle {
+    font-size: 11px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tree-badge {
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: var(--primary-blue);
+    color: white;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+.tree-badge.key-image {
+    background: var(--warning-orange);
+}
+
+.tree-badge.series {
+    background: var(--info-blue);
+}
+
+.tree-children {
+    margin-left: 28px;
+    display: none;
+}
+
+.tree-children.expanded {
+    display: block;
+}
+
+/* Instance level */
+.tree-node.instance .tree-node-header {
+    padding: 6px 12px;
+    background: var(--background-white);
+    border: 1px solid var(--border-light);
+}
+
+.tree-node.instance .tree-title {
+    font-weight: 500;
+    font-size: 12px;
+}
+
+/* Download Actions */
+.download-actions {
+    padding: 16px;
+    border-top: 2px solid var(--border-light);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    flex-shrink: 0;
+    background: linear-gradient(135deg, var(--background-primary) 0%, var(--background-white) 100%);
+}
+
+.download-summary {
+    font-size: 13px;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.btn-lg {
+    padding: 12px 24px;
+    font-size: 15px;
+}
+
+/* Progress Panel */
+.progress-panel {
+    background: var(--background-white);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.progress-container {
+    padding: 16px;
+}
+
+.progress-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.progress-stat {
+    text-align: center;
+    padding: 12px;
+    background: var(--background-primary);
+    border-radius: var(--radius-md);
+}
+
+.progress-stat-label {
+    display: block;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+}
+
+.progress-stat-value {
+    display: block;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--primary-blue);
+}
+
+.progress-bar-container {
+    height: 12px;
+    background: var(--background-primary);
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 12px;
+}
+
+.progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary-blue) 0%, var(--success-green) 100%);
+    border-radius: 6px;
+    transition: width 0.3s ease;
+}
+
+.progress-current {
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 16px;
+    padding: 8px;
+    background: var(--background-primary);
+    border-radius: var(--radius-sm);
+    font-family: 'Consolas', 'Monaco', monospace;
+}
+
+.progress-log-container {
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+
+.progress-log-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: var(--background-primary);
+    border-bottom: 1px solid var(--border-light);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.progress-log {
+    max-height: 200px;
+    overflow-y: auto;
+    padding: 8px 12px;
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 11px;
+    line-height: 1.6;
+    background: #1e1e1e;
+    color: #d4d4d4;
+}
+
+.log-entry {
+    margin-bottom: 2px;
+}
+
+.log-entry.success {
+    color: #4ec9b0;
+}
+
+.log-entry.error {
+    color: #f14c4c;
+}
+
+.log-entry.warning {
+    color: #cca700;
+}
+
+.log-entry.info {
+    color: #9cdcfe;
+}
+
+.log-entry .log-time {
+    color: #6a9955;
+    margin-right: 8px;
+}
+
+/* Success Banner */
+.success-banner {
+    background: var(--success-light);
+    border-left: 4px solid var(--success-green);
+    padding: 12px 16px;
+    border-radius: var(--radius-md);
+    color: var(--success-green);
+    font-weight: 500;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* Danger Button */
+.btn-danger {
+    background: var(--error-red) !important;
+    border-color: var(--error-red) !important;
+    color: white !important;
+}
+
+.btn-danger:hover {
+    background: #c82333 !important;
+    border-color: #c82333 !important;
+}
+
+/* Key Images Section */
+.key-images-section {
+    background: linear-gradient(135deg, #fff8e6 0%, #fff 100%);
+    border: 2px solid var(--warning-orange);
+    border-radius: var(--radius-lg);
+    margin-bottom: 12px;
+    overflow: hidden;
+}
+
+.key-images-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    background: rgba(255, 140, 0, 0.1);
+    border-bottom: 1px solid var(--warning-orange);
+}
+
+.key-images-icon {
+    font-size: 20px;
+}
+
+.key-images-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--warning-orange);
+}
+
+.key-images-count {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: var(--warning-orange);
+    color: white;
+    font-weight: 600;
+    margin-left: auto;
+}
+
+.key-images-content {
+    padding: 8px;
+}
+
+/* Responsive */
+@media (max-width: 968px) {
+    .downloader-container {
+        flex-direction: column;
+        height: auto;
+        overflow: visible;
+    }
+
+    .downloader-sidebar {
+        width: 100%;
+        overflow-y: visible;
+    }
+
+    .study-tree-panel {
+        min-height: 400px;
+    }
+
+    .progress-stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .download-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .tree-controls {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+@media (max-width: 600px) {
+    .progress-stats {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .input-tabs {
+        flex-wrap: wrap;
+    }
+
+    .input-tab {
+        flex: 1 1 calc(33% - 4px);
+        min-width: 80px;
+    }
+}
+

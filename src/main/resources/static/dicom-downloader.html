@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DICOM Downloader - The DICOM Police</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="mado-viewer.css">
+    <link rel="stylesheet" href="dicom-downloader.css">
+</head>
+<body class="mado-viewer-page">
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <div class="logo-section">
+                    <div class="logo-placeholder">
+                        <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <rect width="40" height="40" rx="8" fill="white" opacity="0.2"/>
+                            <path d="M20 10L30 15V25L20 30L10 25V15L20 10Z" stroke="white" stroke-width="2" stroke-linejoin="round"/>
+                            <circle cx="20" cy="20" r="3" fill="white"/>
+                        </svg>
+                    </div>
+                    <div class="logo-text">
+                        <h1>The DICOM Police - DICOM Downloader</h1>
+                        <p class="subtitle">UZ Leuven - Universitaire Ziekenhuizen Leuven</p>
+                    </div>
+                </div>
+                <div class="header-nav">
+                    <a href="./xtehdsMADO" class="nav-link">MADO on XDS / MHD</a>
+                    <a href="./" class="nav-link">MADO Validator</a>
+
+                    <a href="./qido-explorer" class="nav-link">QIDO-RS Explorer</a>
+                    <a href="./dicom-downloader" class="nav-link active">DICOM Downloader</a>
+                    <a href="./converter" class="nav-link">DICOM↔FHIR Bridge</a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="downloader-container">
+            <!-- Left Sidebar: MADO Input -->
+            <div class="left-sidebar downloader-sidebar">
+                <!-- Input Panel -->
+                <section class="input-panel">
+                    <h2 class="panel-title">📥 Load MADO Manifest</h2>
+
+                    <div class="input-tabs">
+                        <button class="input-tab active" data-tab="url">URL</button>
+                        <button class="input-tab" data-tab="file">File</button>
+                        <button class="input-tab" data-tab="paste">Paste</button>
+                    </div>
+
+                    <!-- URL Tab -->
+                    <div class="tab-content active" id="urlTab">
+                        <div class="form-group">
+                            <label for="madoUrl">MADO Manifest URL</label>
+                            <input type="text" id="madoUrl" placeholder="https://... or Binary/..." class="form-input">
+                            <small class="form-hint">Enter the URL to a MADO manifest (FHIR Bundle)</small>
+                        </div>
+                        <button type="button" class="btn btn-primary" id="loadUrlBtn">
+                            <span>📥 Load from URL</span>
+                        </button>
+                    </div>
+
+                    <!-- File Tab -->
+                    <div class="tab-content" id="fileTab">
+                        <div class="file-drop-zone" id="fileDropZone">
+                            <div class="drop-icon">📁</div>
+                            <div class="drop-text">Drag & drop MADO manifest here</div>
+                            <div class="drop-subtext">or click to browse • Supports .dcm (DICOM) or .json (FHIR) files</div>
+                            <input type="file" id="fileInput" accept=".json,.dcm" hidden>
+                        </div>
+                    </div>
+
+                    <!-- Paste Tab -->
+                    <div class="tab-content" id="pasteTab">
+                        <div class="form-group">
+                            <label for="pasteArea">Paste MADO JSON</label>
+                            <textarea id="pasteArea" class="form-textarea" placeholder="Paste your MADO manifest JSON here..."></textarea>
+                        </div>
+                        <button type="button" class="btn btn-primary" id="loadPasteBtn">
+                            <span>📥 Load from Paste</span>
+                        </button>
+                    </div>
+                </section>
+
+                <!-- Manifest Info Panel -->
+                <section class="manifest-info-panel" id="manifestInfoPanel" style="display: none;">
+                    <h2 class="panel-title">📋 Manifest Information</h2>
+                    <div class="info-grid" id="manifestInfoGrid">
+                        <!-- Info will be populated dynamically -->
+                    </div>
+                </section>
+
+                <!-- Download Settings Panel -->
+                <section class="download-settings-panel" id="downloadSettingsPanel" style="display: none;">
+                    <h2 class="panel-title">⚙️ Download Settings</h2>
+
+                    <div class="form-group">
+                        <label for="downloadFolder">Export Folder Name</label>
+                        <input type="text" id="downloadFolder" placeholder="DICOM_Export" class="form-input" value="DICOM_Export">
+                        <small class="form-hint">Files will be organized in subfolders by series</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label>File Naming</label>
+                        <select id="fileNaming" class="form-input">
+                            <option value="sopuid">SOP Instance UID</option>
+                            <option value="numbered">Numbered (001.dcm, 002.dcm...)</option>
+                            <option value="combined">Series_Instance (e.g., S01_I001.dcm)</option>
+                        </select>
+                    </div>
+
+                    <div class="checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="downloadKeyImages" checked>
+                            <span class="checkbox-text">Prioritize Key Images</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="createManifest" checked>
+                            <span class="checkbox-text">Include MADO manifest</span>
+                        </label>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Right Content: Study Tree and Download Progress -->
+            <div class="right-content">
+                <!-- Error Banner -->
+                <div id="errorBanner" class="error-banner" style="display: none;"></div>
+
+                <!-- Success Banner -->
+                <div id="successBanner" class="success-banner" style="display: none;"></div>
+
+                <!-- Study Tree Panel -->
+                <section class="study-tree-panel" id="studyTreePanel">
+                    <div class="panel-header">
+                        <div class="panel-title-row">
+                            <span>🏥</span>
+                            <span>Study Contents</span>
+                            <span class="selection-badge" id="selectionBadge">0 items selected</span>
+                        </div>
+                        <div class="tree-controls">
+                            <button type="button" class="btn-small" id="selectAllBtn" title="Select All">☑️ Select All</button>
+                            <button type="button" class="btn-small" id="deselectAllBtn" title="Deselect All">☐ Deselect All</button>
+                            <button type="button" class="btn-small" id="expandAllBtn" title="Expand All">➕ Expand</button>
+                            <button type="button" class="btn-small" id="collapseAllBtn" title="Collapse All">➖ Collapse</button>
+                        </div>
+                    </div>
+
+                    <div class="tree-container" id="treeContainer">
+                        <div class="empty-state">
+                            <div class="empty-state-icon">📂</div>
+                            <div class="empty-state-title">No MADO Manifest Loaded</div>
+                            <div class="empty-state-text">Load a MADO manifest to see the study structure and select items to download</div>
+                        </div>
+                    </div>
+
+                    <!-- Download Actions -->
+                    <div class="download-actions" id="downloadActions" style="display: none;">
+                        <div class="download-summary">
+                            <span id="downloadSummary">0 images selected (0 MB estimated)</span>
+                        </div>
+                        <button type="button" class="btn btn-primary btn-lg" id="downloadBtn">
+                            <span>💾 Download Selected</span>
+                        </button>
+                    </div>
+                </section>
+
+                <!-- Download Progress Panel -->
+                <section class="progress-panel" id="progressPanel" style="display: none;">
+                    <div class="panel-header">
+                        <div class="panel-title-row">
+                            <span>⏳</span>
+                            <span>Download Progress</span>
+                        </div>
+                        <button type="button" class="btn-small btn-danger" id="cancelDownloadBtn">🛑 Cancel</button>
+                    </div>
+
+                    <div class="progress-container">
+                        <div class="progress-stats">
+                            <div class="progress-stat">
+                                <span class="progress-stat-label">Progress</span>
+                                <span class="progress-stat-value" id="progressPercent">0%</span>
+                            </div>
+                            <div class="progress-stat">
+                                <span class="progress-stat-label">Downloaded</span>
+                                <span class="progress-stat-value" id="progressCount">0 / 0</span>
+                            </div>
+                            <div class="progress-stat">
+                                <span class="progress-stat-label">Size</span>
+                                <span class="progress-stat-value" id="progressSize">0 MB</span>
+                            </div>
+                            <div class="progress-stat">
+                                <span class="progress-stat-label">Speed</span>
+                                <span class="progress-stat-value" id="progressSpeed">-- MB/s</span>
+                            </div>
+                        </div>
+
+                        <div class="progress-bar-container">
+                            <div class="progress-bar" id="progressBar" style="width: 0%"></div>
+                        </div>
+
+                        <div class="progress-current" id="progressCurrent">
+                            Waiting to start...
+                        </div>
+
+                        <div class="progress-log-container">
+                            <div class="progress-log-header">
+                                <span>📜 Download Log</span>
+                                <button type="button" class="btn-small" id="clearLogBtn">Clear</button>
+                            </div>
+                            <div class="progress-log" id="progressLog">
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </main>
+
+    <!-- Notification Toast Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <p>&copy; 2026 UZ Leuven - Universitaire Ziekenhuizen Leuven</p>
+                <p class="footer-links">
+                    <span>DICOM Downloader</span>
+                    <span class="separator">•</span>
+                    <span>Powered by The DICOM Police</span>
+                </p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="js/dicom-downloader.js"></script>
+</body>
+</html>
+

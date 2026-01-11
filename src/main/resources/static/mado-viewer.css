@@ -1103,6 +1103,7 @@
 }
 
 .action-btn.view:hover { background: #0066cc; }
+.action-btn.download:hover { background: #17a2b8; }
 .action-btn.validate:hover { background: #28a745; }
 .action-btn.bridge:hover { background: #6f42c1; }
 .action-btn.more:hover { background: #6c757d; }

@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QIDO-RS MADO Explorer - The DICOM Police</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="qido-explorer.css">
+</head>
+<body class="qido-explorer-page">
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <div class="logo-section">
+                    <div class="logo-placeholder">
+                        <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <rect width="40" height="40" rx="8" fill="white" opacity="0.2"/>
+                            <path d="M20 10L30 15V25L20 30L10 25V15L20 10Z" stroke="white" stroke-width="2" stroke-linejoin="round"/>
+                            <circle cx="20" cy="20" r="3" fill="white"/>
+                        </svg>
+                    </div>
+                    <div class="logo-text">
+                        <h1>The DICOM Police - QIDO-RS MADO Explorer</h1>
+                        <p class="subtitle">UZ Leuven - Universitaire Ziekenhuizen Leuven</p>
+                    </div>
+                </div>
+                <div class="header-nav">
+                    <a href="./xtehdsMADO" class="nav-link">MADO on XDS / MHD</a>
+                    <a href="./" class="nav-link">MADO Validator</a>
+                    <a href="./qido-explorer" class="nav-link active">QIDO-RS Explorer</a>
+                    <a href="./dicom-downloader" class="nav-link">DICOM Downloader</a>
+                    <a href="./converter" class="nav-link">DICOM↔FHIR Bridge</a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="explorer-container">
+            <!-- Left Sidebar: Search Panel -->
+            <div class="left-sidebar">
+                <section class="search-panel">
+                    <h2 class="panel-title">🔍 QIDO-RS Search</h2>
+                    <div class="search-grid">
+                        <div class="search-field">
+                            <label for="patientId">Patient ID</label>
+                            <input type="text" id="patientId" placeholder="Enter patient ID">
+                        </div>
+                        <div class="search-field">
+                            <label for="patientName">Patient Name</label>
+                            <input type="text" id="patientName" placeholder="Enter patient name">
+                        </div>
+                        <div class="search-field">
+                            <label for="studyUid">Study Instance UID</label>
+                            <input type="text" id="studyUid" placeholder="Enter study UID">
+                        </div>
+                        <div class="search-field">
+                            <label for="accessionNumber">Accession Number</label>
+                            <input type="text" id="accessionNumber" placeholder="Enter accession">
+                        </div>
+                        <div class="search-field">
+                            <label for="modality">Modality</label>
+                            <select id="modality">
+                                <option value="">All Modalities</option>
+                                <option value="CT">CT – Computed Tomography</option>
+                                <option value="MR">MR – Magnetic Resonance</option>
+                                <option value="US">US – Ultrasound</option>
+                                <option value="DX">DX – Digital Radiography</option>
+                                <option value="CR">CR – Computed Radiography</option>
+                                <option value="XA">XA – X-Ray Angiography</option>
+                                <option value="PT">PT – Positron Emission Tomography</option>
+                                <option value="NM">NM – Nuclear Medicine</option>
+                                <option value="MG">MG – Mammography</option>
+                                <option value="ES">ES – Endoscopy</option>
+                                <option value="KO">KO – Key Object Selection</option>
+                                <option value="SR">SR – Structured Report</option>
+                                <option value="OT">OT – Other</option>
+                            </select>
+                        </div>
+                        <div class="search-field">
+                            <label for="studyDate">Study Date</label>
+                            <input type="date" id="studyDate">
+                        </div>
+                        <div class="search-field">
+                            <label for="studyDescription">Study Description</label>
+                            <input type="text" id="studyDescription" placeholder="Enter description">
+                        </div>
+                        <div class="search-field">
+                            <label for="limit">Result Limit</label>
+                            <select id="limit">
+                                <option value="10">10 results</option>
+                                <option value="25" selected>25 results</option>
+                                <option value="50">50 results</option>
+                                <option value="100">100 results</option>
+                                <option value="500">500 results</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="search-actions">
+                        <button type="button" class="btn-icon" id="configBtn" title="Configure QIDO-RS Endpoint">
+                            ⚙️
+                        </button>
+                        <button type="button" class="btn-secondary" id="clearBtn">Clear</button>
+                        <button type="button" class="btn btn-primary" id="searchBtn">
+                            <span>🔍 Search Studies</span>
+                        </button>
+                    </div>
+
+                    <!-- Stats Cards -->
+                    <div class="stats-grid" id="statsGrid" style="display: none;">
+                        <div class="stat-card">
+                            <div class="stat-value" id="totalStudies">0</div>
+                            <div class="stat-label">Studies Found</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="totalSeries">0</div>
+                            <div class="stat-label">Series</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="totalInstances">0</div>
+                            <div class="stat-label">Instances</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="patientCount">0</div>
+                            <div class="stat-label">Patients</div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Right Content: Study/Series/Instance Explorer -->
+            <div class="right-content">
+                <!-- Error Banner -->
+                <div id="errorBanner" class="error-banner" style="display: none;"></div>
+
+                <!-- Studies List -->
+                <section class="explorer-section" id="studiesSection">
+                    <div class="section-header">
+                        <div class="section-title">
+                            <span>📚</span>
+                            <span>Studies</span>
+                            <span class="endpoint-badge" id="endpointBadge" title="Current QIDO-RS Endpoint"></span>
+                        </div>
+                        <div class="section-controls">
+                            <input type="text" id="studyFilter" class="quick-search" placeholder="Filter studies..." aria-label="Filter studies">
+                            <button type="button" class="btn-small" id="exportStudiesBtn">📥 Export</button>
+                        </div>
+                    </div>
+                    <div class="study-list" id="studyList">
+                        <div class="empty-state">
+                            <div class="empty-icon">🔍</div>
+                            <h3>No Studies Loaded</h3>
+                            <p>Use the search panel to find DICOM studies</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Series List (shown when study selected) -->
+                <section class="explorer-section" id="seriesSection" style="display: none;">
+                    <div class="section-header">
+                        <div class="section-title">
+                            <button type="button" class="btn-back" id="backToStudiesBtn">← Back</button>
+                            <span>📁</span>
+                            <span id="seriesSectionTitle">Series</span>
+                        </div>
+                        <div class="section-controls">
+                            <input type="text" id="seriesFilter" class="quick-search" placeholder="Filter series..." aria-label="Filter series">
+                            <button type="button" class="btn-small" id="exportSeriesBtn">📥 Export</button>
+                        </div>
+                    </div>
+                    <div class="series-list" id="seriesList">
+                        <div class="loading-state">Loading series...</div>
+                    </div>
+                </section>
+
+                <!-- Instances List (shown when series selected) -->
+                <section class="explorer-section" id="instancesSection" style="display: none;">
+                    <div class="section-header">
+                        <div class="section-title">
+                            <button type="button" class="btn-back" id="backToSeriesBtn">← Back</button>
+                            <span>🖼️</span>
+                            <span id="instancesSectionTitle">Instances</span>
+                        </div>
+                        <div class="section-controls">
+                            <input type="text" id="instanceFilter" class="quick-search" placeholder="Filter instances..." aria-label="Filter instances">
+                            <button type="button" class="btn-small" id="exportInstancesBtn">📥 Export</button>
+                        </div>
+                    </div>
+                    <div class="instance-list" id="instanceList">
+                        <div class="loading-state">Loading instances...</div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </main>
+
+    <!-- Configuration Modal -->
+    <div id="configModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>⚙️ QIDO-RS Configuration</h2>
+                <button type="button" class="modal-close" id="closeConfigBtn">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-field">
+                    <label for="qidoEndpoint">QIDO-RS Base URL</label>
+                    <input type="text" id="qidoEndpoint" placeholder="http://localhost:8080/dicomweb">
+                    <p class="field-hint">Base URL for QIDO-RS queries (without /studies)</p>
+                </div>
+                <div class="form-field">
+                    <label>
+                        <input type="checkbox" id="autoExpandSeries">
+                        Auto-expand series count in studies
+                    </label>
+                </div>
+                <div class="form-field">
+                    <label>
+                        <input type="checkbox" id="autoExpandInstances">
+                        Auto-expand instance count in series
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" id="resetConfigBtn">Reset to Default</button>
+                <button type="button" class="btn btn-primary" id="saveConfigBtn">Save Configuration</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tag Details Modal -->
+    <div id="tagModal" class="modal" style="display: none;">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h2>🏷️ DICOM Tags</h2>
+                <button type="button" class="modal-close" id="closeTagModalBtn">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="tag-search">
+                    <input type="text" id="tagSearchInput" placeholder="Search tags..." class="quick-search">
+                </div>
+                <div class="tag-list" id="tagListContent">
+                    <!-- Tags will be dynamically populated -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" id="exportTagsBtn">📥 Export as JSON</button>
+                <button type="button" class="btn btn-primary" id="closeTagModal2Btn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <p class="footer-text">
+                    © 2024 UZ Leuven - The DICOM Police
+                </p>
+                <p class="footer-links">
+                    <span>QIDO-RS MADO Explorer</span>
+                    <span class="separator">•</span>
+                    <span>DICOMweb Integration</span>
+                </p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="./js/qido-explorer.js"></script>
+</body>
+</html>
+

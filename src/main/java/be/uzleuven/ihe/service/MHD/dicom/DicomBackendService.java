@@ -11,6 +11,8 @@ import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Tag;
 import org.dcm4che3.data.VR;
 import org.dcm4che3.io.DicomOutputStream;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -24,6 +26,8 @@ import java.util.List;
  */
 @Service
 public class DicomBackendService {
+
+    private static final Logger LOG = LoggerFactory.getLogger(DicomBackendService.class);
 
     private final MHDConfiguration config;
     private final CFindService cFindService;
@@ -97,6 +101,7 @@ public class DicomBackendService {
 
         if (modality != null && !modality.trim().isEmpty()) {
             keys.setString(Tag.ModalitiesInStudy, VR.CS, modality.trim());
+            LOG.info("Applying modality filter to C-FIND: {}", modality.trim());
         }
 
         // Handle date range

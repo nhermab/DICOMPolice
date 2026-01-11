@@ -399,6 +399,8 @@ const MadoViewer = (function() {
             }
         });
 
+        // Store the sorted documents so buttons can reference the correct array
+        state.displayedDocuments = sorted;
         renderTable(sorted);
     }
 
@@ -465,6 +467,9 @@ const MadoViewer = (function() {
                                     <div class="action-buttons">
                                         <button class="action-btn view" onclick="MadoViewer.quickAction('view', ${startIdx + idx}, event)" title="View in OHIF">
                                             👁️
+                                        </button>
+                                        <button class="action-btn download" onclick="MadoViewer.quickAction('download', ${startIdx + idx}, event)" title="Download DICOM">
+                                            💾
                                         </button>
                                         <button class="action-btn validate" onclick="MadoViewer.quickAction('validate', ${startIdx + idx}, event)" title="Validate MADO">
                                             ✅
@@ -651,7 +656,8 @@ const MadoViewer = (function() {
             event.stopPropagation();
         }
 
-        const doc = state.filteredDocuments[docIndex];
+        // Use displayedDocuments (sorted) instead of filteredDocuments
+        const doc = state.displayedDocuments?.[docIndex] || state.filteredDocuments[docIndex];
         if (!doc) {
             showToast('Document not found', 'error');
             return;
@@ -666,7 +672,8 @@ const MadoViewer = (function() {
             event.stopPropagation();
         }
 
-        const doc = state.filteredDocuments[docIndex];
+        // Use displayedDocuments (sorted) instead of filteredDocuments
+        const doc = state.displayedDocuments?.[docIndex] || state.filteredDocuments[docIndex];
         if (!doc) {
             showToast('Document not found', 'error');
             return;
@@ -703,6 +710,10 @@ const MadoViewer = (function() {
         switch (action) {
             case 'view':
                 openMADOViewer(doc.binaryUrl);
+                break;
+
+            case 'download':
+                navigateToDownloader(doc);
                 break;
 
             case 'validate':
@@ -778,6 +789,35 @@ const MadoViewer = (function() {
 
         window.open(`./converter?loadUrl=${encodeURIComponent(fullUrl)}`, '_blank');
         showToast('Opening DICOM↔FHIR Bridge...', 'info');
+    }
+
+    function navigateToDownloader(doc) {
+        if (!doc.binaryUrl) {
+            showToast('No manifest URL available', 'error');
+            return;
+        }
+
+        // Store document info for the downloader page
+        const downloaderData = {
+            url: doc.binaryUrl,
+            description: doc.description,
+            patientId: doc.patientId,
+            studyUid: doc.studyUid
+        };
+
+        try {
+            sessionStorage.setItem('madoDownloaderData', JSON.stringify(downloaderData));
+        } catch (e) {
+            console.warn('Could not store downloader data:', e);
+        }
+
+        // Navigate to DICOM downloader
+        const fullUrl = doc.binaryUrl.startsWith('http')
+            ? doc.binaryUrl
+            : window.location.origin + '/' + doc.binaryUrl.replace(/^\.\//, '');
+
+        window.open(`./dicom-downloader?manifestUrl=${encodeURIComponent(fullUrl)}`, '_blank');
+        showToast('Opening DICOM Downloader...', 'info');
     }
 
     // ==============================
