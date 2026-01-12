@@ -9,8 +9,38 @@
 // Configuration & State
 // ============================================================================
 
+/**
+ * Automatically detect the base path for QIDO-RS endpoint
+ * - Local development: /dicomweb
+ * - Deployed: /TheDICOMPolice/dicomweb
+ *
+ * Uses the same context path detection as api.js for consistency.
+ */
+function getQidoBasePath() {
+    let contextPath = '';
+
+    try {
+        // Try to derive context path from current script URL
+        const scriptUrl = new URL(document.currentScript?.src || '', window.location.origin);
+        const path = scriptUrl.pathname || '';
+        const idx = path.indexOf('/js/');
+        if (idx > 0) {
+            const prefix = path.substring(0, idx);
+            contextPath = prefix === '/' ? '' : prefix;
+        }
+    } catch (_) {
+        // Fallback: check if pathname starts with /TheDICOMPolice
+        const pathname = window.location.pathname;
+        if (pathname.startsWith('/TheDICOMPolice')) {
+            contextPath = '/TheDICOMPolice';
+        }
+    }
+
+    return window.location.origin + contextPath + '/dicomweb';
+}
+
 const DEFAULT_CONFIG = {
-    qidoEndpoint: window.location.origin + '/dicomweb',
+    qidoEndpoint: getQidoBasePath(),
     autoExpandSeries: false,
     autoExpandInstances: false
 };

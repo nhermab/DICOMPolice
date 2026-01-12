@@ -699,13 +699,17 @@ const MadoViewer = (function() {
     }
 
     function executeAction(action) {
+        console.log('executeAction called with action:', action, 'type:', typeof action, 'length:', action?.length);
+
         const doc = state.selectedDocument;
         if (!doc) {
-            showToast('No document selected', 'error');
+            console.error('executeAction: No document selected!');
+            showToast('❌ Error: No document selected for this action', 'error');
             return;
         }
 
         closeModal('actionsModal');
+
 
         switch (action) {
             case 'view':
@@ -729,7 +733,8 @@ const MadoViewer = (function() {
                 break;
 
             default:
-                showToast('Unknown action', 'error');
+                console.error('Unknown action received:', action, 'Available actions: view, download, validate, bridge, inspect');
+                showToast(`Unknown action: "${action}"`, 'error');
         }
     }
 
@@ -792,6 +797,8 @@ const MadoViewer = (function() {
     }
 
     function navigateToDownloader(doc) {
+        console.log('navigateToDownloader called with doc:', doc);
+
         if (!doc.binaryUrl) {
             showToast('No manifest URL available', 'error');
             return;

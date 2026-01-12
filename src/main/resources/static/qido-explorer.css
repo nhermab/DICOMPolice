@@ -43,6 +43,8 @@
     flex-direction: column;
     gap: 12px;
     overflow-y: auto;
+    overflow-x: hidden;
+    scroll-behavior: smooth;
 }
 
 .search-panel {
@@ -176,6 +178,7 @@
     gap: 12px;
     min-width: 0;
     min-height: 0;
+    overflow: hidden; /* Ensure child sections respect height constraints */
 }
 
 /* Error Banner */
@@ -206,7 +209,8 @@
     display: flex;
     flex-direction: column;
     flex: 1;
-    min-height: 0;
+    min-height: 0; /* Critical for flex scrolling - allows shrinking below content size */
+    max-height: 100%; /* Ensure it doesn't exceed parent height */
 }
 
 .section-header {
@@ -300,8 +304,46 @@
 .instance-list {
     flex: 1;
     overflow-y: auto;
+    overflow-x: hidden; /* Prevent horizontal scroll */
     padding: 12px;
     min-height: 0;
+    scroll-behavior: smooth; /* Smooth scrolling */
+}
+
+/* Custom Scrollbar Styling */
+.study-list::-webkit-scrollbar,
+.series-list::-webkit-scrollbar,
+.instance-list::-webkit-scrollbar,
+.tag-list::-webkit-scrollbar,
+.left-sidebar::-webkit-scrollbar {
+    width: 8px;
+}
+
+.study-list::-webkit-scrollbar-track,
+.series-list::-webkit-scrollbar-track,
+.instance-list::-webkit-scrollbar-track,
+.tag-list::-webkit-scrollbar-track,
+.left-sidebar::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 4px;
+}
+
+.study-list::-webkit-scrollbar-thumb,
+.series-list::-webkit-scrollbar-thumb,
+.instance-list::-webkit-scrollbar-thumb,
+.tag-list::-webkit-scrollbar-thumb,
+.left-sidebar::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-blue-dark) 100%);
+    border-radius: 4px;
+    transition: background 0.2s;
+}
+
+.study-list::-webkit-scrollbar-thumb:hover,
+.series-list::-webkit-scrollbar-thumb:hover,
+.instance-list::-webkit-scrollbar-thumb:hover,
+.tag-list::-webkit-scrollbar-thumb:hover,
+.left-sidebar::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, var(--primary-blue-dark) 0%, var(--primary-blue) 100%);
 }
 
 .study-card,
@@ -601,6 +643,8 @@
 .tag-list {
     max-height: 500px;
     overflow-y: auto;
+    overflow-x: hidden;
+    scroll-behavior: smooth;
 }
 
 .tag-item {
@@ -676,33 +720,4 @@
     }
 }
 
-/* Scrollbar Styling */
-.study-list::-webkit-scrollbar,
-.series-list::-webkit-scrollbar,
-.instance-list::-webkit-scrollbar,
-.tag-list::-webkit-scrollbar {
-    width: 8px;
-}
-
-.study-list::-webkit-scrollbar-track,
-.series-list::-webkit-scrollbar-track,
-.instance-list::-webkit-scrollbar-track,
-.tag-list::-webkit-scrollbar-track {
-    background: #f3f4f6;
-}
-
-.study-list::-webkit-scrollbar-thumb,
-.series-list::-webkit-scrollbar-thumb,
-.instance-list::-webkit-scrollbar-thumb,
-.tag-list::-webkit-scrollbar-thumb {
-    background: #9ca3af;
-    border-radius: 4px;
-}
-
-.study-list::-webkit-scrollbar-thumb:hover,
-.series-list::-webkit-scrollbar-thumb:hover,
-.instance-list::-webkit-scrollbar-thumb:hover,
-.tag-list::-webkit-scrollbar-thumb:hover {
-    background: #6b7280;
-}
 
