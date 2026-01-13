@@ -247,9 +247,11 @@ public class IHEKOSSampleCreator {
         d.setString(Tag.ContentDate, VR.DA, todayYYYYMMDD());
         d.setString(Tag.ContentTime, VR.TM, nowHHMMSS());
 
+        //this section below is wrong for KOS, it applies only to SR General
         // SR General / XDS-I profile requirements
+        /*
         d.setString(Tag.CompletionFlag, VR.CS, DicomConstants.COMPLETION_FLAG_COMPLETE);
-        d.setString(Tag.VerificationFlag, VR.CS, DicomConstants.VERIFICATION_FLAG_UNVERIFIED);
+        d.setString(Tag.VerificationFlag, VR.CS, DicomConstants.VERIFICATION_FLAG_UNVERIFIED);*/
         d.setString(Tag.TimezoneOffsetFromUTC, VR.SH, timezoneOffsetFromUTC());
 
         // ReferencedRequestSequence is Type 2 (must be present) and required by this validator

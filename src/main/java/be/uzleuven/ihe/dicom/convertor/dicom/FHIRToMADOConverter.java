@@ -543,9 +543,11 @@ public class FHIRToMADOConverter {
         String timezoneOffset = timezoneOffsetFromUTC();
         mado.setString(Tag.TimezoneOffsetFromUTC, VR.SH, timezoneOffset);
 
+        //this section below is wrong for KOS, it applies only to SR General
         // Completion and Verification flags
-        mado.setString(Tag.CompletionFlag, VR.CS, DicomConstants.COMPLETION_FLAG_COMPLETE);
+        /*mado.setString(Tag.CompletionFlag, VR.CS, DicomConstants.COMPLETION_FLAG_COMPLETE);
         mado.setString(Tag.VerificationFlag, VR.CS, DicomConstants.VERIFICATION_FLAG_UNVERIFIED);
+        */
     }
 
     private void configureSRRootAttributes(Attributes mado) {

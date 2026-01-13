@@ -64,10 +64,11 @@ public final class DicomConstants {
     public static final String RELATIONSHIP_INFERRED_FROM = "INFERRED FROM";
     public static final String RELATIONSHIP_SELECTED_FROM = "SELECTED FROM";
 
+    //this section below is wrong for KOS, it applies only to SR General
     // Completion/verification flags commonly used in KOS/XDS-I
-    public static final String COMPLETION_FLAG_COMPLETE = "COMPLETE";
-    public static final String VERIFICATION_FLAG_VERIFIED = "VERIFIED";
-    public static final String VERIFICATION_FLAG_UNVERIFIED = "UNVERIFIED";
+    //public static final String COMPLETION_FLAG_COMPLETE = "COMPLETE";
+    //public static final String VERIFICATION_FLAG_VERIFIED = "VERIFIED";
+    //public static final String VERIFICATION_FLAG_UNVERIFIED = "UNVERIFIED";
 
     // Common character set used in examples
     public static final String DEFAULT_CHARACTER_SET_ISO_IR_100 = "ISO_IR 100";

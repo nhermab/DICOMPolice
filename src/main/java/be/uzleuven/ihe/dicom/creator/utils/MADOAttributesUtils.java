@@ -140,9 +140,9 @@ public class MADOAttributesUtils {
                 .add(createTemplateItem("2010"));
 
         // Completion / Verification flags
-        d.setString(Tag.CompletionFlag, VR.CS, be.uzleuven.ihe.dicom.constants.DicomConstants.COMPLETION_FLAG_COMPLETE);
+        /*d.setString(Tag.CompletionFlag, VR.CS, be.uzleuven.ihe.dicom.constants.DicomConstants.COMPLETION_FLAG_COMPLETE);
         d.setString(Tag.VerificationFlag, VR.CS, be.uzleuven.ihe.dicom.constants.DicomConstants.VERIFICATION_FLAG_UNVERIFIED);
-
+        */
         // Content Sequence
         Sequence contentSeq = d.newSequence(Tag.ContentSequence, 10);
 

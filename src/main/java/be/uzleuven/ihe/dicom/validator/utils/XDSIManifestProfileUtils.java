@@ -58,8 +58,9 @@ public final class XDSIManifestProfileUtils {
         DigitalSignatureValidator.validateSignatureRequirement(dataset, result, modulePath);
         DigitalSignatureValidator.validateMACParameters(dataset, result, modulePath);
 
+        //this section below is wrong for KOS, it applies only to SR General
         // Require CompletionFlag/VerificationFlag for finalized XDS-I manifests
-        ctx.checkRequiredAttribute(dataset, Tag.CompletionFlag, "CompletionFlag", result, modulePath);
+        /*ctx.checkRequiredAttribute(dataset, Tag.CompletionFlag, "CompletionFlag", result, modulePath);
         if (dataset.contains(Tag.CompletionFlag)) {
             ctx.checkEnumeratedValue(dataset, Tag.CompletionFlag, "CompletionFlag", new String[]{DicomConstants.COMPLETION_FLAG_COMPLETE}, result, modulePath);
         }
@@ -68,6 +69,7 @@ public final class XDSIManifestProfileUtils {
         if (dataset.contains(Tag.VerificationFlag)) {
             ctx.checkEnumeratedValue(dataset, Tag.VerificationFlag, "VerificationFlag", new String[]{DicomConstants.VERIFICATION_FLAG_VERIFIED, DicomConstants.VERIFICATION_FLAG_UNVERIFIED}, result, modulePath);
         }
+        */
 
         // ContentTemplateSequence expected to be DCMR/TID 2010 for KOS (common XDS-I convention)
         Sequence cts = dataset.getSequence(Tag.ContentTemplateSequence);

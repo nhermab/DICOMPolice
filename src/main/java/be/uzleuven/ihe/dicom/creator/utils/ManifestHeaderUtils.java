@@ -206,8 +206,9 @@ public class ManifestHeaderUtils {
         }
 
         // CompletionFlag and VerificationFlag - Required for SR
-        attrs.setString(Tag.CompletionFlag, VR.CS, "COMPLETE");
+        /*attrs.setString(Tag.CompletionFlag, VR.CS, "COMPLETE");
         attrs.setString(Tag.VerificationFlag, VR.CS, "UNVERIFIED");
+        */
 
         // TimezoneOffsetFromUTC - Highly recommended for XDS-I.b
         if (config.timezoneOffset != null) {

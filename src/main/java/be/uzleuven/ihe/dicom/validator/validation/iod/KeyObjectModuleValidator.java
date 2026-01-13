@@ -254,8 +254,10 @@ public class KeyObjectModuleValidator {
         validator.checkEnumeratedValue(dataset, Tag.ContinuityOfContent, "ContinuityOfContent",
                            new String[]{DicomConstants.CONTINUITY_SEPARATE}, result, modulePath);
 
+        // this section below is wrong for KOS, it applies only to SR General
         // CompletionFlag / VerificationFlag (SR General)
         // In the wild, some KOS objects are missing these; keep generic validation permissive.
+        /*
         if (!dataset.contains(Tag.CompletionFlag)) {
             result.addWarning("CompletionFlag is missing", modulePath);
         }
@@ -290,6 +292,7 @@ public class KeyObjectModuleValidator {
                 }
             }
         }
+        */
 
         // ContentTemplateSequence - Type 1C (required for Key Object)
         validator.checkRequiredAttribute(dataset, Tag.ContentTemplateSequence, "ContentTemplateSequence",
