@@ -175,97 +175,42 @@ See [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Third Party Notices
 
-The following third party notices are reproduced here for convenience. For the original, see `THIRD_PARTY_NOTICES`.
+The following third party notices are reproduced here for convenience. For the complete list, see [`THIRD_PARTY_NOTICES`](THIRD_PARTY_NOTICES).
 
-```text
-DICOMPolice / MADOValidator - Third Party Notices
+### Primary Project License
 
-This project is distributed under the GNU General Public License, version 2 (GPLv2). See the file "LICENSE".
+**License:** MIT License  
+**Applies to:** All code in DICOMPolice (except where noted below in third-party notices)
 
-Portions of this project are based on, or derived from, third-party software listed below.
-Where third-party notices and license terms apply, they are reproduced here, and/or referenced.
-Redistributors must comply with the terms for this project (GPLv2) and any applicable third-party terms.
+### Third-Party Libraries
 
--------------------------------------------------------------------------------
-1) PixelMed (Portions based on dciodvfy.cc)
--------------------------------------------------------------------------------
-The following source files contain portions based on PixelMed's dciodvfy.cc:
+**Apache License 2.0:**
+- Spring Boot (org.springframework.boot)
+- HAPI FHIR (ca.uhn.hapi.fhir)
+- Jackson JSON Processor (com.fasterxml.jackson)
 
-- src/main/java/be/uzleuven/ihe/dicom/validator/CLIDICOMVerify.java
-- src/main/java/be/uzleuven/ihe/dicom/validator/validation/iod/IODValidator.java
-- src/main/java/be/uzleuven/ihe/dicom/validator/validation/iod/IODValidatorFactory.java
+**Mozilla Public License 1.1 (MPL 1.1):**
+- dcm4che (org.dcm4che) - Source: https://github.com/dcm4che/dcm4che
 
-PixelMed license (as included in dciodvfy.cc):
+**MIT License:**
+- OHIF (Open Health Imaging Foundation)
 
-Copyright (c) 1993-2024, David A. Clunie DBA PixelMed Publishing. All rights reserved.
+**Eclipse Public License 2.0 (EPL 2.0):**
+- Jakarta Servlet API (jakarta.servlet)
 
-Redistribution and use in source and binary forms, with or without modification, are
-permitted provided that the following conditions are met:
+**PixelMed Publishing (BSD-Style License):**
+- Portions derived from PixelMed dciodvfy.cc
+- Applies to: CLIDICOMVerify.java, IODValidator.java, IODValidatorFactory.java
 
-1. Redistributions of source code must retain the above copyright notice, this list of
-   conditions and the following disclaimers.
+### Acknowledgements
 
-2. Redistributions in binary form must reproduce the above copyright notice, this list of
-   conditions and the following disclaimers in the documentation and/or other materials
-   provided with the distribution.
+The samples and demos provided in this project were developed and tested against an [Orthanc PACS server](https://www.orthanc-server.com/). We have great respect for the Orthanc project and its contributors.
 
-3. Neither the name of PixelMed Publishing nor the names of its contributors may
-   be used to endorse or promote products derived from this software.
+**Note:** DICOMPolice does not use Orthanc code and does not depend on Orthanc specifically. The SCU / MADO generation tools are standard-compliant and will work against any DICOM SCP (Service Class Provider) or WADO-RS capable server.
 
-This software is provided by the copyright holders and contributors "as is" and any
-express or implied warranties, including, but not limited to, the implied warranties
-of merchantability and fitness for a particular purpose are disclaimed. In no event
-shall the copyright owner or contributors be liable for any direct, indirect, incidental,
-special, exemplary, or consequential damages (including, but not limited to, procurement
-of substitute goods or services; loss of use, data or profits; or business interruption)
-however caused and on any theory of liability, whether in contract, strict liability, or
-tort (including negligence or otherwise) arising in any way out of the use of this software,
-even if advised of the possibility of such damage.
-
-This software has neither been tested nor approved for clinical use or for incorporation in
-a medical device. It is the redistributor's or user's responsibility to comply with any
-applicable local, state, national or international regulations.
-
--------------------------------------------------------------------------------
-2) dcm4che (library dependency)
--------------------------------------------------------------------------------
-This project depends on dcm4che libraries (e.g., org.dcm4che:dcm4che-core and org.dcm4che:dcm4che-net),
-which are licensed under GPLv2. Please refer to the dcm4che project for the complete license text and notices:
-
-- https://www.dcm4che.org/
-- https://github.com/dcm4che/dcm4che
-
--------------------------------------------------------------------------------
-3) HAPI FHIR (library dependency)
--------------------------------------------------------------------------------
-This project relies on the HAPI FHIR library (http://hapifhir.io/), which is licensed under the
-Apache License, Version 2.0.
-
-   Licensed under the Apache License, Version 2.0 (the "License");
-   you may not use this file except in compliance with the License.
-   You may obtain a copy of the License at
-
-       http://www.apache.org/licenses/LICENSE-2.0
-
-   Unless required by applicable law or agreed to in writing, software
-   distributed under the License is distributed on an "AS IS" BASIS,
-   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   See the License for the specific language governing permissions and
-   limitations under the License.
-
--------------------------------------------------------------------------------
-4) Acknowledgements - Orthanc Server
--------------------------------------------------------------------------------
-The samples and demos provided in this project (specifically the SCU client tests and WADO-RS retrieval examples)
-were developed and tested against an Orthanc PACS server (https://www.orthanc-server.com/).
-
-We have great respect for the Orthanc project and its contributors.
-
-Note: DICOMPolice does not use Orthanc code and does not depend on Orthanc specifically.
-The SCU / MADO generation tools are standard-compliant and will work against any DICOM SCP
-(Service Class Provider) or WADO-RS capable server.
-```
 
 ## License
 
-This project is licensed under **GPLv2** (to comply with dcm4che’s license terms). See [LICENSE](LICENSE).
+This project is licensed under the **MIT License**. See [LICENSE](LICENSE) for the full license text.
+
+Third-party libraries used by this project retain their original licenses. See [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES) for complete details.
