@@ -165,14 +165,6 @@ mvn clean package
 
 The compiled JAR will be in `target\`.
 
-## Rest API
-
-See [API_README.md](API_README.md).
-
-## Architecture
-
-See [ARCHITECTURE.md](ARCHITECTURE.md).
-
 ## Third Party Notices
 
 The following third party notices are reproduced here for convenience. For the complete list, see [`THIRD_PARTY_NOTICES`](THIRD_PARTY_NOTICES).
