@@ -31,9 +31,9 @@
  * a medical device. It is the redistributor's or user's responsibility to comply with any
  * applicable local, state, national or international regulations.
  *
- * Note: This project as a whole is distributed under GPLv2 (to comply with DCM4CHE).
- * The PixelMed-derived portions in this file remain under the PixelMed license above;
- * when redistributing, you must satisfy both the GPLv2 terms and the PixelMed notice.
+ * Note: This project as a whole is distributed under the MIT License.
+ * The PixelMed-derived portions in this file remain under the PixelMed BSD-style license above;
+ * when redistributing, you must satisfy both the MIT terms and the PixelMed notice.
  */
 
 package be.uzleuven.ihe.dicom.validator.validation.iod;
