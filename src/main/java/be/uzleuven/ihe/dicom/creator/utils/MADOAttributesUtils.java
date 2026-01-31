@@ -146,6 +146,11 @@ public class MADOAttributesUtils {
         // Content Sequence
         Sequence contentSeq = d.newSequence(Tag.ContentSequence, 10);
 
+        // TID 2010 requires Key Object Description (113012, DCM) as first item
+        Attributes keyObjDesc = createTextItem(be.uzleuven.ihe.dicom.constants.DicomConstants.RELATIONSHIP_CONTAINS,
+            CODE_KOS_DESCRIPTION, SCHEME_DCM, MEANING_KOS_DESCRIPTION, "Manifest with Description");
+        contentSeq.add(keyObjDesc);
+
         // TID 1600 Study-level Acquisition Context requirements
         addStudyLevelContext(contentSeq, study);
 

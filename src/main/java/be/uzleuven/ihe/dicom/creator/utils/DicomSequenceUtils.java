@@ -73,7 +73,7 @@ public class DicomSequenceUtils {
         // Retrieve URL (0008,1190) provides direct WADO-RS endpoint for web-based retrieval
         String wadoRsUrl = String.format("https://pacs.example.org/dicom-web/studies/%s/series/%s",
                 studyInstanceUID, actualSeriesUID);
-        seriesItem.setString(Tag.RetrieveURL, VR.UR, wadoRsUrl);
+        seriesItem.setString(Tag.RetrieveURL, VR.UR, wadoRsUrl.trim());
 
         Sequence refSops = seriesItem.newSequence(Tag.ReferencedSOPSequence,
                                                   Math.max(1, referencedSops.size()));

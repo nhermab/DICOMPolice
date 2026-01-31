@@ -52,6 +52,12 @@ class MADOContentBuilder {
         Sequence contentSeq = new Attributes().newSequence(Tag.ContentSequence, 10);
         String studyModality = getStudyModality();
 
+        // TID 2010 requires Key Object Description (113012, DCM) as first item
+        Attributes keyObjDesc = createTextItem(DicomConstants.RELATIONSHIP_CONTAINS,
+            CodeConstants.CODE_KOS_DESCRIPTION, CodeConstants.SCHEME_DCM,
+            CodeConstants.MEANING_KOS_DESCRIPTION, "Manifest with Description");
+        contentSeq.add(keyObjDesc);
+
         // Add study-level acquisition context
         addStudyLevelContext(contentSeq, studyModality);
 
@@ -387,6 +393,12 @@ class MADOContentBuilder {
     void populateContentSequence(Attributes target) {
         Sequence contentSeq = target.newSequence(Tag.ContentSequence, 10);
         String studyModality = getStudyModality();
+
+        // TID 2010 requires Key Object Description (113012, DCM) as first item
+        Attributes keyObjDesc = createTextItem(DicomConstants.RELATIONSHIP_CONTAINS,
+            CodeConstants.CODE_KOS_DESCRIPTION, CodeConstants.SCHEME_DCM,
+            CodeConstants.MEANING_KOS_DESCRIPTION, "");
+        contentSeq.add(keyObjDesc);
 
         addStudyLevelContext(contentSeq, studyModality);
         contentSeq.add(buildImageLibraryContainer(studyModality));

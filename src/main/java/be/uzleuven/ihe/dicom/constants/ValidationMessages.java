@@ -823,6 +823,58 @@ public class ValidationMessages {
 
     public static final String NO_PRIVATE_ATTRS = "No private attributes found - clean for XDS sharing";
 
+    // =========================================================================
+    // ADDITIONAL VALIDATION CHECKS FOR IHE XDS-I.b COMPLIANCE
+    // =========================================================================
+
+    // ========== Key Object Document Module (Root Level Type 2) ==========
+    // Reference: DICOM PS3.3 Table C.17-2 (Key Object Document Module)
+
+    public static final String KOS_MISSING_REFERENCED_STUDY_SEQUENCE =
+        "Referenced Study Sequence (0008,1110) is missing from Root. " +
+        "Type 2 attribute in Key Object Document Module (must be present, may be empty). [" +
+        REF_DICOM_PS3_3 + " Table C.17-2]";
+
+    public static final String KOS_MISSING_FILLER_ORDER_NUMBER =
+        "Filler Order Number / Imaging Service Request (0040,2017) is missing from Root. " +
+        "Type 2 attribute in Key Object Document Module. [" +
+        REF_DICOM_PS3_3 + " Table C.17-2]";
+
+    public static final String KOS_MISSING_REQUESTED_PROCEDURE_ID =
+        "Requested Procedure ID (0040,1001) is missing from Root. " +
+        "Type 2 attribute in Key Object Document Module. [" +
+        REF_DICOM_PS3_3 + " Table C.17-2]";
+
+    public static final String KOS_MISSING_REQUESTED_PROCEDURE_DESC =
+        "Requested Procedure Description (0032,1060) is missing from Root. " +
+        "Type 2 attribute in Key Object Document Module. [" +
+        REF_DICOM_PS3_3 + " Table C.17-2]";
+
+    public static final String KOS_MISSING_REQUESTED_PROCEDURE_CODE_SEQ =
+        "Requested Procedure Code Sequence (0032,1064) is missing from Root. " +
+        "Type 2 attribute in Key Object Document Module. [" +
+        REF_DICOM_PS3_3 + " Table C.17-2]";
+
+    // ========== IHE XDS-I.b Manifest Profile (Nested Attributes) ==========
+
+    public static final String XDSI_RETRIEVE_AE_TITLE_MISSING =
+        "Retrieve AE Title (0008,0054) is missing in Referenced Series Sequence item #%d. " +
+        "IHE XDS-I.b Hierarchical Series Reference requires the AE Title to identify the retrieval source. [" +
+        "IHE RAD TF-3 Table 4.16.4.1.3.3-1: 'Retrieve AE Title... Type 1']";
+
+    // ========== UID Syntax & Validity ==========
+
+    public static final String UID_INVALID_ROOT =
+        "Illegal root for UID in %s %s: '%s'. " +
+        "UIDs starting with '999.' are not standard ISO/ITU roots. " +
+        "Valid UIDs typically start with '1.2' (ISO member body), '1.3' (ISO identified org), or '2.25' (UUID). [" +
+        REF_DICOM_PS3_5 + " Section 6.2 and ISO/IEC 9834-8]";
+
+    public static final String UID_CONTAINS_LEADING_ZEROS =
+        "Illegal UID component in %s %s: '%s'. " +
+        "Numeric components in a UID must not have leading zeros (e.g., '.01' is illegal, must be '.1'). [" +
+        REF_DICOM_PS3_5 + " Section 6.2]";
+
     // ========== Standard Values ==========
     public static final String DCMR = "DCMR";
     public static final String TID_2010 = "2010";

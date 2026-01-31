@@ -133,6 +133,11 @@ public class MADOSCUManifestCreator extends SCUManifestCreator {
         ManifestHeaderUtils.populateEquipmentModule(mado, config);
         ManifestHeaderUtils.populateSRDocumentModule(mado, config);
 
+        // Add missing Type 2 attributes for IHE XDS-I.b compliance
+        ManifestHeaderUtils.populateReferencedStudySequence(mado);
+        ManifestHeaderUtils.populateReferencedRequestSequence(mado, normalizedStudyInstanceUID,
+            accessionNumber, defaults.accessionNumberIssuerOid);
+
         // SR root content item attributes
         configureSRRootAttributes(mado);
 
@@ -146,8 +151,6 @@ public class MADOSCUManifestCreator extends SCUManifestCreator {
             allSeries, madoOptions.isIncludeExtendedInstanceMetadata());
         evidenceBuilder.populateEvidenceSequence(mado);
 
-        // ReferencedRequestSequence
-        buildReferencedRequestSequence(mado, accessionNumber, normalizedStudyInstanceUID);
 
         // SR Document Content Module with TID 1600 Image Library
         MADOContentBuilder contentBuilder = new MADOContentBuilder(defaults, normalizedStudyInstanceUID,
@@ -173,27 +176,6 @@ public class MADOSCUManifestCreator extends SCUManifestCreator {
         mado.setString(Tag.PreliminaryFlag, VR.CS, "FINAL");
     }
 
-    private void buildReferencedRequestSequence(Attributes mado, String accessionNumber,
-                                                 String normalizedStudyInstanceUID) {
-        Sequence refRequestSeq = mado.newSequence(Tag.ReferencedRequestSequence, 1);
-        Attributes reqItem = new Attributes();
-
-        // Always include AccessionNumber + issuer (Type R+ in MADO)
-        reqItem.setString(Tag.AccessionNumber, VR.SH, accessionNumber);
-
-        Sequence issuerAccSeq = reqItem.newSequence(Tag.IssuerOfAccessionNumberSequence, 1);
-        Attributes issuerAcc = new Attributes();
-        issuerAcc.setString(Tag.UniversalEntityID, VR.UT, defaults.accessionNumberIssuerOid);
-        issuerAcc.setString(Tag.UniversalEntityIDType, VR.CS, "ISO");
-        issuerAccSeq.add(issuerAcc);
-
-        reqItem.setString(Tag.StudyInstanceUID, VR.UI, normalizedStudyInstanceUID);
-        reqItem.setString(Tag.RequestedProcedureID, VR.SH, "RP001");
-        reqItem.setString(Tag.PlacerOrderNumberImagingServiceRequest, VR.LO, "PO001");
-        reqItem.setString(Tag.FillerOrderNumberImagingServiceRequest, VR.LO, "FO001");
-
-        refRequestSeq.add(reqItem);
-    }
 
     /**
      * Saves the manifest to a DICOM file.

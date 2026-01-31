@@ -118,7 +118,7 @@ public class EvidenceSequenceUtils {
             }
 
             if (series.retrieveURL != null) {
-                seriesItem.setString(Tag.RetrieveURL, VR.UR, series.retrieveURL);
+                seriesItem.setString(Tag.RetrieveURL, VR.UR, series.retrieveURL.trim());
             }
 
             // Add referenced SOPs

@@ -1,5 +1,6 @@
 package be.uzleuven.ihe.dicom.convertor.dicom;
 
+import be.uzleuven.ihe.dicom.constants.CodeConstants;
 import be.uzleuven.ihe.dicom.constants.DicomConstants;
 import org.dcm4che3.data.*;
 import org.hl7.fhir.r5.model.*;
@@ -619,7 +620,7 @@ public class FHIRToMADOConverter {
         // Retrieve URL
         if (wadoBaseUrl != null) {
             String wadoUrl = wadoBaseUrl + "/studies/" + studyUID + "/series/" + series.getUid();
-            seriesItem.setString(Tag.RetrieveURL, VR.UR, wadoUrl);
+            seriesItem.setString(Tag.RetrieveURL, VR.UR, wadoUrl.trim());
         }
 
         // Instance references
@@ -763,6 +764,11 @@ public class FHIRToMADOConverter {
         ImagingStudy study = resources.imagingStudy;
 
         Sequence contentSeq = mado.newSequence(Tag.ContentSequence, 10);
+
+        // TID 2010 requires Key Object Description (113012, DCM) as first item
+        Attributes keyObjDesc = createTextItem(DicomConstants.RELATIONSHIP_CONTAINS,
+            CodeConstants.CODE_KOS_DESCRIPTION, SCHEME_DCM, CodeConstants.MEANING_KOS_DESCRIPTION, "Manifest with Description");
+        contentSeq.add(keyObjDesc);
 
         // Get study modality from first series
         String studyModality = "CT";

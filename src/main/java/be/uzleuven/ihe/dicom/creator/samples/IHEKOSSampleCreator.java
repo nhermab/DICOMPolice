@@ -297,12 +297,18 @@ public class IHEKOSSampleCreator {
     private static void populateContentTree(Attributes d, List<Attributes> referencedSops) {
         // Per spec: ALL instances in Evidence must be in Content Tree
         int actualCount = referencedSops.size();
-        Sequence content = d.newSequence(Tag.ContentSequence, actualCount);
+        Sequence content = d.newSequence(Tag.ContentSequence, actualCount + 1);
+
+        // TID 2010 requires Key Object Description (113012, DCM) as first item before images
+        Attributes keyObjDesc = createTextItem(DicomConstants.RELATIONSHIP_CONTAINS,
+            CodeConstants.CODE_KOS_DESCRIPTION, SCHEME_DCM, CodeConstants.MEANING_KOS_DESCRIPTION, "Manifest");
+        content.add(keyObjDesc);
 
         // Add ALL referenced SOPs to content tree
+        // TID 2010: IMAGE items should NOT have ConceptNameCodeSequence (pass null)
         for (Attributes sop : referencedSops) {
             Attributes img = createImageItem(DicomConstants.RELATIONSHIP_CONTAINS,
-                    code(CODE_IMAGE, SCHEME_DCM, MEANING_IMAGE),
+                    null,  // No concept name for TID 2010 IMAGE items
                     sop.getString(Tag.ReferencedSOPClassUID),
                     sop.getString(Tag.ReferencedSOPInstanceUID));
             content.add(img);
@@ -338,7 +344,7 @@ public class IHEKOSSampleCreator {
             // Retrieve URL (0008,1190) provides direct WADO-RS endpoint for web-based retrieval
             String wadoRsUrl = String.format("%s/%s/series/%s",
                     DEFAULT_WADO_RS_BASE_URL, studyInstanceUID, seriesInstanceUID);
-            seriesItem.setString(Tag.RetrieveURL, VR.UR, wadoRsUrl);
+            seriesItem.setString(Tag.RetrieveURL, VR.UR, wadoRsUrl.trim());
 
             int remainingSeries = resolvedSeriesCount - s;
             int remainingSops = total - idx;

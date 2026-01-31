@@ -169,6 +169,13 @@ public abstract class AbstractIODValidator implements IODValidator {
             return false;
         }
 
+        // Check for illegal root prefix (999.)
+        if (uid.startsWith("999.")) {
+            result.addError(String.format(ValidationMessages.UID_INVALID_ROOT,
+                attributeName, tagString(tag), uid), path);
+            return false;
+        }
+
         // Each component must be valid
         String[] components = uid.split("\\.");
         for (String component : components) {
@@ -176,8 +183,11 @@ public abstract class AbstractIODValidator implements IODValidator {
                 result.addError(String.format(ValidationMessages.IOD_UID_EMPTY_COMPONENT, attributeName, tagString(tag), uid), path);
                 return false;
             }
+            // Check for leading zeros in components (e.g., ".01" is illegal, must be ".1")
             if (component.length() > 1 && component.startsWith("0")) {
-                result.addError(String.format(ValidationMessages.IOD_UID_COMPONENT_STARTS_WITH_ZERO, attributeName, tagString(tag), uid), path);
+                result.addError(String.format(ValidationMessages.UID_CONTAINS_LEADING_ZEROS,
+                    attributeName, tagString(tag), uid), path);
+                return false;
             }
         }
 

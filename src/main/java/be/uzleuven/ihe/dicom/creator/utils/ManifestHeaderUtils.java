@@ -1,10 +1,7 @@
 package be.uzleuven.ihe.dicom.creator.utils;
 
 import be.uzleuven.ihe.dicom.constants.DicomConstants;
-import org.dcm4che3.data.Attributes;
-import org.dcm4che3.data.Tag;
-import org.dcm4che3.data.UID;
-import org.dcm4che3.data.VR;
+import org.dcm4che3.data.*;
 
 import static be.uzleuven.ihe.dicom.creator.utils.DicomCreatorUtils.*;
 import static be.uzleuven.ihe.dicom.creator.utils.DicomSequenceUtils.*;
@@ -83,8 +80,11 @@ public class ManifestHeaderUtils {
     public static void populatePatientModule(Attributes attrs, HeaderConfig config) {
         attrs.setString(Tag.PatientID, VR.LO,
             config.patientID != null ? config.patientID : "UNKNOWN");
-        attrs.setString(Tag.PatientName, VR.PN,
+
+        // Format person name to fix retired formats
+        String formattedPatientName = formatPersonName(
             config.patientName != null ? config.patientName : "UNKNOWN^PATIENT");
+        attrs.setString(Tag.PatientName, VR.PN, formattedPatientName);
 
         if (config.patientBirthDate != null) {
             attrs.setString(Tag.PatientBirthDate, VR.DA, config.patientBirthDate);
@@ -125,7 +125,9 @@ public class ManifestHeaderUtils {
         }
 
         if (config.referringPhysicianName != null) {
-            attrs.setString(Tag.ReferringPhysicianName, VR.PN, config.referringPhysicianName);
+            // Format person name to fix retired formats
+            String formattedPhysicianName = formatPersonName(config.referringPhysicianName);
+            attrs.setString(Tag.ReferringPhysicianName, VR.PN, formattedPhysicianName);
         }
 
         if (config.studyID != null) {
@@ -214,6 +216,54 @@ public class ManifestHeaderUtils {
         if (config.timezoneOffset != null) {
             attrs.setString(Tag.TimezoneOffsetFromUTC, VR.SH, config.timezoneOffset);
         }
+    }
+
+    /**
+     * Populates Referenced Study Sequence (Type 2).
+     * Can be empty but must exist for IHE XDS-I.b compliance.
+     */
+    public static void populateReferencedStudySequence(Attributes target) {
+        // Type 2 - create empty sequence
+        target.newSequence(Tag.ReferencedStudySequence, 0);
+    }
+
+    /**
+     * Populates Referenced Request Sequence with all required Type 2 attributes.
+     * Called by both KOS and MADO creators to ensure IHE XDS-I.b compliance.
+     */
+    public static void populateReferencedRequestSequence(
+        Attributes target,
+        String studyInstanceUID,
+        String accessionNumber,
+        String accessionNumberIssuerOid
+    ) {
+        Sequence refRequestSeq = target.newSequence(Tag.ReferencedRequestSequence, 1);
+        Attributes reqItem = new Attributes();
+
+        // Accession Number (Type 2)
+        reqItem.setString(Tag.AccessionNumber, VR.SH, accessionNumber != null ? accessionNumber : "");
+
+        // Accession Number Issuer
+        if (accessionNumberIssuerOid != null && !accessionNumberIssuerOid.isEmpty()) {
+            Sequence issuerAccSeq = reqItem.newSequence(Tag.IssuerOfAccessionNumberSequence, 1);
+            Attributes issuerAcc = new Attributes();
+            issuerAcc.setString(Tag.UniversalEntityID, VR.UT, accessionNumberIssuerOid);
+            issuerAcc.setString(Tag.UniversalEntityIDType, VR.CS, "ISO");
+            issuerAccSeq.add(issuerAcc);
+        }
+
+        // Study Instance UID (Type 1)
+        reqItem.setString(Tag.StudyInstanceUID, VR.UI, studyInstanceUID);
+
+        // Type 2 attributes - must exist even if empty
+        reqItem.setString(Tag.RequestedProcedureID, VR.SH, "");
+        reqItem.setString(Tag.RequestedProcedureDescription, VR.LO, "");
+        reqItem.setString(Tag.FillerOrderNumberImagingServiceRequest, VR.LO, "");
+
+        // Requested Procedure Code Sequence (Type 2 - empty sequence OK)
+        reqItem.newSequence(Tag.RequestedProcedureCodeSequence, 0);
+
+        refRequestSeq.add(reqItem);
     }
 
     /**

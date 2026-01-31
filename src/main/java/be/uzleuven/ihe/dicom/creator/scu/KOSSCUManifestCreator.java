@@ -7,7 +7,6 @@ import java.io.IOException;
 import java.util.List;
 
 import static be.uzleuven.ihe.dicom.creator.utils.DicomCreatorUtils.*;
-import static be.uzleuven.ihe.dicom.creator.utils.DicomSequenceUtils.*;
 import static be.uzleuven.ihe.dicom.creator.utils.SRContentItemUtils.*;
 import static be.uzleuven.ihe.dicom.constants.CodeConstants.*;
 import be.uzleuven.ihe.dicom.creator.utils.ManifestHeaderUtils;
@@ -185,12 +184,15 @@ public class KOSSCUManifestCreator extends SCUManifestCreator {
         ManifestHeaderUtils.populateEquipmentModule(kos, config);
         ManifestHeaderUtils.populateSRDocumentModule(kos, config);
 
+        // Add missing Type 2 attributes for IHE XDS-I.b compliance
+        ManifestHeaderUtils.populateReferencedStudySequence(kos);
+        ManifestHeaderUtils.populateReferencedRequestSequence(kos, normalizedStudyInstanceUID,
+            accessionNumber, defaults.accessionNumberIssuerOid);
+
         // Document Title: Manifest (Key Object Selection)
         Sequence conceptNameCodeSeq = kos.newSequence(Tag.ConceptNameCodeSequence, 1);
         conceptNameCodeSeq.add(code(CODE_KOS_MANIFEST, SCHEME_DCM, MEANING_MANIFEST));
 
-        // ReferencedRequestSequence - Type 2 (required to be present, can be empty)
-        populateReferencedRequestSequenceWithIssuer(kos, normalizedStudyInstanceUID, accessionNumber, defaults.accessionNumberIssuerOid);
 
         // SR Document Content Module - Root level attributes
         kos.setString(Tag.ValueType, VR.CS, "CONTAINER");
@@ -213,13 +215,16 @@ public class KOSSCUManifestCreator extends SCUManifestCreator {
             String normalizedSerUID = normalizeUidNoLeadingZeros(serUID);
             seriesItem.setString(Tag.SeriesInstanceUID, VR.UI, normalizedSerUID);
 
+            // Add Retrieve AE Title (Type 1 for IHE XDS-I.b)
+            seriesItem.setString(Tag.RetrieveAETitle, VR.AE, defaults.calledAET);
+
             // Add retrieval information (XDS-I.b requirement)
             seriesItem.setString(Tag.RetrieveLocationUID, VR.UI, defaults.retrieveLocationUid);
 
             // Build WADO-RS URL
             String wadoUrl = defaults.wadoRsBaseUrl + "/" + normalizedStudyInstanceUID +
                 "/series/" + normalizedSerUID;
-            seriesItem.setString(Tag.RetrieveURL, VR.UR, wadoUrl);
+            seriesItem.setString(Tag.RetrieveURL, VR.UR, wadoUrl.trim());
 
             // Sort instances before adding to ensure correct order
             java.util.List<Attributes> sortedInstances = sortInstances(sd.instances);
@@ -243,13 +248,19 @@ public class KOSSCUManifestCreator extends SCUManifestCreator {
         // SR Document Content Module - build content tree
         Sequence contentSeq = kos.newSequence(Tag.ContentSequence, 1);
 
+        // TID 2010 requires Key Object Description (113012, DCM) as first item before images
+        Attributes keyObjDesc = createTextItem("CONTAINS",
+            CODE_KOS_DESCRIPTION, SCHEME_DCM, MEANING_KOS_DESCRIPTION, "Manifest");
+        contentSeq.add(keyObjDesc);
+
         // All IMAGE references directly in content (KOS doesn't require container)
+        // TID 2010: IMAGE items should NOT have ConceptNameCodeSequence (pass null)
         // Sort instances to maintain correct order
         for (SeriesData sd : allSeries) {
             java.util.List<Attributes> sortedInstances = sortInstances(sd.instances);
             for (Attributes instAttrs : sortedInstances) {
                 Attributes imageRef = createImageItem("CONTAINS",
-                    code(CODE_IMAGE, SCHEME_DCM, MEANING_IMAGE),
+                    null,  // No concept name for TID 2010 IMAGE items
                     instAttrs.getString(Tag.SOPClassUID),
                     normalizeUidNoLeadingZeros(instAttrs.getString(Tag.SOPInstanceUID))
                 );

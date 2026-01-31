@@ -31,6 +31,8 @@ public final class CodeConstants {
 
     // Modality and region codes
     public static final String CODE_MODALITY_CT = "CT";
+    //TODO: comment from D. Clunie
+    //Also, don't use deprecated SRT codes, e.g., (T-D4000,SRT,"Abdomen") would be (113345001, SCT, "Abdomen") if that hadn't been inactivated by SNOMED, and probably (818981001, SCT, "Abdomen") if you distinguish abdomen from pelvis and are cross-sectional (https://pmc.ncbi.nlm.nih.gov/articles/PMC8128770/)
     public static final String CODE_REGION_ABDOMEN = "T-D4000";
 
     // TID 1600 / Custom placeholder codes
@@ -39,6 +41,17 @@ public final class CodeConstants {
 
 
     public static final String CODE_TARGET_REGION = "123014";
+
+
+
+    //TODO: these codes are placeholders and need proper DCM codes
+    /*
+    * Since IHE MADO is using an unfinished DICOM CP, the new codes  are not yet assigned,
+    * so be wary of taking this beyond a proof-of-concept
+    * (normally for a trial of not-yet-finished changes, private codes will be assigned,
+    *  e.g., 99IHERADTF or similar ... please do NOT use "DCM" as the coding scheme when they are not valid codes )
+    *
+    * */
     public static final String CODE_MANIFEST_WITH_DESCRIPTION = "ddd001";
     public static final String CODE_SERIES_DESCRIPTION = "ddd002";
     public static final String CODE_SERIES_DATE = "ddd003";

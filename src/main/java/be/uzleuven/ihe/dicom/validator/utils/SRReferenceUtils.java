@@ -269,6 +269,24 @@ public class SRReferenceUtils {
             ctx.checkRequiredAttribute(item, Tag.SeriesInstanceUID, "SeriesInstanceUID", result, itemPath);
             ctx.checkUID(item, Tag.SeriesInstanceUID, "SeriesInstanceUID", result, itemPath);
 
+            // Retrieve AE Title - Type 1 for IHE XDS-I.b
+            if (!item.contains(Tag.RetrieveAETitle)) {
+                result.addError(String.format(ValidationMessages.XDSI_RETRIEVE_AE_TITLE_MISSING, i), itemPath);
+            } else {
+                // Validate AE Title format if present
+                String aeTitle = item.getString(Tag.RetrieveAETitle);
+                if (aeTitle != null && !aeTitle.isEmpty()) {
+                    if (aeTitle.length() > 16) {
+                        result.addWarning("Retrieve AE Title (0008,0054) exceeds 16 characters (length: " +
+                                        aeTitle.length() + ")", itemPath);
+                    }
+                    if (!aeTitle.matches("^[\\x20-\\x7E]+$")) {
+                        result.addWarning("Retrieve AE Title (0008,0054) contains invalid characters. " +
+                                        "Should contain only printable ASCII characters", itemPath);
+                    }
+                }
+            }
+
             // ReferencedSOPSequence - Type 1
             if (ctx.checkSequenceAttribute(item, Tag.ReferencedSOPSequence, "ReferencedSOPSequence", true, result, itemPath)) {
                 validateReferencedSOPSequence(item, result, itemPath, ctx);

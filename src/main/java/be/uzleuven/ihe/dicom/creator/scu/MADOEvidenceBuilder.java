@@ -83,13 +83,16 @@ class MADOEvidenceBuilder {
         String modality = sd.seriesAttrs.getString(Tag.Modality, "OT");
         seriesItem.setString(Tag.Modality, VR.CS, modality);
 
+        // Add Retrieve AE Title (Type 1 for IHE XDS-I.b)
+        seriesItem.setString(Tag.RetrieveAETitle, VR.AE, defaults.calledAET);
+
         // Add retrieval information (MADO requirement)
         seriesItem.setString(Tag.RetrieveLocationUID, VR.UI, defaults.retrieveLocationUid);
 
         // Build WADO-RS URL
         String wadoUrl = defaults.wadoRsBaseUrl + "/" + normalizedStudyInstanceUID +
             "/series/" + normalizedSerUID;
-        seriesItem.setString(Tag.RetrieveURL, VR.UR, wadoUrl);
+        seriesItem.setString(Tag.RetrieveURL, VR.UR, wadoUrl.trim());
 
         // Sort instances by InstanceNumber before adding
         java.util.List<Attributes> sortedInstances = new java.util.ArrayList<>(sd.instances);

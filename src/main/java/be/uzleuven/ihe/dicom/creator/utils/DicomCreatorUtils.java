@@ -124,6 +124,59 @@ public class DicomCreatorUtils {
 
     // --- Random Data Generation ---
 
+    /**
+     * Formats a person name according to DICOM PN VR requirements.
+     * Converts retired formats (e.g., &lt;LastName FirstName&gt;) to current standard: FamilyName^GivenName^MiddleName^Prefix^Suffix
+     *
+     * @param rawName Input name (may be in retired format like "&lt;LastName FirstName&gt;" or "&lt;---&gt;")
+     * @return Properly formatted DICOM Person Name, or empty string if invalid/empty
+     */
+    public static String formatPersonName(String rawName) {
+        if (rawName == null || rawName.trim().isEmpty()) {
+            return "";
+        }
+
+        String name = rawName.trim();
+
+        // Handle retired format: <LastName FirstName> or <------------------->
+        if (name.startsWith("<") && name.endsWith(">")) {
+            name = name.substring(1, name.length() - 1).trim();
+
+            // Empty or dashes only
+            if (name.isEmpty() || name.matches("^-+$")) {
+                return "";
+            }
+
+            // Split on whitespace
+            String[] parts = name.split("\\s+");
+            if (parts.length == 2) {
+                // Assume: LastName FirstName
+                return parts[0] + "^" + parts[1];
+            } else if (parts.length == 1) {
+                // Single name component - treat as family name
+                return parts[0];
+            }
+        }
+
+        // Already in correct format or single component
+        if (name.contains("^")) {
+            return name;
+        }
+
+        // Single word name - treat as family name
+        if (!name.contains(" ")) {
+            return name;
+        }
+
+        // Multiple words without ^ - assume "FirstName LastName" (Western format)
+        String[] parts = name.split("\\s+", 2);
+        if (parts.length == 2) {
+            return parts[1] + "^" + parts[0]; // LastName^FirstName
+        }
+
+        return name;
+    }
+
     public static String randomPersonName() {
         String family = randomFrom(
                 "Smith", "Johnson", "Brown", "Taylor", "Anderson", "Thomas", "Jackson", "White", "Harris", "Martin",
