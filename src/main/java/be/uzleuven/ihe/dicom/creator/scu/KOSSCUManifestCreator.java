@@ -185,7 +185,9 @@ public class KOSSCUManifestCreator extends SCUManifestCreator {
         ManifestHeaderUtils.populateSRDocumentModule(kos, config);
 
         // Add missing Type 2 attributes for IHE XDS-I.b compliance
+        // ReferencedStudySequence must exist (Type 2) even if empty - omitting causes "Missing Attribute" error
         ManifestHeaderUtils.populateReferencedStudySequence(kos);
+        // ReferencedRequestSequence contains the procedure/order tags - they do NOT go at root level
         ManifestHeaderUtils.populateReferencedRequestSequence(kos, normalizedStudyInstanceUID,
             accessionNumber, defaults.accessionNumberIssuerOid);
 

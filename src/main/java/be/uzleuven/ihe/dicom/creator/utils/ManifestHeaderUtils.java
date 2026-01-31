@@ -220,10 +220,12 @@ public class ManifestHeaderUtils {
 
     /**
      * Populates Referenced Study Sequence (Type 2).
-     * Can be empty but must exist for IHE XDS-I.b compliance.
+     * Must exist even if empty per Key Object Document Module requirements.
+     * Note: An empty sequence may trigger a "Bad Sequence Number" warning in strict validators,
+     * but omitting it entirely causes a "Missing Attribute" critical error which is worse.
      */
     public static void populateReferencedStudySequence(Attributes target) {
-        // Type 2 - create empty sequence
+        // Type 2 - create empty sequence (required by Key Object Document Module)
         target.newSequence(Tag.ReferencedStudySequence, 0);
     }
 
@@ -258,6 +260,11 @@ public class ManifestHeaderUtils {
         // Type 2 attributes - must exist even if empty
         reqItem.setString(Tag.RequestedProcedureID, VR.SH, "");
         reqItem.setString(Tag.RequestedProcedureDescription, VR.LO, "");
+
+        // Placer Order Number / Imaging Service Request (Type 2 - can be empty)
+        reqItem.setString(Tag.PlacerOrderNumberImagingServiceRequest, VR.LO, "");
+
+        // Filler Order Number / Imaging Service Request (Type 2 - can be empty)
         reqItem.setString(Tag.FillerOrderNumberImagingServiceRequest, VR.LO, "");
 
         // Requested Procedure Code Sequence (Type 2 - empty sequence OK)

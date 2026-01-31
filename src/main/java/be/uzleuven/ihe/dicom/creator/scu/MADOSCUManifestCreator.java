@@ -134,7 +134,9 @@ public class MADOSCUManifestCreator extends SCUManifestCreator {
         ManifestHeaderUtils.populateSRDocumentModule(mado, config);
 
         // Add missing Type 2 attributes for IHE XDS-I.b compliance
+        // ReferencedStudySequence must exist (Type 2) even if empty - omitting causes "Missing Attribute" error
         ManifestHeaderUtils.populateReferencedStudySequence(mado);
+        // ReferencedRequestSequence contains the procedure/order tags - they do NOT go at root level
         ManifestHeaderUtils.populateReferencedRequestSequence(mado, normalizedStudyInstanceUID,
             accessionNumber, defaults.accessionNumberIssuerOid);
 

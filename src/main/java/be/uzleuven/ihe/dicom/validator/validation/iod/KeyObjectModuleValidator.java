@@ -141,30 +141,14 @@ public class KeyObjectModuleValidator {
         // Additional Type 2 attributes required by DICOM PS3.3 Table C.17-2
         // These must be present even if empty
 
-        // Referenced Study Sequence - Type 2
+        // Referenced Study Sequence - Type 2 (must exist, can be empty)
         if (!dataset.contains(Tag.ReferencedStudySequence)) {
             result.addError(ValidationMessages.KOS_MISSING_REFERENCED_STUDY_SEQUENCE, modulePath);
         }
 
-        // Filler Order Number / Imaging Service Request - Type 2
-        if (!dataset.contains(Tag.FillerOrderNumberImagingServiceRequest)) {
-            result.addError(ValidationMessages.KOS_MISSING_FILLER_ORDER_NUMBER, modulePath);
-        }
-
-        // Requested Procedure ID - Type 2
-        if (!dataset.contains(Tag.RequestedProcedureID)) {
-            result.addError(ValidationMessages.KOS_MISSING_REQUESTED_PROCEDURE_ID, modulePath);
-        }
-
-        // Requested Procedure Description - Type 2
-        if (!dataset.contains(Tag.RequestedProcedureDescription)) {
-            result.addError(ValidationMessages.KOS_MISSING_REQUESTED_PROCEDURE_DESC, modulePath);
-        }
-
-        // Requested Procedure Code Sequence - Type 2
-        if (!dataset.contains(Tag.RequestedProcedureCodeSequence)) {
-            result.addError(ValidationMessages.KOS_MISSING_REQUESTED_PROCEDURE_CODE_SEQ, modulePath);
-        }
+        // Note: PlacerOrderNumber, FillerOrderNumber, RequestedProcedureID, RequestedProcedureDescription,
+        // and RequestedProcedureCodeSequence belong INSIDE ReferencedRequestSequence, NOT at root level.
+        // They are validated in the ReferencedRequestSequence validation (see SRReferenceUtils).
 
         // CurrentRequestedProcedureEvidenceSequence - Type 1C
         // Required if there are referenced instances

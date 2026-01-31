@@ -840,6 +840,11 @@ public class ValidationMessages {
         "Type 2 attribute in Key Object Document Module. [" +
         REF_DICOM_PS3_3 + " Table C.17-2]";
 
+    public static final String KOS_MISSING_PLACER_ORDER_NUMBER =
+        "Placer Order Number / Imaging Service Request (0040,2016) is missing from Root. " +
+        "Type 2 attribute in Key Object Document Module. [" +
+        REF_DICOM_PS3_3 + " Table C.17-2]";
+
     public static final String KOS_MISSING_REQUESTED_PROCEDURE_ID =
         "Requested Procedure ID (0040,1001) is missing from Root. " +
         "Type 2 attribute in Key Object Document Module. [" +
