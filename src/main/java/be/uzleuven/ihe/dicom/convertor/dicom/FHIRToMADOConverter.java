@@ -756,15 +756,33 @@ public class FHIRToMADOConverter {
     // CONTENT SEQUENCE (TID 1600 IMAGE LIBRARY)
     // ============================================================================
 
+    /**
+     * Builds the root content sequence with proper TID 2010 / TID 1600 structure.
+     *
+     * Per MADO specification, CP-2595, and TID 2010 requirements:
+     *
+     * Root (TID 2010): CONTAINER "Manifest with Description"
+     *   ├── CONTAINS -> TEXT "Key Object Description"
+     *   ├── CONTAINS -> IMAGE (root-level references - required by KOS SOP Class)
+     *   └── CONTAINS -> CONTAINER "Image Library" (TID 1600)
+     *
+     * Study-level context (Modality, Study Instance UID, Target Region) belongs INSIDE
+     * the Image Library container using HAS ACQ CONTEXT relationship, NOT at root level.
+     */
     private void buildContentSequence(Attributes mado, BundleResources resources) {
         ImagingStudy study = resources.imagingStudy;
 
-        Sequence contentSeq = mado.newSequence(Tag.ContentSequence, 10);
+        // Count all instances for proper sequence sizing
+        int totalInstances = countTotalInstances(study);
+        Sequence contentSeq = mado.newSequence(Tag.ContentSequence, 2 + totalInstances);
 
         // TID 2010 requires Key Object Description (113012, DCM) as first item
         Attributes keyObjDesc = createTextItem(DicomConstants.RELATIONSHIP_CONTAINS,
             CodeConstants.CODE_KOS_DESCRIPTION, SCHEME_DCM, CodeConstants.MEANING_KOS_DESCRIPTION, "Manifest with Description");
         contentSeq.add(keyObjDesc);
+
+        // Add root-level IMAGE references (required by KOS SOP Class for standard viewers)
+        addRootLevelImageReferences(contentSeq, study);
 
         // Get study modality from first series
         String studyModality = "CT";
@@ -808,31 +826,54 @@ public class FHIRToMADOConverter {
             }
         }
 
-        // Study-level acquisition context
-        addStudyLevelContext(contentSeq, studyModality, studyUID, targetRegionCode,
-            targetRegionScheme, targetRegionMeaning);
-
-        // Image Library container
+        // Image Library container (study-level context is added INSIDE with HAS ACQ CONTEXT)
         contentSeq.add(buildImageLibraryContainer(study, studyModality, studyUID,
             targetRegionCode, targetRegionScheme, targetRegionMeaning));
     }
 
-    private void addStudyLevelContext(Sequence contentSeq, String studyModality, String studyUID,
-                                      String targetRegionCode, String targetRegionScheme,
-                                      String targetRegionMeaning) {
-        // Modality
-        contentSeq.add(createCodeItem(DicomConstants.RELATIONSHIP_CONTAINS, CODE_MODALITY,
-            SCHEME_DCM, MEANING_MODALITY,
-            code(studyModality, SCHEME_DCM, studyModality)));
+    /**
+     * Adds root-level IMAGE references as direct children of the root content.
+     * These are required by the KOS SOP Class so standard DICOM viewers can see the referenced images.
+     */
+    private void addRootLevelImageReferences(Sequence contentSeq, ImagingStudy study) {
+        if (!study.hasSeries()) return;
 
-        // Study Instance UID
-        contentSeq.add(createUIDRefItem(DicomConstants.RELATIONSHIP_CONTAINS, CODE_STUDY_INSTANCE_UID,
-            SCHEME_DCM, MEANING_STUDY_INSTANCE_UID, studyUID));
+        for (ImagingStudy.ImagingStudySeriesComponent series : study.getSeries()) {
+            for (ImagingStudy.ImagingStudySeriesInstanceComponent instance : series.getInstance()) {
+                Attributes imageItem = new Attributes();
+                imageItem.setString(Tag.RelationshipType, VR.CS, DicomConstants.RELATIONSHIP_CONTAINS);
+                imageItem.setString(Tag.ValueType, VR.CS, "IMAGE");
 
-        // Target Region
-        contentSeq.add(createCodeItem(DicomConstants.RELATIONSHIP_CONTAINS, CODE_TARGET_REGION,
-            SCHEME_DCM, MEANING_TARGET_REGION,
-            code(targetRegionCode, targetRegionScheme, targetRegionMeaning)));
+                Sequence refSop = imageItem.newSequence(Tag.ReferencedSOPSequence, 1);
+                Attributes refItem = new Attributes();
+
+                // SOP Class UID
+                if (instance.hasSopClass()) {
+                    String sopClassCode = instance.getSopClass().getCode();
+                    String sopClassUID = extractUidFromIhePrefix(sopClassCode);
+                    refItem.setString(Tag.ReferencedSOPClassUID, VR.UI, sopClassUID);
+                }
+
+                // SOP Instance UID
+                refItem.setString(Tag.ReferencedSOPInstanceUID, VR.UI, instance.getUid());
+                refSop.add(refItem);
+
+                contentSeq.add(imageItem);
+            }
+        }
+    }
+
+    /**
+     * Counts total instances across all series.
+     */
+    private int countTotalInstances(ImagingStudy study) {
+        int count = 0;
+        if (study.hasSeries()) {
+            for (ImagingStudy.ImagingStudySeriesComponent series : study.getSeries()) {
+                count += series.getInstance().size();
+            }
+        }
+        return count;
     }
 
     private Attributes buildImageLibraryContainer(ImagingStudy study, String studyModality,
@@ -922,14 +963,40 @@ public class FHIRToMADOConverter {
             SCHEME_DCM, MEANING_NUM_SERIES_RELATED_INSTANCES,
             series.hasInstance() ? series.getInstance().size() : 0));
 
-        // Instance entries
+        // Instance entries - per TID 1601, metadata must be siblings of IMAGE, not children
         for (ImagingStudy.ImagingStudySeriesInstanceComponent instance : series.getInstance()) {
+            // Add Instance Number as sibling (HAS ACQ CONTEXT)
+            String instanceNumber = instance.hasNumber() ? String.valueOf(instance.getNumber()) : "1";
+            groupSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_INSTANCE_NUMBER,
+                SCHEME_DCM, MEANING_INSTANCE_NUMBER, instanceNumber));
+
+            // Add Number of Frames as sibling if multiframe (HAS ACQ CONTEXT)
+            String sopClassUID = null;
+            if (instance.hasSopClass()) {
+                String sopClassCode = instance.getSopClass().getCode();
+                sopClassUID = extractUidFromIhePrefix(sopClassCode);
+            }
+            Integer numberOfFrames = extractNumberOfFramesFromExtension(instance);
+            if (numberOfFrames != null && sopClassUID != null &&
+                be.uzleuven.ihe.dicom.validator.validation.tid1600.TID1600Rules.isMultiframeSOP(sopClassUID)) {
+                groupSeq.add(createNumericItem("HAS ACQ CONTEXT", CODE_NUMBER_OF_FRAMES,
+                    SCHEME_DCM, MEANING_NUMBER_OF_FRAMES, numberOfFrames));
+            }
+
+            // Add the IMAGE item (CONTAINS) - no nested ContentSequence
             groupSeq.add(buildInstanceEntry(instance));
         }
 
         return group;
     }
 
+    /**
+     * Builds an IMAGE content item for the Image Library Group.
+     *
+     * Per TID 1601, the IMAGE item should NOT have a nested ContentSequence.
+     * Instance-level metadata (Instance Number, Number of Frames) should be
+     * added as siblings to this IMAGE item within the Image Library Group.
+     */
     private Attributes buildInstanceEntry(ImagingStudy.ImagingStudySeriesInstanceComponent instance) {
         Attributes entry = new Attributes();
         entry.setString(Tag.RelationshipType, VR.CS, DicomConstants.RELATIONSHIP_CONTAINS);
@@ -940,10 +1007,9 @@ public class FHIRToMADOConverter {
         Attributes refItem = new Attributes();
 
         // SOP Class UID
-        String sopClassUID = null;
         if (instance.hasSopClass()) {
             String sopClassCode = instance.getSopClass().getCode();
-            sopClassUID = extractUidFromIhePrefix(sopClassCode);
+            String sopClassUID = extractUidFromIhePrefix(sopClassCode);
             refItem.setString(Tag.ReferencedSOPClassUID, VR.UI, sopClassUID);
         }
 
@@ -951,24 +1017,8 @@ public class FHIRToMADOConverter {
         refItem.setString(Tag.ReferencedSOPInstanceUID, VR.UI, instance.getUid());
         refSop.add(refItem);
 
-        // Content sequence for instance metadata
-        Sequence entryContent = entry.newSequence(Tag.ContentSequence, 10);
-
-        // Instance Number
-        String instanceNumber = instance.hasNumber() ? String.valueOf(instance.getNumber()) : "1";
-        System.out.println("DEBUG FHIRToMADOConverter.buildInstanceEntry: instance.hasNumber()=" + instance.hasNumber() +
-                           ", instance.getNumber()=" + (instance.hasNumber() ? instance.getNumber() : "N/A") +
-                           ", using instanceNumber='" + instanceNumber + "'");
-        entryContent.add(createTextItem("HAS ACQ CONTEXT", CODE_INSTANCE_NUMBER,
-            SCHEME_DCM, MEANING_INSTANCE_NUMBER, instanceNumber));
-
-        // Number of Frames - extract from instance description extension and add if multiframe SOP Class
-        Integer numberOfFrames = extractNumberOfFramesFromExtension(instance);
-        if (numberOfFrames != null && sopClassUID != null &&
-            be.uzleuven.ihe.dicom.validator.validation.tid1600.TID1600Rules.isMultiframeSOP(sopClassUID)) {
-            entryContent.add(createNumericItem("HAS ACQ CONTEXT", CODE_NUMBER_OF_FRAMES,
-                SCHEME_DCM, MEANING_NUMBER_OF_FRAMES, numberOfFrames));
-        }
+        // NOTE: Per TID 1601, no ContentSequence inside IMAGE items.
+        // Instance-level metadata is added as siblings in buildImageLibraryGroup().
 
         return entry;
     }

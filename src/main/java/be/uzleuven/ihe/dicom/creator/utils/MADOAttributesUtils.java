@@ -126,7 +126,19 @@ public class MADOAttributesUtils {
     }
 
     /**
-     * Populate the SR Content Sequence with TID 2010 and TID 1600 content.
+     * Populate SR content with proper TID 2010 / TID 1600 nesting.
+     *
+     * Per MADO specification, CP-2595, and TID 2010 requirements, the content structure is:
+     *
+     * Root (TID 2010): CONTAINER "Manifest with Description"
+     *   ├── CONTAINS -> TEXT "Key Object Description"
+     *   ├── CONTAINS -> IMAGE (root-level references - required by KOS SOP Class)
+     *   └── CONTAINS -> CONTAINER "Image Library" (TID 1600)
+     *
+     * The 3-tier reference requirement:
+     * 1. Evidence Sequence (0040,a375) - top level
+     * 2. Root Content Sequence - direct IMAGE children (this is what standard viewers use)
+     * 3. Image Library - nested metadata with IMAGE references
      */
     private static void populateSRContent(Attributes d, SimulatedStudy study, String studyDate, String studyTime) {
         d.setString(Tag.ValueType, VR.CS, "CONTAINER");
@@ -139,40 +151,58 @@ public class MADOAttributesUtils {
         d.newSequence(Tag.ContentTemplateSequence, 1)
                 .add(createTemplateItem("2010"));
 
-        // Completion / Verification flags
-        /*d.setString(Tag.CompletionFlag, VR.CS, be.uzleuven.ihe.dicom.constants.DicomConstants.COMPLETION_FLAG_COMPLETE);
-        d.setString(Tag.VerificationFlag, VR.CS, be.uzleuven.ihe.dicom.constants.DicomConstants.VERIFICATION_FLAG_UNVERIFIED);
-        */
-        // Content Sequence
-        Sequence contentSeq = d.newSequence(Tag.ContentSequence, 10);
+        // Content Sequence - size accounts for description + images + library container
+        int totalInstances = countTotalInstances(study);
+        Sequence contentSeq = d.newSequence(Tag.ContentSequence, 2 + totalInstances);
 
         // TID 2010 requires Key Object Description (113012, DCM) as first item
         Attributes keyObjDesc = createTextItem(be.uzleuven.ihe.dicom.constants.DicomConstants.RELATIONSHIP_CONTAINS,
             CODE_KOS_DESCRIPTION, SCHEME_DCM, MEANING_KOS_DESCRIPTION, "Manifest with Description");
         contentSeq.add(keyObjDesc);
 
-        // TID 1600 Study-level Acquisition Context requirements
-        addStudyLevelContext(contentSeq, study);
+        // Add root-level IMAGE references (required by KOS SOP Class for standard viewers)
+        addRootLevelImageReferences(contentSeq, study);
 
-        // MADO Image Library Extension (TID 1600)
+        // MADO Image Library Extension (TID 1600) - added as child of root
+        // Study-level context is added INSIDE the Image Library container with HAS ACQ CONTEXT
         Attributes libContainer = createImageLibraryContainer(study, studyDate, studyTime);
         contentSeq.add(libContainer);
     }
 
     /**
-     * Add study-level acquisition context items.
+     * Adds root-level IMAGE references as direct children of the root content.
+     * These are required by the KOS SOP Class so standard DICOM viewers can see the referenced images.
      */
-    private static void addStudyLevelContext(Sequence contentSeq, SimulatedStudy study) {
-        contentSeq.add(createCodeItem(be.uzleuven.ihe.dicom.constants.DicomConstants.RELATIONSHIP_CONTAINS,
-            CODE_MODALITY, SCHEME_DCM, MEANING_MODALITY,
-            code(CODE_MODALITY_CT, SCHEME_DCM, MEANING_MODALITY_CT)));
-        contentSeq.add(createUIDRefItem(be.uzleuven.ihe.dicom.constants.DicomConstants.RELATIONSHIP_CONTAINS,
-            CODE_STUDY_INSTANCE_UID, SCHEME_DCM, MEANING_STUDY_INSTANCE_UID,
-            study.getStudyInstanceUID()));
-        contentSeq.add(createCodeItem(be.uzleuven.ihe.dicom.constants.DicomConstants.RELATIONSHIP_CONTAINS,
-            CODE_TARGET_REGION, SCHEME_DCM, MEANING_TARGET_REGION,
-            code(CODE_REGION_UPPER_TRUNK, SCHEME_SCT, MEANING_REGION_UPPER_TRUNK)));
+    private static void addRootLevelImageReferences(Sequence contentSeq, SimulatedStudy study) {
+        for (SimulatedSeries series : study.getSeriesList()) {
+            for (SimulatedInstance inst : series.getInstances()) {
+                Attributes imageItem = new Attributes();
+                imageItem.setString(Tag.RelationshipType, VR.CS,
+                    be.uzleuven.ihe.dicom.constants.DicomConstants.RELATIONSHIP_CONTAINS);
+                imageItem.setString(Tag.ValueType, VR.CS, "IMAGE");
+
+                Sequence refSop = imageItem.newSequence(Tag.ReferencedSOPSequence, 1);
+                Attributes refItem = new Attributes();
+                refItem.setString(Tag.ReferencedSOPClassUID, VR.UI, inst.getSopClassUID());
+                refItem.setString(Tag.ReferencedSOPInstanceUID, VR.UI, inst.getSopInstanceUID());
+                refSop.add(refItem);
+
+                contentSeq.add(imageItem);
+            }
+        }
     }
+
+    /**
+     * Counts total instances across all series.
+     */
+    private static int countTotalInstances(SimulatedStudy study) {
+        int count = 0;
+        for (SimulatedSeries series : study.getSeriesList()) {
+            count += series.getInstances().size();
+        }
+        return count;
+    }
+
 
     /**
      * Create the Image Library container with all series groups.

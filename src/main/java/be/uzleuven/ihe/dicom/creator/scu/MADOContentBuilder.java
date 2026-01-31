@@ -46,10 +46,22 @@ class MADOContentBuilder {
     }
 
     /**
-     * Builds the root content sequence with study-level context and Image Library container.
+     * Builds the root content sequence with TID 1600 Image Library as child of TID 2010 root.
+     *
+     * Per MADO specification, CP-2595, and TID 2010 requirements, the content structure is:
+     *
+     * Root (TID 2010): CONTAINER "Manifest with Description"
+     *   ├── CONTAINS -> TEXT "Key Object Description"
+     *   ├── CONTAINS -> IMAGE (root-level references - required by KOS SOP Class)
+     *   └── CONTAINS -> CONTAINER "Image Library" (TID 1600)
+     *
+     * The 3-tier reference requirement:
+     * 1. Evidence Sequence (0040,a375) - top level
+     * 2. Root Content Sequence - direct IMAGE children (this is what standard viewers use)
+     * 3. Image Library - nested metadata with IMAGE references
      */
     Sequence buildContentSequence() {
-        Sequence contentSeq = new Attributes().newSequence(Tag.ContentSequence, 10);
+        Sequence contentSeq = new Attributes().newSequence(Tag.ContentSequence, 10 + countAllInstances());
         String studyModality = getStudyModality();
 
         // TID 2010 requires Key Object Description (113012, DCM) as first item
@@ -58,10 +70,11 @@ class MADOContentBuilder {
             CodeConstants.MEANING_KOS_DESCRIPTION, "Manifest with Description");
         contentSeq.add(keyObjDesc);
 
-        // Add study-level acquisition context
-        addStudyLevelContext(contentSeq, studyModality);
+        // Add root-level IMAGE references (required by KOS SOP Class for standard viewers)
+        addRootLevelImageReferences(contentSeq);
 
-        // Add Image Library container with all series
+        // Add Image Library container (TID 1600) as child of root
+        // Study-level context is added INSIDE the Image Library with HAS ACQ CONTEXT
         contentSeq.add(buildImageLibraryContainer(studyModality));
 
         return contentSeq;
@@ -73,19 +86,6 @@ class MADOContentBuilder {
             : "CT";
     }
 
-    private void addStudyLevelContext(Sequence contentSeq, String studyModality) {
-        // TID 1600 Study-level requirements: Modality, Study Instance UID, Target Region
-        contentSeq.add(createCodeItem(DicomConstants.RELATIONSHIP_CONTAINS, CodeConstants.CODE_MODALITY,
-            CodeConstants.SCHEME_DCM, CodeConstants.MEANING_MODALITY,
-            code(studyModality, CodeConstants.SCHEME_DCM, studyModality)));
-
-        contentSeq.add(createUIDRefItem(DicomConstants.RELATIONSHIP_CONTAINS, CodeConstants.CODE_STUDY_INSTANCE_UID,
-            CodeConstants.SCHEME_DCM, CodeConstants.MEANING_STUDY_INSTANCE_UID, normalizedStudyInstanceUID));
-
-        contentSeq.add(createCodeItem(DicomConstants.RELATIONSHIP_CONTAINS, CodeConstants.CODE_TARGET_REGION,
-            CodeConstants.SCHEME_DCM, CodeConstants.MEANING_TARGET_REGION,
-            code(CodeConstants.SNOMED_LOWER_TRUNK, "SCT", "Lower trunk")));
-    }
 
     private Attributes buildImageLibraryContainer(String studyModality) {
         Attributes libContainer = new Attributes();
@@ -180,6 +180,19 @@ class MADOContentBuilder {
             sd.instances != null ? sd.instances.size() : 0));
     }
 
+    /**
+     * Adds instance entries to the Image Library Group.
+     *
+     * Per TID 1601, instance-level metadata (Instance Number, Number of Frames)
+     * should be SIBLINGS of the IMAGE item within the Image Library Group,
+     * NOT children nested inside the IMAGE item.
+     *
+     * Structure:
+     *   Image Library Group (CONTAINER)
+     *     ├── HAS ACQ CONTEXT -> Instance Number (TEXT)
+     *     ├── HAS ACQ CONTEXT -> Number of Frames (NUM) [if multiframe]
+     *     └── CONTAINS -> IMAGE (with ReferencedSOPSequence)
+     */
     private void addInstanceEntries(Sequence groupSeq, SeriesData sd) {
         if (sd.instances == null) return;
 
@@ -192,6 +205,16 @@ class MADOContentBuilder {
         });
 
         for (Attributes instAttrs : sortedInstances) {
+            // Add Instance Number as sibling (HAS ACQ CONTEXT)
+            int instNum = getInstanceNumber(instAttrs);
+            String instanceNumber = (instNum == Integer.MAX_VALUE) ? "1" : String.valueOf(instNum);
+            groupSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_INSTANCE_NUMBER,
+                SCHEME_DCM, CodeConstants.MEANING_INSTANCE_NUMBER, instanceNumber));
+
+            // Add Number of Frames as sibling if multiframe (HAS ACQ CONTEXT)
+            addNumberOfFramesIfRequired(groupSeq, instAttrs);
+
+            // Add the IMAGE item (CONTAINS)
             groupSeq.add(buildInstanceEntry(instAttrs));
         }
     }
@@ -213,6 +236,13 @@ class MADOContentBuilder {
         return Integer.MAX_VALUE;
     }
 
+    /**
+     * Builds an IMAGE content item for the Image Library Group.
+     *
+     * Per TID 1601, the IMAGE item should NOT have a nested ContentSequence.
+     * Instance-level metadata (Instance Number, Number of Frames) should be
+     * added as siblings to this IMAGE item within the Image Library Group.
+     */
     private Attributes buildInstanceEntry(Attributes instAttrs) {
         Attributes entry = new Attributes();
         entry.setString(Tag.RelationshipType, VR.CS, DicomConstants.RELATIONSHIP_CONTAINS);
@@ -226,77 +256,12 @@ class MADOContentBuilder {
             normalizeUidNoLeadingZeros(instAttrs.getString(Tag.SOPInstanceUID)));
         refSop.add(refItem);
 
-        // Content sequence with instance metadata
-        Sequence entryContent = entry.newSequence(Tag.ContentSequence, 30);
-
-        // Core identifiers - always included
-        // Use the same logic as getInstanceNumber() to extract the value
-        int instNum = getInstanceNumber(instAttrs);
-        String instanceNumber;
-        if (instNum == Integer.MAX_VALUE) {
-            // Instance number not present or invalid - use "1" as fallback
-            instanceNumber = "1";
-            System.out.println("DEBUG buildInstanceEntry: Instance Number not found in attributes, using default '1'");
-        } else {
-            instanceNumber = String.valueOf(instNum);
-            System.out.println("DEBUG buildInstanceEntry: Instance Number = " + instanceNumber);
-        }
-
-        entryContent.add(createTextItem("HAS ACQ CONTEXT", CODE_INSTANCE_NUMBER,
-            SCHEME_DCM, CodeConstants.MEANING_INSTANCE_NUMBER, instanceNumber));
-
-        // Add Number of Frames if multiframe - always included per MADO standard
-        addNumberOfFramesIfRequired(entryContent, instAttrs);
-
-        // DEBUG: Log before checking the flag
-        System.out.println("DEBUG buildInstanceEntry: includeExtendedInstanceMetadata = " + includeExtendedInstanceMetadata);
-        System.out.println("DEBUG buildInstanceEntry: Content items before extended metadata = " + entryContent.size());
-
-        // Extended metadata - only if enabled
-        if (includeExtendedInstanceMetadata) {
-            System.out.println("DEBUG: Adding extended metadata (should NOT see this in standard mode!)");
-            // Image dimensions
-            addIfPresent(entryContent, instAttrs, Tag.Rows, "Rows");
-            addIfPresent(entryContent, instAttrs, Tag.Columns, "Columns");
-
-            // Pixel Module attributes (critical for OHIF viewer)
-            addIfPresent(entryContent, instAttrs, Tag.BitsAllocated, "Bits Allocated");
-            addIfPresent(entryContent, instAttrs, Tag.BitsStored, "Bits Stored");
-            addIfPresent(entryContent, instAttrs, Tag.HighBit, "High Bit");
-            addIfPresent(entryContent, instAttrs, Tag.PixelRepresentation, "Pixel Representation");
-            addIfPresent(entryContent, instAttrs, Tag.SamplesPerPixel, "Samples per Pixel");
-            addTextIfPresent(entryContent, instAttrs, Tag.PhotometricInterpretation, "Photometric Interpretation");
-
-            // Geometry and spatial information (critical for MPR/3D)
-            addArrayIfPresent(entryContent, instAttrs, Tag.ImagePositionPatient, "Image Position (Patient)");
-            addArrayIfPresent(entryContent, instAttrs, Tag.ImageOrientationPatient, "Image Orientation (Patient)");
-            addArrayIfPresent(entryContent, instAttrs, Tag.PixelSpacing, "Pixel Spacing");
-            addIfPresent(entryContent, instAttrs, Tag.SliceThickness, "Slice Thickness");
-            addIfPresent(entryContent, instAttrs, Tag.SliceLocation, "Slice Location");
-            addIfPresent(entryContent, instAttrs, Tag.SpacingBetweenSlices, "Spacing Between Slices");
-
-            // Window/Level and rescale (for proper display)
-            addArrayIfPresent(entryContent, instAttrs, Tag.WindowCenter, "Window Center");
-            addArrayIfPresent(entryContent, instAttrs, Tag.WindowWidth, "Window Width");
-            addIfPresent(entryContent, instAttrs, Tag.RescaleIntercept, "Rescale Intercept");
-            addIfPresent(entryContent, instAttrs, Tag.RescaleSlope, "Rescale Slope");
-            addTextIfPresent(entryContent, instAttrs, Tag.RescaleType, "Rescale Type");
-
-            // Additional useful metadata
-            addArrayIfPresent(entryContent, instAttrs, Tag.ImageType, "Image Type");
-            addIfPresent(entryContent, instAttrs, Tag.AcquisitionNumber, "Acquisition Number");
-            addTextIfPresent(entryContent, instAttrs, Tag.AcquisitionDate, "Acquisition Date");
-            addTextIfPresent(entryContent, instAttrs, Tag.AcquisitionTime, "Acquisition Time");
-            addTextIfPresent(entryContent, instAttrs, Tag.ContentDate, "Content Date");
-            addTextIfPresent(entryContent, instAttrs, Tag.ContentTime, "Content Time");
-
-            System.out.println("DEBUG: Finished adding extended metadata. Total items = " + entryContent.size());
-        } else {
-            System.out.println("DEBUG: Skipping extended metadata (STANDARD MODE). Total items = " + entryContent.size());
-        }
+        // NOTE: Per TID 1601, no ContentSequence inside IMAGE items.
+        // Instance-level metadata is added as siblings in addInstanceEntries().
 
         return entry;
     }
+
 
     /**
      * Adds a numeric attribute as TEXT item if present in source attributes.
@@ -386,12 +351,30 @@ class MADOContentBuilder {
     /**
      * Populates the ContentSequence directly onto the target dataset.
      *
+     * Per MADO specification, CP-2595, and TID 2010 requirements, the content structure is:
+     *
+     * Root (TID 2010): CONTAINER "Manifest with Description"
+     *   ├── CONTAINS -> TEXT "Key Object Description"
+     *   ├── CONTAINS -> IMAGE (root-level references - required by KOS SOP Class)
+     *   ├── CONTAINS -> IMAGE (one per referenced instance)
+     *   └── CONTAINS -> CONTAINER "Image Library" (TID 1600)
+     *         ├── HAS ACQ CONTEXT -> Modality, Study Instance UID, Target Region
+     *         └── CONTAINS -> CONTAINER "Image Library Group" (TID 1601)
+     *               ├── HAS ACQ CONTEXT -> Series metadata
+     *               ├── HAS ACQ CONTEXT -> Instance Number
+     *               └── CONTAINS -> IMAGE
+     *
+     * The 3-tier reference requirement:
+     * 1. Evidence Sequence (0040,a375) - top level
+     * 2. Root Content Sequence - direct IMAGE children (this is what standard viewers use)
+     * 3. Image Library - nested metadata with IMAGE references
+     *
      * Important: dcm4che does not allow an {@link Attributes} item to be contained by more than one
      * {@link Sequence}. Building on a temporary dataset and then copying with addAll(...) can therefore
      * fail with "Item already contained by Sequence".
      */
     void populateContentSequence(Attributes target) {
-        Sequence contentSeq = target.newSequence(Tag.ContentSequence, 10);
+        Sequence contentSeq = target.newSequence(Tag.ContentSequence, 10 + countAllInstances());
         String studyModality = getStudyModality();
 
         // TID 2010 requires Key Object Description (113012, DCM) as first item
@@ -400,7 +383,57 @@ class MADOContentBuilder {
             CodeConstants.MEANING_KOS_DESCRIPTION, "");
         contentSeq.add(keyObjDesc);
 
-        addStudyLevelContext(contentSeq, studyModality);
+        // Add root-level IMAGE references (required by KOS SOP Class for standard viewers)
+        // These are direct children of root with CONTAINS -> IMAGE
+        addRootLevelImageReferences(contentSeq);
+
+        // Add Image Library container (TID 1600) as child of root
+        // Study-level context is added INSIDE the Image Library with HAS ACQ CONTEXT
         contentSeq.add(buildImageLibraryContainer(studyModality));
+    }
+
+    /**
+     * Adds root-level IMAGE references as direct children of the root content.
+     * These are required by the KOS SOP Class so standard DICOM viewers can see the referenced images.
+     */
+    private void addRootLevelImageReferences(Sequence contentSeq) {
+        for (SeriesData sd : allSeries) {
+            if (sd.instances == null) continue;
+            for (Attributes instAttrs : sd.instances) {
+                contentSeq.add(buildRootImageReference(instAttrs));
+            }
+        }
+    }
+
+    /**
+     * Builds a root-level IMAGE reference for TID 2010.
+     * This is a simple IMAGE item without nested ContentSequence.
+     */
+    private Attributes buildRootImageReference(Attributes instAttrs) {
+        Attributes imageItem = new Attributes();
+        imageItem.setString(Tag.RelationshipType, VR.CS, DicomConstants.RELATIONSHIP_CONTAINS);
+        imageItem.setString(Tag.ValueType, VR.CS, "IMAGE");
+
+        Sequence refSop = imageItem.newSequence(Tag.ReferencedSOPSequence, 1);
+        Attributes refItem = new Attributes();
+        refItem.setString(Tag.ReferencedSOPClassUID, VR.UI, instAttrs.getString(Tag.SOPClassUID));
+        refItem.setString(Tag.ReferencedSOPInstanceUID, VR.UI,
+            normalizeUidNoLeadingZeros(instAttrs.getString(Tag.SOPInstanceUID)));
+        refSop.add(refItem);
+
+        return imageItem;
+    }
+
+    /**
+     * Counts total instances across all series for initial sequence sizing.
+     */
+    private int countAllInstances() {
+        int count = 0;
+        for (SeriesData sd : allSeries) {
+            if (sd.instances != null) {
+                count += sd.instances.size();
+            }
+        }
+        return count;
     }
 }

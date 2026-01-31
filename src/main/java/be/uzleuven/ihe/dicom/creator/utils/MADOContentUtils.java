@@ -115,9 +115,13 @@ public class MADOContentUtils {
     }
 
     /**
-     * Create an Image Library Entry for a DICOM instance.
+     * Create an Image Library Entry (IMAGE item) for a DICOM instance.
+     *
+     * Per TID 1601, the IMAGE item should NOT have a nested ContentSequence.
+     * Instance-level metadata (Instance Number, Number of Frames) should be
+     * added as siblings to this IMAGE item within the Image Library Group.
      */
-    public static Attributes createImageLibraryEntry(SimulatedInstance inst, int instanceNumber, SimulatedStudy study) {
+    public static Attributes createImageLibraryEntry(SimulatedInstance inst) {
         Attributes entry = new Attributes();
         entry.setString(Tag.RelationshipType, VR.CS, be.uzleuven.ihe.dicom.constants.DicomConstants.RELATIONSHIP_CONTAINS);
         entry.setString(Tag.ValueType, VR.CS, "IMAGE");
@@ -128,29 +132,25 @@ public class MADOContentUtils {
         refItem.setString(Tag.ReferencedSOPInstanceUID, VR.UI, inst.getSopInstanceUID());
         refSop.add(refItem);
 
-        // Instance-level metadata (TID 1601)
-        Sequence entryContent = entry.newSequence(Tag.ContentSequence, 5);
-
-        // Instance Number (TEXT) - Required by MADO TID 1601 (RC+)
-        entryContent.add(createTextItem("HAS ACQ CONTEXT", CODE_INSTANCE_NUMBER, SCHEME_DCM,
-                MEANING_INSTANCE_NUMBER, Integer.toString(instanceNumber)));
-
-        // Number of Frames (NUM) - Required if multi-frame (RC+)
-        if (StudyGeneratorUtils.isMultiframe(inst.getSopClassUID())) {
-            entryContent.add(createNumericItem("HAS ACQ CONTEXT", CODE_NUMBER_OF_FRAMES, SCHEME_DCM,
-                    MEANING_NUMBER_OF_FRAMES, 10));
-        }
-
-        // If this is the KIN instance, add KOS descriptors container.
-        if (inst.isKIN()) {
-            addKinDescriptors(entryContent, study);
-        }
+        // NOTE: Per TID 1601, no ContentSequence inside IMAGE items.
+        // Instance-level metadata is added as siblings in createImageLibraryGroup().
 
         return entry;
     }
 
     /**
      * Create an Image Library Group for a DICOM series.
+     *
+     * Per TID 1601, instance-level metadata (Instance Number, Number of Frames)
+     * should be SIBLINGS of the IMAGE item within the Image Library Group,
+     * NOT children nested inside the IMAGE item.
+     *
+     * Structure:
+     *   Image Library Group (CONTAINER)
+     *     ├── HAS ACQ CONTEXT -> Series metadata (Modality, Series UID, etc.)
+     *     ├── HAS ACQ CONTEXT -> Instance Number (TEXT)
+     *     ├── HAS ACQ CONTEXT -> Number of Frames (NUM) [if multiframe]
+     *     └── CONTAINS -> IMAGE (with ReferencedSOPSequence)
      */
     public static Attributes createImageLibraryGroup(SimulatedSeries series, SimulatedStudy study) {
         Attributes group = new Attributes();
@@ -179,14 +179,77 @@ public class MADOContentUtils {
         groupSeq.add(createNumericItem("HAS ACQ CONTEXT", CODE_NUM_SERIES_RELATED_INSTANCES, SCHEME_DCM,
                 MEANING_NUM_SERIES_RELATED_INSTANCES, series.getInstances().size()));
 
-        // Instance Level Entries (TID 1601)
+        // Instance Level Entries (TID 1601) - metadata and IMAGE as siblings
         int instanceNumber = 1;
         for (SimulatedInstance inst : series.getInstances()) {
-            Attributes entry = createImageLibraryEntry(inst, instanceNumber, study);
+            // Add Instance Number as sibling (HAS ACQ CONTEXT)
+            groupSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_INSTANCE_NUMBER, SCHEME_DCM,
+                    MEANING_INSTANCE_NUMBER, Integer.toString(instanceNumber)));
+
+            // Add Number of Frames as sibling if multiframe (HAS ACQ CONTEXT)
+            if (StudyGeneratorUtils.isMultiframe(inst.getSopClassUID())) {
+                groupSeq.add(createNumericItem("HAS ACQ CONTEXT", CODE_NUMBER_OF_FRAMES, SCHEME_DCM,
+                        MEANING_NUMBER_OF_FRAMES, 10));
+            }
+
+            // Add the IMAGE item (CONTAINS) - no nested ContentSequence
+            Attributes entry = createImageLibraryEntry(inst);
             groupSeq.add(entry);
+
+            // If this is the KIN instance, add KOS descriptors container as sibling
+            if (inst.isKIN()) {
+                addKinDescriptorsToGroup(groupSeq, study);
+            }
+
             instanceNumber++;
         }
 
         return group;
+    }
+
+    /**
+     * Adds KIN descriptors as siblings in the Image Library Group.
+     */
+    private static void addKinDescriptorsToGroup(Sequence groupSeq, SimulatedStudy study) {
+        // Container for KOS Descriptors (concept: Key Object Description)
+        Attributes kosDesc = new Attributes();
+        kosDesc.setString(Tag.RelationshipType, VR.CS, be.uzleuven.ihe.dicom.constants.DicomConstants.RELATIONSHIP_CONTAINS);
+        kosDesc.setString(Tag.ValueType, VR.CS, "CONTAINER");
+        kosDesc.newSequence(Tag.ConceptNameCodeSequence, 1)
+                .add(code(CODE_KOS_DESCRIPTION, SCHEME_DCM, MEANING_KOS_DESCRIPTION));
+
+        Sequence descSeq = kosDesc.newSequence(Tag.ContentSequence, 10);
+
+        // KOS Title Code
+        descSeq.add(createCodeItem(be.uzleuven.ihe.dicom.constants.DicomConstants.RELATIONSHIP_CONTAINS,
+            CODE_KOS_TITLE, SCHEME_DCM, MEANING_KOS_TITLE,
+            code(CODE_OF_INTEREST, SCHEME_DCM, MEANING_OF_INTEREST)));
+
+        // KOS Description
+        descSeq.add(createTextItem(be.uzleuven.ihe.dicom.constants.DicomConstants.RELATIONSHIP_CONTAINS,
+                CODE_KOS_DESCRIPTION, CodeConstants.SCHEME_DCM, "KOS Object Description", "Key Objects for Surgery"));
+
+        // Select key images
+        MADOOptions options = (MADOOptions) study.getOptions();
+        int desired = options != null ? Math.max(0, options.getKeyImageCount()) : 3;
+        if (desired == 0) desired = 3;
+
+        List<SimulatedInstance> selected = selectKeyImages(study, desired);
+
+        for (SimulatedInstance inst : selected) {
+            Attributes imageItem = new Attributes();
+            imageItem.setString(Tag.RelationshipType, VR.CS, be.uzleuven.ihe.dicom.constants.DicomConstants.RELATIONSHIP_CONTAINS);
+            imageItem.setString(Tag.ValueType, VR.CS, "IMAGE");
+
+            Sequence refSop = imageItem.newSequence(Tag.ReferencedSOPSequence, 1);
+            Attributes refItem = new Attributes();
+            refItem.setString(Tag.ReferencedSOPClassUID, VR.UI, inst.getSopClassUID());
+            refItem.setString(Tag.ReferencedSOPInstanceUID, VR.UI, inst.getSopInstanceUID());
+            refSop.add(refItem);
+
+            descSeq.add(imageItem);
+        }
+
+        groupSeq.add(kosDesc);
     }
 }
