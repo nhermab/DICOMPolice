@@ -31,9 +31,6 @@ public final class CodeConstants {
 
     // Modality and region codes
     public static final String CODE_MODALITY_CT = "CT";
-    //TODO: comment from D. Clunie
-    //Also, don't use deprecated SRT codes, e.g., (T-D4000,SRT,"Abdomen") would be (113345001, SCT, "Abdomen") if that hadn't been inactivated by SNOMED, and probably (818981001, SCT, "Abdomen") if you distinguish abdomen from pelvis and are cross-sectional (https://pmc.ncbi.nlm.nih.gov/articles/PMC8128770/)
-    public static final String CODE_REGION_ABDOMEN = "T-D4000";
 
     // TID 1600 / Custom placeholder codes
     public static final String CODE_MODALITY = "121139";
@@ -41,6 +38,10 @@ public final class CodeConstants {
 
 
     public static final String CODE_TARGET_REGION = "123014";
+
+    // Default anatomical region for MADO (SNOMED CT: Upper trunk - 67734004)
+    public static final String CODE_REGION_UPPER_TRUNK = "67734004";
+    public static final String MEANING_REGION_UPPER_TRUNK = "Upper trunk";
 
 
 
@@ -84,47 +85,41 @@ public final class CodeConstants {
     public static final String SNOMED_SYSTEM = "http://snomed.info/sct";
 
     // ============================================================================
-    // BODY SITE CODES (SRT Anatomical Region Codes)
+    // SNOMED CT BODY SITE CODES - MADO Allowed Values (http://snomed.info/sct)
+    // https://hl7.eu/fhir/imaging-manifest-r5/0.2.0-snapshot1/ValueSet-im-anatomical-region-valueset.html
     // ============================================================================
 
-    // SRT (SNOMED Radiology Template) codes for anatomical regions
-    public static final String SRT_REGION_HEAD_AND_NECK = "T-D1000";
-    public static final String SRT_REGION_HEAD = "T-D1100";
-    public static final String SRT_REGION_THORAX = "T-D3000";
-    public static final String SRT_REGION_ENTIRE_BODY = "T-D0010";
-    public static final String SRT_REGION_LOWER_LIMB = "T-D8000";
-    public static final String SRT_REGION_LOWER_LEG = "T-D8810";
-    public static final String SRT_REGION_UPPER_LIMB = "T-D9000";
-    public static final String SRT_REGION_BREAST = "T-D2000";
-    public static final String SRT_REGION_PELVIS = "T-D6000";
+    /**
+     * MADO-compliant SNOMED CT codes for anatomical regions.
+     * ONLY these codes are allowed in MADO manifests.
+     * Use with coding scheme designator "SCT".
+     */
+    public static final String SNOMED_LOWER_TRUNK =             "63337009";
+    public static final String SNOMED_ENTIRE_BODY =             "38266002";
+    public static final String SNOMED_UPPER_EXTREMITY =         "53120007";
+    public static final String SNOMED_LOWER_EXTREMITY =         "61685007";
+    public static final String SNOMED_UPPER_TRUNK =             "67734004";
+    public static final String SNOMED_HEAD_AND_NECK =           "774007";
+    public static final String SNOMED_CARDIOVASCULAR_SYSTEM =   "113257007";
+    public static final String SNOMED_HEART =                   "80891009";
+    public static final String SNOMED_BREAST =                  "76752008";
+    public static final String SNOMED_VERTEBRAL_COLUMN =        "737561001";
 
-    // ============================================================================
-    // SNOMED CT BODY SITE CODES (mapped from SRT)
-    // ============================================================================
-
-    // SNOMED CT codes for corresponding anatomical regions
-    public static final String SNOMED_ABDOMEN = "818981001";
-    public static final String SNOMED_HEAD = "69536005";
-    public static final String SNOMED_HEAD_AND_NECK = "774007";
-    public static final String SNOMED_THORAX = "51185008";
-    public static final String SNOMED_ENTIRE_BODY = "38266002";
-    public static final String SNOMED_LOWER_LIMB = "61685007";
-    public static final String SNOMED_LOWER_LEG = "30021000";
-    public static final String SNOMED_UPPER_LIMB = "53120007";
-    public static final String SNOMED_BREAST_REGION = "722567006";
-    public static final String SNOMED_PELVIS = "62413002";
-
-    public static final Map<String, String[]> BODY_SITE_MAP = Map.ofEntries(
-            Map.entry(CodeConstants.CODE_REGION_ABDOMEN, new String[]{CodeConstants.SNOMED_ABDOMEN, "Cross-sectional abdomen"}),
-            Map.entry(CodeConstants.SRT_REGION_HEAD, new String[]{CodeConstants.SNOMED_HEAD, "Head"}),
-            Map.entry(CodeConstants.SRT_REGION_HEAD_AND_NECK, new String[]{CodeConstants.SNOMED_HEAD_AND_NECK, "Head and neck"}),
-            Map.entry(CodeConstants.SRT_REGION_THORAX, new String[]{CodeConstants.SNOMED_THORAX, "Thorax"}),
-            Map.entry(CodeConstants.SRT_REGION_ENTIRE_BODY, new String[]{CodeConstants.SNOMED_ENTIRE_BODY, "Entire body"}),
-            Map.entry(CodeConstants.SRT_REGION_LOWER_LIMB, new String[]{CodeConstants.SNOMED_LOWER_LIMB, "Lower limb"}),
-            Map.entry(CodeConstants.SRT_REGION_LOWER_LEG, new String[]{CodeConstants.SNOMED_LOWER_LEG, "Lower leg"}),
-            Map.entry(CodeConstants.SRT_REGION_UPPER_LIMB, new String[]{CodeConstants.SNOMED_UPPER_LIMB, "Upper limb"}),
-            Map.entry(CodeConstants.SRT_REGION_BREAST, new String[]{CodeConstants.SNOMED_BREAST_REGION, "Breast region"}),
-            Map.entry(CodeConstants.SRT_REGION_PELVIS, new String[]{CodeConstants.SNOMED_PELVIS, "Pelvis"})
+    /**
+     * Display names for MADO-compliant SNOMED CT body site codes.
+     * Format: SNOMED CT code -> display name
+     */
+    public static final Map<String, String> BODY_SITE_DISPLAY_MAP = Map.ofEntries(
+            Map.entry(SNOMED_LOWER_TRUNK,               "Lower trunk"),
+            Map.entry(SNOMED_ENTIRE_BODY,               "Entire body as a whole"),
+            Map.entry(SNOMED_UPPER_EXTREMITY,           "Upper extremity"),
+            Map.entry(SNOMED_LOWER_EXTREMITY,           "Lower extremity"),
+            Map.entry(SNOMED_UPPER_TRUNK,               "Upper trunk"),
+            Map.entry(SNOMED_HEAD_AND_NECK,             "Head and neck structure"),
+            Map.entry(SNOMED_CARDIOVASCULAR_SYSTEM,     "Cardiovascular system"),
+            Map.entry(SNOMED_HEART,                     "Heart"),
+            Map.entry(SNOMED_BREAST,                    "Breast"),
+            Map.entry(SNOMED_VERTEBRAL_COLUMN,          "Structure of vertebral column and/or spinal cord (body structure)")
     );
 
     // ============================================================================
@@ -132,7 +127,10 @@ public final class CodeConstants {
     // ============================================================================
 
     public static final String SCHEME_DCM = "DCM";
+    //PLACEHOLDER FOR PUBLIC COMMEND IHE MADO SPEC
+    public static final String SCHEME_IHE_PC_PH_SCEME_DDCM = "DCM";
     public static final String SCHEME_SRT = "SRT";
+    public static final String SCHEME_SCT = "SCT"; // SNOMED CT
 
     // ============================================================================
     // CODE MEANINGS (third parameter of code(...))
@@ -156,7 +154,6 @@ public final class CodeConstants {
 
     // Modality and region meanings
     public static final String MEANING_MODALITY_CT = "CT";
-    public static final String MEANING_REGION_ABDOMEN = "Abdomen";
 
     // TID 1600 meanings
     public static final String MEANING_MODALITY = "Modality";

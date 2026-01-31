@@ -171,7 +171,7 @@ public class MADOAttributesUtils {
             study.getStudyInstanceUID()));
         contentSeq.add(createCodeItem(be.uzleuven.ihe.dicom.constants.DicomConstants.RELATIONSHIP_CONTAINS,
             CODE_TARGET_REGION, SCHEME_DCM, MEANING_TARGET_REGION,
-            code(CODE_REGION_ABDOMEN, SCHEME_SRT, MEANING_REGION_ABDOMEN)));
+            code(CODE_REGION_UPPER_TRUNK, SCHEME_SCT, MEANING_REGION_UPPER_TRUNK)));
     }
 
     /**
@@ -192,7 +192,7 @@ public class MADOAttributesUtils {
         libContent.add(createUIDRefItem("HAS ACQ CONTEXT", CODE_STUDY_INSTANCE_UID, SCHEME_DCM, MEANING_STUDY_INSTANCE_UID,
                 study.getStudyInstanceUID()));
         libContent.add(createCodeItem("HAS ACQ CONTEXT", CODE_TARGET_REGION, SCHEME_DCM, MEANING_TARGET_REGION,
-                code(CODE_REGION_ABDOMEN, SCHEME_SRT, MEANING_REGION_ABDOMEN)));
+                code(CODE_REGION_UPPER_TRUNK, SCHEME_SCT, MEANING_REGION_UPPER_TRUNK)));
 
         // Populate Library Groups (One per Series)
         int seriesNumber = 1;

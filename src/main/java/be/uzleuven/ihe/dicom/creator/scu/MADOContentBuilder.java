@@ -54,7 +54,7 @@ class MADOContentBuilder {
 
         // TID 2010 requires Key Object Description (113012, DCM) as first item
         Attributes keyObjDesc = createTextItem(DicomConstants.RELATIONSHIP_CONTAINS,
-            CodeConstants.CODE_KOS_DESCRIPTION, CodeConstants.SCHEME_DCM,
+             CodeConstants.CODE_KOS_DESCRIPTION, CodeConstants.SCHEME_DCM,
             CodeConstants.MEANING_KOS_DESCRIPTION, "Manifest with Description");
         contentSeq.add(keyObjDesc);
 
@@ -84,7 +84,7 @@ class MADOContentBuilder {
 
         contentSeq.add(createCodeItem(DicomConstants.RELATIONSHIP_CONTAINS, CodeConstants.CODE_TARGET_REGION,
             CodeConstants.SCHEME_DCM, CodeConstants.MEANING_TARGET_REGION,
-            code(CodeConstants.CODE_REGION_ABDOMEN, CodeConstants.SCHEME_SRT, CodeConstants.MEANING_REGION_ABDOMEN)));
+            code(CodeConstants.SNOMED_LOWER_TRUNK, "SCT", "Lower trunk")));
     }
 
     private Attributes buildImageLibraryContainer(String studyModality) {
@@ -114,7 +114,7 @@ class MADOContentBuilder {
 
         libContent.add(createCodeItem("HAS ACQ CONTEXT", CodeConstants.CODE_TARGET_REGION,
             CodeConstants.SCHEME_DCM, CodeConstants.MEANING_TARGET_REGION,
-            code(CodeConstants.CODE_REGION_ABDOMEN, CodeConstants.SCHEME_SRT, CodeConstants.MEANING_REGION_ABDOMEN)));
+            code(CodeConstants.SNOMED_LOWER_TRUNK, "SCT", "Lower trunk")));
     }
 
     private void addSeriesGroups(Sequence libContent) {

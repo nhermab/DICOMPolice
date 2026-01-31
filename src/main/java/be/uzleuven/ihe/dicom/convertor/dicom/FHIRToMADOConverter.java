@@ -40,12 +40,8 @@ public class FHIRToMADOConverter {
     private static final String DEFAULT_MANUFACTURER = "DICOMPolice";
     private static final String DEFAULT_MODEL = "FHIR-to-MADO Converter";
     private static final String DEFAULT_SOFTWARE_VERSION = "1.0";
-    private static final String DEFAULT_PATIENT_ID_ISSUER_OID = "1.3.6.1.4.1.21297.100.1.1";
-    private static final String DEFAULT_ACCESSION_ISSUER_OID = "1.3.6.1.4.1.21297.120.1.1";
     private static final String DEFAULT_RETRIEVE_LOCATION_UID = "1.3.6.1.4.1.21297.150.1.2";
 
-    // SNOMED to SRT reverse mapping
-    private static final Map<String, String[]> SNOMED_TO_SRT_MAP = createSnomedToSrtMap();
 
     // ============================================================================
     // PUBLIC API
@@ -785,10 +781,10 @@ public class FHIRToMADOConverter {
             studyUID = mado.getString(Tag.StudyInstanceUID);
         }
 
-        // Extract target region from first series bodySite
-        String targetRegionCode = CODE_REGION_ABDOMEN;
-        String targetRegionScheme = SCHEME_SRT;
-        String targetRegionMeaning = MEANING_REGION_ABDOMEN;
+        // Extract target region from first series bodySite (default to lower trunk)
+        String targetRegionCode = SNOMED_LOWER_TRUNK;
+        String targetRegionScheme = "SCT"; // MADO uses SNOMED CT with SCT scheme
+        String targetRegionMeaning = "Lower trunk";
 
         if (study.hasSeries()) {
             ImagingStudy.ImagingStudySeriesComponent firstSeries = study.getSeriesFirstRep();
@@ -796,18 +792,17 @@ public class FHIRToMADOConverter {
                 CodeableConcept bodySite = firstSeries.getBodySite().getConcept();
                 if (bodySite.hasCoding()) {
                     Coding bodySiteCoding = bodySite.getCodingFirstRep();
-                    // Map SNOMED back to SRT
-                    String[] srtInfo = SNOMED_TO_SRT_MAP.get(bodySiteCoding.getCode());
-                    if (srtInfo != null) {
-                        targetRegionCode = srtInfo[0];
-                        targetRegionScheme = SCHEME_SRT;
-                        targetRegionMeaning = srtInfo[1];
-                    } else {
-                        // Use the SNOMED code directly if no mapping
+                    // Use SNOMED CT codes directly for MADO (with SCT scheme only)
+                    if (SNOMED_SYSTEM.equals(bodySiteCoding.getSystem())) {
                         targetRegionCode = bodySiteCoding.getCode();
-                        targetRegionScheme = "SCT"; // SNOMED scheme designator
-                        targetRegionMeaning = bodySiteCoding.hasDisplay() ?
-                            bodySiteCoding.getDisplay() : bodySiteCoding.getCode();
+                        targetRegionScheme = "SCT";
+                        // Use display from the MADO map, or from the coding if not in map
+                        String mappedDisplay = BODY_SITE_DISPLAY_MAP.get(targetRegionCode);
+                        targetRegionMeaning = (mappedDisplay != null) ? mappedDisplay :
+                            (bodySiteCoding.hasDisplay() ? bodySiteCoding.getDisplay() : targetRegionCode);
+                    } else {
+                        System.err.println("WARNING: Body site uses non-SNOMED system: " +
+                                         bodySiteCoding.getSystem() + ". MADO requires SNOMED CT.");
                     }
                 }
             }
@@ -1150,21 +1145,6 @@ public class FHIRToMADOConverter {
         issuerSeq.add(issuer);
     }
 
-    private static Map<String, String[]> createSnomedToSrtMap() {
-        // Reverse of BODY_SITE_MAP: SNOMED code -> {SRT code, meaning}
-        Map<String, String[]> map = new HashMap<>();
-        map.put(SNOMED_ABDOMEN, new String[]{CODE_REGION_ABDOMEN, "Abdomen"});
-        map.put(SNOMED_HEAD, new String[]{SRT_REGION_HEAD, "Head"});
-        map.put(SNOMED_HEAD_AND_NECK, new String[]{SRT_REGION_HEAD_AND_NECK, "Head and neck"});
-        map.put(SNOMED_THORAX, new String[]{SRT_REGION_THORAX, "Thorax"});
-        map.put(SNOMED_ENTIRE_BODY, new String[]{SRT_REGION_ENTIRE_BODY, "Entire body"});
-        map.put(SNOMED_LOWER_LIMB, new String[]{SRT_REGION_LOWER_LIMB, "Lower limb"});
-        map.put(SNOMED_LOWER_LEG, new String[]{SRT_REGION_LOWER_LEG, "Lower leg"});
-        map.put(SNOMED_UPPER_LIMB, new String[]{SRT_REGION_UPPER_LIMB, "Upper limb"});
-        map.put(SNOMED_BREAST_REGION, new String[]{SRT_REGION_BREAST, "Breast region"});
-        map.put(SNOMED_PELVIS, new String[]{SRT_REGION_PELVIS, "Pelvis"});
-        return map;
-    }
 
 
     // ============================================================================

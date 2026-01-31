@@ -1141,23 +1141,31 @@ public class MADOToFHIRConverter {
     }
 
     /**
-     * Maps SRT body site codes to SNOMED CT.
+     * Maps body site codes to SNOMED CT.
+     * Only accepts MADO-compliant SNOMED CT codes with SCT scheme.
      */
     private Coding mapBodySite(String code, String scheme, String meaning) {
-        // First try the mapping table
-        if (DicomConstants.SCHEME_SRT.equals(scheme) && CodeConstants.BODY_SITE_MAP.containsKey(code)) {
-            String[] snomedInfo = CodeConstants.BODY_SITE_MAP.get(code);
+        // MADO only accepts SNOMED CT codes with SCT scheme
+        if ("SCT".equals(scheme)) {
+            // Validate it's a MADO-allowed code
+            String display = CodeConstants.BODY_SITE_DISPLAY_MAP.get(code);
+            if (display != null) {
+                return new Coding()
+                    .setSystem(CodeConstants.SNOMED_SYSTEM)
+                    .setCode(code)
+                    .setDisplay(display);
+            }
+            // Use provided display if code is not in our map (forward compatibility)
             return new Coding()
                 .setSystem(CodeConstants.SNOMED_SYSTEM)
-                .setCode(snomedInfo[0])
-                .setDisplay(snomedInfo[1]);
+                .setCode(code)
+                .setDisplay(meaning != null ? meaning : code);
         }
 
-        // Fallback: use original coding
-        return new Coding()
-            .setSystem(DicomConstants.SCHEME_SRT.equals(scheme) ? "http://snomed.info/srt" : scheme)
-            .setCode(code)
-            .setDisplay(meaning);
+        // Reject legacy SRT codes - MADO does not support them
+        System.err.println("WARNING: Non-compliant body site code scheme '" + scheme +
+                          "' (code: " + code + "). MADO only accepts SNOMED CT with SCT scheme.");
+        return null;
     }
 
     /**
