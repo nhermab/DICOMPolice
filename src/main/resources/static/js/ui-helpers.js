@@ -113,6 +113,11 @@ const UIHelpers = {
    */
   setupDragDrop(uploadArea, fileInput, onFileSelected) {
     uploadArea.addEventListener('click', (e) => {
+      // Don't trigger file input if clicking on browse button or link-button
+      // (those have their own handlers)
+      if (e.target.closest('.link-button, button[id*="browse"]')) {
+        return;
+      }
       if (e.target === uploadArea || e.target.closest('.upload-content')) {
         fileInput.click();
       }
