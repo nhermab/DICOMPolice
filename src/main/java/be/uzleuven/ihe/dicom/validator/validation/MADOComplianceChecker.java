@@ -51,6 +51,9 @@ public final class MADOComplianceChecker {
         // Check 5: Value Types in Content
         checkContentValueTypes(dataset, result, modulePath, verbose);
 
+        // Check 6: Root-level IMAGE references (3-tier requirement)
+        checkRootLevelImageReferences(dataset, result, modulePath, verbose);
+
         if (verbose) {
             result.addInfo("=== End MADO Compliance Check ===", modulePath);
         }
@@ -121,7 +124,16 @@ public final class MADOComplianceChecker {
 
     /**
      * Check 2: TID 1600 Structure
-     * MADO requires hierarchical structure: Library -> Group -> Entry
+     * MADO requires hierarchical structure with Image Library container.
+     *
+     * Expected structure per CP-2595:
+     *   Root CONTAINER
+     *     ├── TEXT "Key Object Description"
+     *     ├── IMAGE (root-level references - required for standard KOS viewers)
+     *     └── CONTAINER "Image Library" (111028, DCM)
+     *           └── CONTAINER "Image Library Group" (126200, DCM)
+     *                 ├── HAS ACQ CONTEXT -> metadata
+     *                 └── IMAGE (leaf node)
      */
     private static void checkTID1600Structure(Attributes dataset, ValidationResult result,
                                              String modulePath, boolean verbose) {
@@ -138,13 +150,16 @@ public final class MADOComplianceChecker {
 
         // Look for Image Library container (111028, DCM)
         boolean hasImageLibrary = false;
-        boolean hasOnlyFlatCompositeReferences = true;
+        boolean hasAnyContainer = false;
+        int rootLevelImageCount = 0;
 
         for (Attributes item : contentSeq) {
             String valueType = item.getString(Tag.ValueType);
 
-            if (DicomConstants.VALUE_TYPE_CONTAINER.equals(valueType)) {
-                hasOnlyFlatCompositeReferences = false;
+            if ("IMAGE".equals(valueType) || "COMPOSITE".equals(valueType)) {
+                rootLevelImageCount++;
+            } else if (DicomConstants.VALUE_TYPE_CONTAINER.equals(valueType)) {
+                hasAnyContainer = true;
 
                 Sequence conceptSeq = item.getSequence(Tag.ConceptNameCodeSequence);
                 if (conceptSeq != null && !conceptSeq.isEmpty()) {
@@ -163,11 +178,18 @@ public final class MADOComplianceChecker {
         }
 
         if (!hasImageLibrary) {
-            if (hasOnlyFlatCompositeReferences) {
-                result.addError("MADO COMPLIANCE FAILURE:\n" + "  ContentSequence has flat list of COMPOSITE/IMAGE references.\n" + "  Expected: TID 1600 hierarchical structure with Image Library container (111028, DCM).\n" + "  Note: This is standard KOS structure, NOT valid MADO.\n" + "  Fix: Restructure content as: Root -> Image Library -> Groups -> Entries.", modulePath);
-            } else {
+            if (!hasAnyContainer && rootLevelImageCount > 0) {
+                // Only has flat IMAGE references with no containers - old KOS style
+                result.addError("MADO COMPLIANCE FAILURE:\n" + "  ContentSequence has only flat IMAGE/COMPOSITE references (" + rootLevelImageCount + ").\n" + "  Expected: TID 1600 hierarchical structure with Image Library container (111028, DCM).\n" + "  Note: This is standard KOS structure, NOT valid MADO.\n" + "  Fix: Add Image Library container with Groups and Entries.", modulePath);
+            } else if (hasAnyContainer) {
+                // Has containers but none is the Image Library
                 result.addError("MADO COMPLIANCE FAILURE:\n" + "  ContentSequence contains CONTAINER items but no Image Library (111028, DCM).\n" + "  Expected: TID 1600 Image Library structure.\n" + "  Fix: Add Image Library container and organize content hierarchically.", modulePath);
+            } else {
+                // No images, no containers
+                result.addError("MADO COMPLIANCE FAILURE:\n" + "  ContentSequence has no IMAGE references and no Image Library container.\n" + "  Expected: TID 1600 hierarchical structure.\n" + "  Fix: Create proper content tree with Library -> Groups -> Entries.", modulePath);
             }
+        } else if (verbose) {
+            result.addInfo("TID 1600 structure valid: Image Library found with " + rootLevelImageCount + " root-level IMAGE references", modulePath);
         }
     }
 
@@ -284,6 +306,98 @@ public final class MADOComplianceChecker {
         int totalReferences = imageCount + compositeCount + countValueTypes(contentSeq, "WAVEFORM");
         if (totalReferences == 0) {
             result.addWarning("MADO content tree contains no IMAGE/COMPOSITE/WAVEFORM reference items. " + "This manifest may be empty.", modulePath);
+        }
+    }
+
+    /**
+     * Check 6: Root-level IMAGE references (3-tier requirement)
+     *
+     * Per TID 2010 and MADO specification, referenced instances must appear in 3 places:
+     * 1. Evidence Sequence (0040,a375) - top level
+     * 2. Root Content Sequence - direct IMAGE children (required for standard KOS viewers)
+     * 3. Image Library - nested metadata with IMAGE references
+     *
+     * Standard DICOM viewers look at root-level IMAGE children to determine what
+     * the KOS document references. If images are only in the Image Library,
+     * viewers will think the KOS is empty.
+     */
+    private static void checkRootLevelImageReferences(Attributes dataset, ValidationResult result,
+                                                      String modulePath, boolean verbose) {
+        if (verbose) {
+            result.addInfo("Check 6: Verifying root-level IMAGE references (3-tier requirement)", modulePath);
+        }
+
+        Sequence contentSeq = dataset.getSequence(Tag.ContentSequence);
+        if (contentSeq == null || contentSeq.isEmpty()) {
+            return; // Already reported in Check 2
+        }
+
+        // Count direct IMAGE/COMPOSITE children of root (not nested)
+        int rootLevelImageCount = 0;
+        int imageLibraryImageCount = 0;
+
+        for (Attributes item : contentSeq) {
+            String valueType = item.getString(Tag.ValueType);
+
+            if ("IMAGE".equals(valueType) || "COMPOSITE".equals(valueType)) {
+                rootLevelImageCount++;
+            } else if (DicomConstants.VALUE_TYPE_CONTAINER.equals(valueType)) {
+                // Check if this is the Image Library container
+                Sequence conceptSeq = item.getSequence(Tag.ConceptNameCodeSequence);
+                if (conceptSeq != null && !conceptSeq.isEmpty()) {
+                    Attributes concept = conceptSeq.get(0);
+                    String codeValue = concept.getString(Tag.CodeValue);
+                    String codingScheme = concept.getString(Tag.CodingSchemeDesignator);
+
+                    if (CodeConstants.CODE_IMAGE_LIBRARY.equals(codeValue) &&
+                        CodeConstants.SCHEME_DCM.equals(codingScheme)) {
+                        // Count IMAGE items inside the Image Library (recursively)
+                        Sequence libContent = item.getSequence(Tag.ContentSequence);
+                        if (libContent != null) {
+                            imageLibraryImageCount = countValueTypes(libContent, "IMAGE") +
+                                                    countValueTypes(libContent, "COMPOSITE");
+                        }
+                    }
+                }
+            }
+        }
+
+        // Validate 3-tier structure
+        if (rootLevelImageCount == 0) {
+            if (imageLibraryImageCount > 0) {
+                result.addError("MADO 3-TIER COMPLIANCE FAILURE:\n" +
+                              "  Root ContentSequence has NO direct IMAGE/COMPOSITE children.\n" +
+                              "  Found " + imageLibraryImageCount + " IMAGE(s) inside Image Library only.\n" +
+                              "  Impact: Standard DICOM viewers will think this KOS is empty.\n" +
+                              "  Fix: Add root-level IMAGE references as direct children of the root.\n" +
+                              "  Note: Per TID 2010, images must be in BOTH root AND Image Library.", modulePath);
+            } else {
+                result.addError("MADO 3-TIER COMPLIANCE FAILURE:\n" +
+                              "  No IMAGE/COMPOSITE references found at any level.\n" +
+                              "  This MADO manifest appears to reference no images.", modulePath);
+            }
+        } else if (verbose) {
+            result.addInfo("Root-level IMAGE references: " + rootLevelImageCount +
+                         " (Image Library: " + imageLibraryImageCount + ")", modulePath);
+
+            if (rootLevelImageCount != imageLibraryImageCount && imageLibraryImageCount > 0) {
+                result.addWarning("Root-level IMAGE count (" + rootLevelImageCount +
+                                ") differs from Image Library count (" + imageLibraryImageCount +
+                                "). These should typically match.", modulePath);
+            }
+        }
+
+        // Also check that root IMAGE items don't have nested ContentSequence (leaf node requirement)
+        for (Attributes item : contentSeq) {
+            String valueType = item.getString(Tag.ValueType);
+            if ("IMAGE".equals(valueType) || "COMPOSITE".equals(valueType)) {
+                Sequence nestedContent = item.getSequence(Tag.ContentSequence);
+                if (nestedContent != null && !nestedContent.isEmpty()) {
+                    result.addWarning("Root-level IMAGE item has nested ContentSequence. " +
+                                    "Per DICOM SR, IMAGE is a LEAF NODE and should not have children.",
+                                    modulePath + ".RootImage");
+                }
+            }
         }
     }
 
