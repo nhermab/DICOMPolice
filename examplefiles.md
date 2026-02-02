@@ -84,12 +84,6 @@
 - [XA ACC-CC1BF4BD 19941013](https://ihebelgium.ehealthhub.be/ohif/mado?manifestUrl=https%3A//ihe.tldr.me/MADO_FROM_SCU/mado_1.3.12.2.1107.5.4.3.123456789012345.19950922.121803.6.dcm)
 - [XA 8 images of 4 biplane acqs 19930325](https://ihebelgium.ehealthhub.be/ohif/mado?manifestUrl=https%3A//ihe.tldr.me/MADO_FROM_SCU/mado_1.3.12.2.1107.5.4.3.4975316777216.19951114.94101.16.dcm)
 
-### example file downloads
-- [Example Good KOS](https://ihe.tldr.me/KOS.dcm)
-- [Example Bad KOS](https://ihe.tldr.me/MADO.dcm)
-- [Example Good MADO](https://ihe.tldr.me/BAD_MADO.dcm)
-- [Example Bad MADO](https://ihe.tldr.me/BAD_KOS.dcm)
-
 ### KOS_FROM_SCU
 ## samples KOS files created by this projects SCU client
 
