@@ -77,7 +77,7 @@ public class MHDBackedMetadataService {
             }
         }
 
-        LOG.info("C-FIND STUDY query: patientId={}, accession={}, studyUID={}, modality={}, date={}-{}",
+        LOG.info("Find studies from MADO (MHD): patientId={}, accession={}, studyUID={}, modality={}, date={}-{}",
                 patientId, accessionNumber, studyInstanceUID, modality, studyDateFrom, studyDateTo);
 
         // Query remote MHD FHIR server for DocumentReferences
@@ -117,12 +117,13 @@ public class MHDBackedMetadataService {
         String seriesInstanceUID = keys.getString(Tag.SeriesInstanceUID);
         String modality = keys.getString(Tag.Modality);
 
-        LOG.info("C-FIND SERIES query: studyUID={}, seriesUID={}, modality={}",
+        LOG.info("Find series from MADO (MHD): studyUID={}, seriesUID={}, modality={}",
                 studyInstanceUID, seriesInstanceUID, modality);
 
         List<SeriesMetadata> results = new ArrayList<>();
 
         // If specific study requested, get MADO for that study
+        // Series Description does not get read from MADO yet
         if (studyInstanceUID != null && !studyInstanceUID.isEmpty() && !studyInstanceUID.equals("*")) {
             StudyMetadata studyMeta = getOrFetchStudyMetadata(studyInstanceUID);
             if (studyMeta != null) {
@@ -155,7 +156,7 @@ public class MHDBackedMetadataService {
         String seriesInstanceUID = keys.getString(Tag.SeriesInstanceUID);
         String sopInstanceUID = keys.getString(Tag.SOPInstanceUID);
 
-        LOG.info("C-FIND INSTANCE query: studyUID={}, seriesUID={}, sopUID={}",
+        LOG.info("Find instances from MADO (MHD): studyUID={}, seriesUID={}, sopUID={}",
                 studyInstanceUID, seriesInstanceUID, sopInstanceUID);
 
         List<InstanceMetadata> results = new ArrayList<>();
