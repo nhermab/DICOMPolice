@@ -83,19 +83,16 @@ public final class TID1600ImageLibraryValidator {
     /**
      * Validates an Image Library Group container (TID 1601).
      *
-     * Per TID 1601 and CP-2595:
+     * Per TID 1601:
      * - Series-level metadata (Modality, Series UID, etc.) should use HAS ACQ CONTEXT
-     * - Instance-level metadata (Instance Number, Number of Frames) should be SIBLINGS of IMAGE items
-     * - IMAGE items are LEAF NODES - they should NOT have nested ContentSequence
+     * - contains IMAGE items with Referenced SOP Sequence and possible nested instance-level metadata (Instance Number, Number of Frames)
      *
      * Structure:
      *   Image Library Group (CONTAINER)
      *     ├── HAS ACQ CONTEXT -> Modality (series)
      *     ├── HAS ACQ CONTEXT -> Series Instance UID
      *     ├── HAS ACQ CONTEXT -> Series Description
-     *     ├── HAS ACQ CONTEXT -> Instance Number (per instance)
-     *     ├── HAS ACQ CONTEXT -> Number of Frames (if multiframe)
-     *     └── CONTAINS -> IMAGE (leaf node, no children)
+     *     └── CONTAINS -> IMAGE
      */
     private static void validateImageLibraryGroup(Attributes group, ValidationResult result,
                                                   String path, boolean verbose) {
@@ -140,16 +137,6 @@ public final class TID1600ImageLibraryValidator {
                     hasSeriesUID = true;
                 } else if (CODE_NUM_SERIES_RELATED_INSTANCES.equals(codeValue)) {
                     hasNumberOfSeriesRelatedInstances = true;
-                } else if (CODE_INSTANCE_NUMBER.equals(codeValue)) {
-                    // Instance Number as sibling (correct per TID 1601)
-                    instanceNumberCount++;
-
-                    // Validate value type
-                    String vt = item.getString(Tag.ValueType);
-                    if (vt != null && !(DicomConstants.VALUE_TYPE_TEXT.equals(vt) || "UT".equals(vt))) {
-                        result.addError(String.format(ValidationMessages.TID1600_ENTRY_INSTANCE_NUMBER_WRONG_VT, vt),
-                                       path + ".InstanceNumber[" + instanceNumberCount + "]");
-                    }
                 }
             }
 
@@ -188,31 +175,14 @@ public final class TID1600ImageLibraryValidator {
         if (imageEntryCount == 0) {
             result.addWarning("TID 1600 Image Library Group has no IMAGE/COMPOSITE entries. " +
                             "Expected at least one Image Library Entry per instance in the series.", path);
-        } else {
-            // Per TID 1601, there should be one Instance Number per IMAGE item (as siblings)
-            if (instanceNumberCount == 0) {
-                result.addError("TID 1601: Image Library Group has " + imageEntryCount +
-                              " IMAGE entries but no Instance Number items as siblings. " +
-                              "Per CP-2595, Instance Number should be a sibling of IMAGE items, not nested inside.", path);
-            } else if (instanceNumberCount < imageEntryCount) {
-                result.addWarning("TID 1601: Image Library Group has " + imageEntryCount +
-                                " IMAGE entries but only " + instanceNumberCount + " Instance Number items. " +
-                                "Expected one Instance Number per IMAGE item.", path);
-            }
-
-            if (verbose) {
-                result.addInfo("Found " + imageEntryCount + " Image Library Entry items and " +
-                             instanceNumberCount + " Instance Number items in this group", path);
-            }
         }
     }
 
     /**
      * Validates an IMAGE/COMPOSITE entry in the Image Library.
      *
-     * Per TID 1601, IMAGE is a LEAF NODE and should NOT have a nested ContentSequence.
-     * Instance-level metadata (Instance Number, Number of Frames) should be siblings
-     * of the IMAGE item within the Image Library Group, not children of the IMAGE item.
+     * Per TID 1601, IMAGE items contain Referenced SOP Sequence
+     * Per MADO spec, IMAGE items contains also children instance-level metadata if available/relevant (Instance Number, Number of Frames)
      */
     private static void validateImageLibraryEntry(Attributes entry, ValidationResult result,
                                                   String path, boolean verbose) {
@@ -243,28 +213,19 @@ public final class TID1600ImageLibraryValidator {
             result.addError(ValidationMessages.TID1600_ENTRY_MISSING_SOP_INSTANCE_UID, path);
         }
 
-        // Per TID 1601, IMAGE items are LEAF NODES - they should NOT have nested ContentSequence.
-        // Instance-level metadata (Instance Number, Number of Frames) should be SIBLINGS of the
-        // IMAGE item within the Image Library Group, not children.
         Sequence contentSeq = entry.getSequence(Tag.ContentSequence);
         if (contentSeq != null && !contentSeq.isEmpty()) {
-            // This is the OLD structure (pre-CP-2595) - warn but don't fail for backward compatibility
-            result.addWarning("TID 1601: IMAGE item has nested ContentSequence (" + contentSeq.size() +
-                            " items). Per DICOM SR, IMAGE is a LEAF NODE and should not have children. " +
-                            "Instance-level metadata should be siblings of IMAGE in the Image Library Group, not children.", path);
-
             // Still validate the nested content for backward compatibility
-            validateLegacyNestedContent(contentSeq, sopClassUID, result, path, verbose);
+            validateIMAGENestedContent(contentSeq, sopClassUID, result, path, verbose);
         }
         // Note: We do NOT report an error for missing ContentSequence - this is the CORRECT behavior per TID 1601
     }
 
     /**
-     * Validates legacy nested content inside IMAGE items for backward compatibility.
-     * This structure is deprecated per CP-2595 but may exist in older manifests.
+     * Validates nested content inside IMAGE items
      */
-    private static void validateLegacyNestedContent(Sequence contentSeq, String sopClassUID,
-                                                    ValidationResult result, String path, boolean verbose) {
+    private static void validateIMAGENestedContent(Sequence contentSeq, String sopClassUID,
+                                                   ValidationResult result, String path, boolean verbose) {
         boolean hasNumberOfFrames = false;
         boolean hasInstanceNumber = false;
 
@@ -275,8 +236,7 @@ public final class TID1600ImageLibraryValidator {
 
                 if (CODE_NUMBER_OF_FRAMES.equals(codeValue)) {
                     hasNumberOfFrames = true;
-                } else if (CODE_INSTANCE_NUMBER.equals(codeValue)
-                        || CODE_SERIES_NUMBER.equals(codeValue)) {
+                } else if (CODE_INSTANCE_NUMBER.equals(codeValue)) {
                     hasInstanceNumber = true;
 
                     String vt = item.getString(Tag.ValueType);
@@ -289,13 +249,13 @@ public final class TID1600ImageLibraryValidator {
             }
         }
 
-        // For legacy structure, validate the nested metadata
+        // validate the nested metadata
         if (!hasInstanceNumber && verbose) {
-            result.addInfo("Legacy IMAGE structure: Instance Number not found in nested content", path);
+            result.addInfo("IMAGE structure: Instance Number not found in nested content", path);
         }
 
         if (TID1600Rules.isMultiframeSOP(sopClassUID) && !hasNumberOfFrames) {
-            result.addWarning("Legacy IMAGE structure: Number of Frames expected for multiframe SOP Class " + sopClassUID, path);
+            result.addWarning("IMAGE structure: Number of Frames expected for multiframe SOP Class " + sopClassUID, path);
         }
     }
 
