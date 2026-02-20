@@ -1,5 +1,7 @@
 package be.uzleuven.ihe.service.scp;
 
+import be.uzleuven.ihe.dicom.constants.CodeConstants;
+import be.uzleuven.ihe.dicom.validator.utils.SRContentTreeUtils;
 import be.uzleuven.ihe.service.qido.WadoRsProxyRegistry;
 import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Sequence;
@@ -254,7 +256,7 @@ public class MHDBackedMetadataService {
                 Sequence refSeriesSeq = studyItem.getSequence(Tag.ReferencedSeriesSequence);
                 if (refSeriesSeq != null) {
                     for (Attributes seriesItem : refSeriesSeq) {
-                        SeriesMetadata series = extractSeriesMetadata(seriesItem, study.studyInstanceUID);
+                        SeriesMetadata series = extractMetadataFromReferencedSeriesSeqItem(seriesItem, study.studyInstanceUID);
                         study.series.add(series);
                         study.numberOfStudyRelatedInstances += series.instances.size();
                         if (series.modality != null) {
@@ -264,6 +266,8 @@ public class MHDBackedMetadataService {
                 }
             }
         }
+
+        addMetadataFromTID1600(attrs, study);
 
         study.numberOfStudyRelatedSeries = study.series.size();
         study.modalitiesInStudy = modalities.isEmpty() ? null : String.join("\\", modalities);
@@ -286,13 +290,14 @@ public class MHDBackedMetadataService {
     }
 
     /**
-     * Extract series metadata from MADO series item.
+     * Extract some series and instance metadata from CurrentRequestedProcedureEvidenceSequence / ReferencedSeriesSequence item
      */
-    private SeriesMetadata extractSeriesMetadata(Attributes seriesItem, String studyInstanceUID) {
+    private SeriesMetadata extractMetadataFromReferencedSeriesSeqItem(Attributes seriesItem, String studyInstanceUID) {
         SeriesMetadata series = new SeriesMetadata();
         series.studyInstanceUID = studyInstanceUID;
         series.seriesInstanceUID = seriesItem.getString(Tag.SeriesInstanceUID);
         series.modality = seriesItem.getString(Tag.Modality);
+        // the following 2 tags should not be present in ReferencedSeriesSequence items?
         series.seriesNumber = seriesItem.getString(Tag.SeriesNumber);
         series.seriesDescription = seriesItem.getString(Tag.SeriesDescription);
 
@@ -313,7 +318,7 @@ public class MHDBackedMetadataService {
     }
 
     /**
-     * Extract instance metadata from MADO SOP item.
+     * Extract instance metadata from MADO ReferencedSOPSequence item
      *
      * @param sopItem The SOP item from the MADO Referenced SOP Sequence
      * @param studyInstanceUID The study instance UID
@@ -326,6 +331,7 @@ public class MHDBackedMetadataService {
         instance.seriesInstanceUID = seriesInstanceUID;
         instance.sopInstanceUID = sopItem.getString(Tag.ReferencedSOPInstanceUID);
         instance.sopClassUID = sopItem.getString(Tag.ReferencedSOPClassUID);
+        // the following 4 tags should not be present in a ReferencedSOPSequence
         instance.instanceNumber = sopItem.getString(Tag.InstanceNumber);
         instance.numberOfFrames = sopItem.getString(Tag.NumberOfFrames);
         instance.rows = sopItem.getString(Tag.Rows);
@@ -340,6 +346,70 @@ public class MHDBackedMetadataService {
         }
 
         return instance;
+    }
+
+    private void addMetadataFromTID1600(Attributes root, StudyMetadata studyMetadata) {
+
+        Sequence contentSeq = root.getSequence(Tag.ContentSequence);
+
+        if (contentSeq != null) {
+            for (Attributes topLevelItem : contentSeq) {
+
+                // there is only one Image Library Container TID 1600 according to MADO spec
+                Attributes imageLibraryContainer = SRContentTreeUtils.findContainerByConcept(topLevelItem, CodeConstants.CODE_IMAGE_LIBRARY, CodeConstants.SCHEME_DCM);
+
+                if (imageLibraryContainer != null) {
+                    // there may be several Image Group Library Containers TID 1601, one per series, according to MADO spec
+                    List<Attributes> imageGroupLibraryContainers = SRContentTreeUtils.findDirectChildContainersByConcept(imageLibraryContainer, CodeConstants.CODE_IMAGE_LIBRARY_GROUP, CodeConstants.SCHEME_DCM);
+
+                    // each image library group corresponds to one series
+                    for (Attributes group : imageGroupLibraryContainers) {
+                        Sequence groupContentSeq = group.getSequence(Tag.ContentSequence);
+                        if (groupContentSeq != null) {
+                            // it would be more efficient to iterate through the sequence of items and identify different items
+                            // finding items is less efficient (may iterate through items several times)
+                            String uid = SRContentTreeUtils.findValueByConceptNameAndValueTag(groupContentSeq, CodeConstants.CODE_SERIES_INSTANCE_UID, CodeConstants.SCHEME_DCM, Tag.UID);
+                            if (uid != null && !uid.isEmpty()) {
+
+                                // attributes added by MADO spec
+                                String seriesDescription = SRContentTreeUtils.findValueByConceptNameAndValueTag(groupContentSeq, CodeConstants.CODE_SERIES_DESCRIPTION, CodeConstants.SCHEME_DCM, Tag.TextValue);
+                                String seriesNumber = SRContentTreeUtils.findValueByConceptNameAndValueTag(groupContentSeq, CodeConstants.CODE_SERIES_NUMBER, CodeConstants.SCHEME_DCM, Tag.TextValue);
+
+                                // add these attributes to the existing series metadata (must find the matching series first)
+                                Optional<SeriesMetadata> matchingSeries = studyMetadata.series.stream().filter(s -> s.seriesInstanceUID.equals(uid)).findFirst();
+
+                                matchingSeries.ifPresent(series -> {
+                                    series.seriesDescription = seriesDescription;
+                                    series.seriesNumber = seriesNumber;
+
+                                    // look into Image Library Entry TID 1602 (instance level) for this series and
+                                    // add them to the existing instance metadata (must find the matching instance first)
+                                    List<Attributes> images = SRContentTreeUtils.findItemsByValueType(groupContentSeq, "IMAGE");
+
+                                    for (Attributes image : images) {
+                                        String sopInstanceUID = SRContentTreeUtils.firstItem(image.getSequence(Tag.ReferencedSOPSequence)).getString(Tag.ReferencedSOPInstanceUID);
+                                        if (sopInstanceUID != null && !sopInstanceUID.isEmpty()) {
+
+                                            // instance level attributes added by MADO spec
+                                            String instanceNumber = SRContentTreeUtils.findValueByConceptNameAndValueTag(image.getSequence(Tag.ContentSequence), CodeConstants.CODE_INSTANCE_NUMBER, CodeConstants.SCHEME_DCM, Tag.TextValue);
+                                            String numberOfFrames = SRContentTreeUtils.findValueByConceptNameAndValueTag(image.getSequence(Tag.ContentSequence), CodeConstants.CODE_NUMBER_OF_FRAMES, CodeConstants.SCHEME_DCM, Tag.TextValue);
+
+                                            // add them to the existing instance metadata (must find the matching instance first)
+                                            Optional<InstanceMetadata> matchingInstance = series.instances.stream().filter(in -> sopInstanceUID.equals(in.sopInstanceUID)).findFirst();
+
+                                            matchingInstance.ifPresent(in -> {
+                                                in.instanceNumber = instanceNumber;
+                                                in.numberOfFrames = numberOfFrames;
+                                            });
+                                        }
+                                    }
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     // ============================================================================

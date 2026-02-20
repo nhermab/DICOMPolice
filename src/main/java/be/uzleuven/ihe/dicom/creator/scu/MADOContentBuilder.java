@@ -183,37 +183,35 @@ class MADOContentBuilder {
     /**
      * Adds instance entries to the Image Library Group.
      *
-     * Per TID 1601, instance-level metadata (Instance Number, Number of Frames)
-     * should be SIBLINGS of the IMAGE item within the Image Library Group,
-     * NOT children nested inside the IMAGE item.
+     * Per TID 1601, instance-level metadata (Instance Number, Number of Frames, if available/relevant)
+     * should be children of the IMAGE item within the Image Library Group
      *
      * Structure:
      *   Image Library Group (CONTAINER)
-     *     ├── HAS ACQ CONTEXT -> Instance Number (TEXT)
-     *     ├── HAS ACQ CONTEXT -> Number of Frames (NUM) [if multiframe]
+     *     ├── HAS ACQ CONTEXT -> series level attributes
      *     └── CONTAINS -> IMAGE (with ReferencedSOPSequence)
+     *          ├── HAS ACQ CONTEXT -> Instance Number
+     *          └── HAS ACQ CONTEXT -> Number Of Frames
      */
     private void addInstanceEntries(Sequence groupSeq, SeriesData sd) {
         if (sd.instances == null) return;
 
         // Sort instances by InstanceNumber before adding to ensure correct order
         java.util.List<Attributes> sortedInstances = new java.util.ArrayList<>(sd.instances);
+
+        // currently disabled in order to test the writing and reading of Instance Numbers in MADO
+        // MADO doesn't ask for sorting, so maybe leave it definitely out
+        // the reason for sorting would be to make life easier for viewers that don't bother to read the Instance Number in MADO?
+        // though the instances may already be ordered in the ReferencedProcedureEvidenceSequence or in TID 2010 root content
+        /*
         sortedInstances.sort((a, b) -> {
             int instNumA = getInstanceNumber(a);
             int instNumB = getInstanceNumber(b);
             return Integer.compare(instNumA, instNumB);
         });
+        */
 
         for (Attributes instAttrs : sortedInstances) {
-            // Add Instance Number as sibling (HAS ACQ CONTEXT)
-            int instNum = getInstanceNumber(instAttrs);
-            String instanceNumber = (instNum == Integer.MAX_VALUE) ? "1" : String.valueOf(instNum);
-            groupSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_INSTANCE_NUMBER,
-                SCHEME_DCM, CodeConstants.MEANING_INSTANCE_NUMBER, instanceNumber));
-
-            // Add Number of Frames as sibling if multiframe (HAS ACQ CONTEXT)
-            addNumberOfFramesIfRequired(groupSeq, instAttrs);
-
             // Add the IMAGE item (CONTAINS)
             groupSeq.add(buildInstanceEntry(instAttrs));
         }
@@ -239,9 +237,9 @@ class MADOContentBuilder {
     /**
      * Builds an IMAGE content item for the Image Library Group.
      *
-     * Per TID 1601, the IMAGE item should NOT have a nested ContentSequence.
-     * Instance-level metadata (Instance Number, Number of Frames) should be
-     * added as siblings to this IMAGE item within the Image Library Group.
+     * Per TID 1601, the IMAGE item should contain a Reference SOP Sequence
+     * Per MADO spec, it should also contain some nested instance level attributes
+     * Instance Number and Number of Frames if available/relevant
      */
     private Attributes buildInstanceEntry(Attributes instAttrs) {
         Attributes entry = new Attributes();
@@ -256,8 +254,16 @@ class MADOContentBuilder {
             normalizeUidNoLeadingZeros(instAttrs.getString(Tag.SOPInstanceUID)));
         refSop.add(refItem);
 
-        // NOTE: Per TID 1601, no ContentSequence inside IMAGE items.
-        // Instance-level metadata is added as siblings in addInstanceEntries().
+        Sequence contentSeq = entry.newSequence(Tag.ContentSequence, 2);
+
+        // get extra instance info
+        int instNum = getInstanceNumber(instAttrs);
+        String instanceNumber = (instNum == Integer.MAX_VALUE) ? "1" : String.valueOf(instNum);
+        contentSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_INSTANCE_NUMBER,
+                SCHEME_DCM, CodeConstants.MEANING_INSTANCE_NUMBER, instanceNumber));
+
+        // Add Number of Frames if multiframe (HAS ACQ CONTEXT)
+        addNumberOfFramesIfRequired(contentSeq, instAttrs);
 
         return entry;
     }

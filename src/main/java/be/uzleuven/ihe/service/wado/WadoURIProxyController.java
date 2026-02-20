@@ -66,7 +66,8 @@ public class WadoURIProxyController {
 
         // Additional WADO-URI and WADO-RS URL parameters are not identical
         // must convert if possible, not supported yet
-        if (params.size() > 4){
+        // contentType param in URL not standard? but sent by Xero
+        if (params.size() > 4 && !params.keySet().contains("contentType")) {
             LOGGER.warn("Received WADO-URI request with additional {} unsupported query parameters: {} ... ", params.size()-4, params.toString());
         }
         /*
