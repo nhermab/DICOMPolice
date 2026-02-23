@@ -637,6 +637,7 @@ public class FHIRToMADOConverter {
             // SOP Instance UID
             sopItem.setString(Tag.ReferencedSOPInstanceUID, VR.UI, instance.getUid());
 
+            /* Not here according to the current spec
             // Instance Number
             if (instance.hasNumber()) {
                 sopItem.setString(Tag.InstanceNumber, VR.IS, String.valueOf(instance.getNumber()));
@@ -644,6 +645,7 @@ public class FHIRToMADOConverter {
             } else {
                 System.out.println("DEBUG FHIRToMADOConverter.buildSeriesEvidenceItem: NO InstanceNumber for SOP " + instance.getUid());
             }
+             */
 
             // Extract dimensions from extension if available
             for (Extension ext : instance.getExtension()) {

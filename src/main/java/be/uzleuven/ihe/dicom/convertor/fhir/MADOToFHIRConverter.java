@@ -1246,9 +1246,12 @@ public class MADOToFHIRConverter {
         for (Attributes item : contentSeq) {
             String valueType = item.getString(Tag.ValueType);
             Attributes conceptName = getConceptNameCode(item);
-            if (conceptName == null) continue;
 
-            String codeValue = conceptName.getString(Tag.CodeValue);
+            // concept name code sequence not present for all value types
+            String codeValue = null;
+            if (conceptName != null){
+                codeValue = conceptName.getString(Tag.CodeValue);
+            }
 
             System.out.println("DEBUG MADOToFHIRConverter.processImageLibraryGroup: Item valueType=" + valueType + ", codeValue=" + codeValue);
 
