@@ -1065,13 +1065,15 @@ public class MADOToFHIRConverter {
                             for (Attributes sopItem : refSopSeq) {
                                 String sopClassUID = sopItem.getString(Tag.ReferencedSOPClassUID);
                                 String sopInstanceUID = sopItem.getString(Tag.ReferencedSOPInstanceUID);
-                                int numberOfFrames = sopItem.getInt(Tag.NumberOfFrames, 0);
-                                int rows = sopItem.getInt(Tag.Rows, 0);
-                                int columns = sopItem.getInt(Tag.Columns, 0);
-                                int instanceNumber = sopItem.getInt(Tag.InstanceNumber, 0);
+                                // No extra instance info in the Evidence sequence
+                                //int numberOfFrames = sopItem.getInt(Tag.NumberOfFrames, 0);
+                                //int rows = sopItem.getInt(Tag.Rows, 0);
+                                //int columns = sopItem.getInt(Tag.Columns, 0);
+                                //int instanceNumber = sopItem.getInt(Tag.InstanceNumber, 0);
 
-                                System.out.println("DEBUG MADOToFHIRConverter: Reading from Evidence - SOP=" + sopInstanceUID +
-                                                   ", InstanceNumber from Evidence=" + instanceNumber);
+                                System.out.println("DEBUG MADOToFHIRConverter: Reading from Evidence - SOP=" + sopInstanceUID);
+                                //System.out.println("DEBUG MADOToFHIRConverter: Reading from Evidence - SOP=" + sopInstanceUID +
+                                //                   ", InstanceNumber from Evidence=" + instanceNumber);
 
                                 ImagingStudy.ImagingStudySeriesInstanceComponent instance =
                                     new ImagingStudy.ImagingStudySeriesInstanceComponent();
@@ -1082,6 +1084,8 @@ public class MADOToFHIRConverter {
                                         .setSystem("urn:ietf:rfc:3986")
                                         .setCode(IHE_UID_PREFIX + sopClassUID));
                                 }
+
+                                /* No extra instance info in the Evidence sequence
 
                                 // Instance number (DICOM Instance Number tag)
                                 if (instanceNumber > 0) {
@@ -1111,7 +1115,7 @@ public class MADOToFHIRConverter {
                                     descExt.setValue(new StringType(descBuilder.toString()));
                                     instance.addExtension(descExt);
                                 }
-
+                                */
                                 series.addInstance(instance);
                             }
                         }
@@ -1309,6 +1313,7 @@ public class MADOToFHIRConverter {
                             }
                         }
                     } else {
+                        /* Don't fill in inexisting info with self-generated values
                         // No IMAGE entries found in ContentSequence - assign sequential instance numbers
                         System.out.println("DEBUG MADOToFHIRConverter: No IMAGE entries in ContentSequence, assigning sequential instance numbers");
                         int sequentialNumber = 1;
@@ -1318,6 +1323,8 @@ public class MADOToFHIRConverter {
                                                " to instance " + instance.getUid());
                             sequentialNumber++;
                         }
+
+                         */
                     }
                 }
             }

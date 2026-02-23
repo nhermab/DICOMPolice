@@ -207,6 +207,7 @@ public class MADOAttributesUtils {
     /**
      * Create the Image Library container with all series groups.
      */
+    @Deprecated
     private static Attributes createImageLibraryContainer(SimulatedStudy study, String studyDate, String studyTime) {
         Attributes libContainer = new Attributes();
         libContainer.setString(Tag.RelationshipType, VR.CS, be.uzleuven.ihe.dicom.constants.DicomConstants.RELATIONSHIP_CONTAINS);

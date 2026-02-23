@@ -121,6 +121,7 @@ public class MADOContentUtils {
      * Instance-level metadata (Instance Number, Number of Frames) should be
      * added as siblings to this IMAGE item within the Image Library Group.
      */
+    @Deprecated
     public static Attributes createImageLibraryEntry(SimulatedInstance inst) {
         Attributes entry = new Attributes();
         entry.setString(Tag.RelationshipType, VR.CS, be.uzleuven.ihe.dicom.constants.DicomConstants.RELATIONSHIP_CONTAINS);
@@ -152,6 +153,7 @@ public class MADOContentUtils {
      *     ├── HAS ACQ CONTEXT -> Number of Frames (NUM) [if multiframe]
      *     └── CONTAINS -> IMAGE (with ReferencedSOPSequence)
      */
+    @Deprecated
     public static Attributes createImageLibraryGroup(SimulatedSeries series, SimulatedStudy study) {
         Attributes group = new Attributes();
         group.setString(Tag.RelationshipType, VR.CS, be.uzleuven.ihe.dicom.constants.DicomConstants.RELATIONSHIP_CONTAINS);

@@ -12,6 +12,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static be.uzleuven.ihe.dicom.constants.CodeConstants.*;
+import static be.uzleuven.ihe.dicom.constants.DicomConstants.SCHEME_DCM;
 import static be.uzleuven.ihe.dicom.creator.utils.DicomCreatorUtils.*;
 import static be.uzleuven.ihe.dicom.creator.utils.SRContentItemUtils.*;
 import static be.uzleuven.ihe.singletons.HAPI.FHIR_R5_CONTEXT;
@@ -963,27 +964,9 @@ public class FHIRToMADOConverter {
             SCHEME_DCM, MEANING_NUM_SERIES_RELATED_INSTANCES,
             series.hasInstance() ? series.getInstance().size() : 0));
 
-        // Instance entries - per TID 1601, metadata must be siblings of IMAGE, not children
+        // IMAGE items for each instance in the series
         for (ImagingStudy.ImagingStudySeriesInstanceComponent instance : series.getInstance()) {
-            // Add Instance Number as sibling (HAS ACQ CONTEXT)
-            String instanceNumber = instance.hasNumber() ? String.valueOf(instance.getNumber()) : "1";
-            groupSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_INSTANCE_NUMBER,
-                SCHEME_DCM, MEANING_INSTANCE_NUMBER, instanceNumber));
-
-            // Add Number of Frames as sibling if multiframe (HAS ACQ CONTEXT)
-            String sopClassUID = null;
-            if (instance.hasSopClass()) {
-                String sopClassCode = instance.getSopClass().getCode();
-                sopClassUID = extractUidFromIhePrefix(sopClassCode);
-            }
-            Integer numberOfFrames = extractNumberOfFramesFromExtension(instance);
-            if (numberOfFrames != null && sopClassUID != null &&
-                be.uzleuven.ihe.dicom.validator.validation.tid1600.TID1600Rules.isMultiframeSOP(sopClassUID)) {
-                groupSeq.add(createNumericItem("HAS ACQ CONTEXT", CODE_NUMBER_OF_FRAMES,
-                    SCHEME_DCM, MEANING_NUMBER_OF_FRAMES, numberOfFrames));
-            }
-
-            // Add the IMAGE item (CONTAINS) - no nested ContentSequence
+            // Add the IMAGE item (CONTAINS)
             groupSeq.add(buildInstanceEntry(instance));
         }
 
@@ -993,9 +976,9 @@ public class FHIRToMADOConverter {
     /**
      * Builds an IMAGE content item for the Image Library Group.
      *
-     * Per TID 1601, the IMAGE item should NOT have a nested ContentSequence.
+     * Per TID 1601,
      * Instance-level metadata (Instance Number, Number of Frames) should be
-     * added as siblings to this IMAGE item within the Image Library Group.
+     * added as children to this IMAGE item within the Image Library Group.
      */
     private Attributes buildInstanceEntry(ImagingStudy.ImagingStudySeriesInstanceComponent instance) {
         Attributes entry = new Attributes();
@@ -1017,8 +1000,25 @@ public class FHIRToMADOConverter {
         refItem.setString(Tag.ReferencedSOPInstanceUID, VR.UI, instance.getUid());
         refSop.add(refItem);
 
-        // NOTE: Per TID 1601, no ContentSequence inside IMAGE items.
-        // Instance-level metadata is added as siblings in buildImageLibraryGroup().
+        // add Instance Number and Number of Frames as children of the IMAGE item
+        Sequence contentSeq = entry.newSequence(Tag.ContentSequence, 2);
+
+        // get extra instance info
+        String instanceNumber = instance.hasNumber() ? String.valueOf(instance.getNumber()) : "1";
+        contentSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_INSTANCE_NUMBER,
+                SCHEME_DCM, CodeConstants.MEANING_INSTANCE_NUMBER, instanceNumber));
+
+        // Add Number of Frames as acquisition context if it's a multiframe SOP Class and number of frames is available
+        String sopClassUID = null;
+        if (instance.hasSopClass()) {
+            String sopClassCode = instance.getSopClass().getCode();
+            sopClassUID = extractUidFromIhePrefix(sopClassCode);
+        }
+        Integer numberOfFrames = extractNumberOfFramesFromExtension(instance);
+        if (numberOfFrames != null && be.uzleuven.ihe.dicom.validator.validation.tid1600.TID1600Rules.isMultiframeSOP(sopClassUID)) {
+            contentSeq.add(createNumericItem("HAS ACQ CONTEXT", CODE_NUMBER_OF_FRAMES,
+                    CodeConstants.SCHEME_DCM, MEANING_NUMBER_OF_FRAMES, numberOfFrames));
+        }
 
         return entry;
     }
