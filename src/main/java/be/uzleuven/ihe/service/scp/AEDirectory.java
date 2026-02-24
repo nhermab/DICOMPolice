@@ -21,50 +21,12 @@ public class AEDirectory {
      */
     private Map<String, AEInfo> entries = new HashMap<>();
 
-    /**
-     * Default host for unknown AE titles (fallback).
-     */
-    private String defaultHost = "localhost";
-
-    /**
-     * Default port for unknown AE titles (fallback).
-     */
-    private int defaultPort = 104;
-
-    @PostConstruct
-    public void init() {
-        // Add some default entries if none configured
-        if (entries.isEmpty()) {
-            // Common PACS systems
-            addEntry("ORTHANC", "localhost", 4242);
-            addEntry("DCM4CHEE", "localhost", 11112);
-            addEntry("HOROS", "localhost", 11112);
-            addEntry("OSIRIX", "localhost", 11112);
-        }
-    }
-
     public Map<String, AEInfo> getEntries() {
         return entries;
     }
 
     public void setEntries(Map<String, AEInfo> entries) {
         this.entries = entries;
-    }
-
-    public String getDefaultHost() {
-        return defaultHost;
-    }
-
-    public void setDefaultHost(String defaultHost) {
-        this.defaultHost = defaultHost;
-    }
-
-    public int getDefaultPort() {
-        return defaultPort;
-    }
-
-    public void setDefaultPort(int defaultPort) {
-        this.defaultPort = defaultPort;
     }
 
     /**
@@ -80,19 +42,10 @@ public class AEDirectory {
     /**
      * Lookup an AE by title.
      * @param aeTitle The AE Title to look up
-     * @return AEInfo if found, or a default entry if not found
+     * @return AEInfo if found, otherwise null
      */
     public AEInfo lookup(String aeTitle) {
-        AEInfo info = entries.get(aeTitle.toUpperCase());
-        if (info != null) {
-            return info;
-        }
-
-        // Return default
-        AEInfo defaultInfo = new AEInfo();
-        defaultInfo.setHost(defaultHost);
-        defaultInfo.setPort(defaultPort);
-        return defaultInfo;
+        return entries.get(aeTitle.toUpperCase());
     }
 
     /**

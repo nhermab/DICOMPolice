@@ -416,6 +416,10 @@ public class MADOSCP {
 
             // Look up move destination
             AEDirectory.AEInfo destInfo = aeDirectory.lookup(moveDestination);
+            if (destInfo == null) {
+                LOG.error("Unknown move destination AE Title: {}", moveDestination);
+                throw new DicomServiceException(Status.MoveDestinationUnknown, "Unknown move destination: " + moveDestination);
+            }
             String destHost = destInfo.getHost();
             int destPort = destInfo.getPort();
 
