@@ -386,7 +386,7 @@ class MADOContentBuilder {
         // TID 2010 requires Key Object Description (113012, DCM) as first item
         Attributes keyObjDesc = createTextItem(DicomConstants.RELATIONSHIP_CONTAINS,
             CodeConstants.CODE_KOS_DESCRIPTION, CodeConstants.SCHEME_DCM,
-            CodeConstants.MEANING_KOS_DESCRIPTION, "");
+            CodeConstants.MEANING_KOS_DESCRIPTION, "Manifest with Description");
         contentSeq.add(keyObjDesc);
 
         // Add root-level IMAGE references (required by KOS SOP Class for standard viewers)
