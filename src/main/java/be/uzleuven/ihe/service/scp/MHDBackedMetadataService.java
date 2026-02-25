@@ -63,28 +63,13 @@ public class MHDBackedMetadataService {
         String accessionNumber = keys.getString(Tag.AccessionNumber);
         String studyInstanceUID = keys.getString(Tag.StudyInstanceUID);
         String modality = keys.getString(Tag.ModalitiesInStudy);
-        String studyDateFrom = null;
-        String studyDateTo = null;
-
-        // Parse date range if provided
-        String studyDate = keys.getString(Tag.StudyDate);
-        if (studyDate != null && !studyDate.isEmpty()) {
-            if (studyDate.contains("-")) {
-                String[] parts = studyDate.split("-", 2);
-                studyDateFrom = parts[0].isEmpty() ? null : parts[0];
-                studyDateTo = parts.length > 1 && !parts[1].isEmpty() ? parts[1] : null;
-            } else {
-                studyDateFrom = studyDate;
-                studyDateTo = studyDate;
-            }
-        }
+        String[] studyDateRange = parseStudyDateRange(keys.getString(Tag.StudyDate));
 
         LOG.info("Find studies from MADO (MHD): patientId={}, accession={}, studyUID={}, modality={}, date={}-{}",
-                patientId, accessionNumber, studyInstanceUID, modality, studyDateFrom, studyDateTo);
+                patientId, accessionNumber, studyInstanceUID, modality, studyDateRange[0], studyDateRange[1]);
 
-        // Query remote MHD FHIR server for DocumentReferences
         List<DocumentReference> docRefs = mhdFhirClient.searchDocumentReferences(
-                patientId, accessionNumber, studyInstanceUID, modality, studyDateFrom, studyDateTo);
+                patientId, accessionNumber, studyInstanceUID, modality, studyDateRange[0], studyDateRange[1]);
 
         LOG.info("MHD returned {} DocumentReferences", docRefs.size());
         if (docRefs.isEmpty() && modality != null) {
@@ -94,20 +79,41 @@ public class MHDBackedMetadataService {
         List<StudyMetadata> results = new ArrayList<>();
         for (DocumentReference docRef : docRefs) {
             StudyMetadata metadata = convertDocRefToStudyMetadata(docRef);
-            if (metadata != null) {
-                // Client-side modality filtering (in case MHD endpoint doesn't support it)
-                if (modality != null && !modality.isEmpty() && !modality.equals("*")) {
-                    if (metadata.modalitiesInStudy == null ||
-                        !matchesModality(metadata.modalitiesInStudy, modality)) {
-                        continue; // Skip studies that don't match the modality filter
-                    }
-                }
+            if (metadata != null && matchesModalityFilter(metadata.modalitiesInStudy, modality)) {
                 results.add(metadata);
             }
         }
 
         LOG.info("After modality filtering: {} studies", results.size());
         return results;
+    }
+
+    /**
+     * Parse a DICOM study date string into a [from, to] range array.
+     * Returns [null, null] if the date string is null or empty.
+     */
+    private String[] parseStudyDateRange(String studyDate) {
+        if (studyDate == null || studyDate.isEmpty()) {
+            return new String[]{null, null};
+        }
+        if (studyDate.contains("-")) {
+            String[] parts = studyDate.split("-", 2);
+            return new String[]{
+                parts[0].isEmpty() ? null : parts[0],
+                parts.length > 1 && !parts[1].isEmpty() ? parts[1] : null
+            };
+        }
+        return new String[]{studyDate, studyDate};
+    }
+
+    /**
+     * Returns true if no modality filter is active, or if the study's modalities include the requested one.
+     */
+    private boolean matchesModalityFilter(String modalitiesInStudy, String requestedModality) {
+        if (requestedModality == null || requestedModality.isEmpty() || requestedModality.equals("*")) {
+            return true;
+        }
+        return matchesModality(modalitiesInStudy, requestedModality);
     }
 
     /**
@@ -122,26 +128,37 @@ public class MHDBackedMetadataService {
         LOG.info("Find series from MADO (MHD): studyUID={}, seriesUID={}, modality={}",
                 studyInstanceUID, seriesInstanceUID, modality);
 
-        List<SeriesMetadata> results = new ArrayList<>();
+        if (isSpecified(studyInstanceUID)) {
+            return findSeriesInStudy(studyInstanceUID, seriesInstanceUID, modality);
+        }
+        if (isSpecified(seriesInstanceUID)) {
+            return findSeriesAcrossCache(seriesInstanceUID);
+        }
+        return Collections.emptyList();
+    }
 
-        // If specific study requested, get MADO for that study
-        // Series Description does not get read from MADO yet
-        if (studyInstanceUID != null && !studyInstanceUID.isEmpty() && !studyInstanceUID.equals("*")) {
-            StudyMetadata studyMeta = getOrFetchStudyMetadata(studyInstanceUID);
-            if (studyMeta != null) {
-                for (SeriesMetadata series : studyMeta.series) {
-                    if (matchesSeries(series, seriesInstanceUID, modality)) {
-                        results.add(series);
-                    }
-                }
+    /** Fetch the given study and return its series that match the optional series/modality filters. */
+    private List<SeriesMetadata> findSeriesInStudy(String studyInstanceUID, String seriesInstanceUID, String modality) throws IOException {
+        StudyMetadata studyMeta = getOrFetchStudyMetadata(studyInstanceUID);
+        if (studyMeta == null) {
+            return Collections.emptyList();
+        }
+        List<SeriesMetadata> results = new ArrayList<>();
+        for (SeriesMetadata series : studyMeta.series) {
+            if (matchesSeries(series, seriesInstanceUID, modality)) {
+                results.add(series);
             }
-        } else if (seriesInstanceUID != null && !seriesInstanceUID.isEmpty() && !seriesInstanceUID.equals("*")) {
-            // Search all cached studies for this series
-            for (StudyMetadata study : metadataCache.values()) {
-                for (SeriesMetadata series : study.series) {
-                    if (series.seriesInstanceUID.equals(seriesInstanceUID)) {
-                        results.add(series);
-                    }
+        }
+        return results;
+    }
+
+    /** Search all cached studies for a series with the given series instance UID. */
+    private List<SeriesMetadata> findSeriesAcrossCache(String seriesInstanceUID) {
+        List<SeriesMetadata> results = new ArrayList<>();
+        for (StudyMetadata study : metadataCache.values()) {
+            for (SeriesMetadata series : study.series) {
+                if (seriesInstanceUID.equals(series.seriesInstanceUID)) {
+                    results.add(series);
                 }
             }
         }
@@ -161,26 +178,36 @@ public class MHDBackedMetadataService {
         LOG.info("Find instances from MADO (MHD): studyUID={}, seriesUID={}, sopUID={}",
                 studyInstanceUID, seriesInstanceUID, sopInstanceUID);
 
-        List<InstanceMetadata> results = new ArrayList<>();
+        if (!isSpecified(studyInstanceUID)) {
+            return Collections.emptyList();
+        }
 
-        if (studyInstanceUID != null && !studyInstanceUID.isEmpty() && !studyInstanceUID.equals("*")) {
-            StudyMetadata studyMeta = getOrFetchStudyMetadata(studyInstanceUID);
-            if (studyMeta != null) {
-                for (SeriesMetadata series : studyMeta.series) {
-                    if (seriesInstanceUID == null || seriesInstanceUID.isEmpty() ||
-                            seriesInstanceUID.equals("*") || series.seriesInstanceUID.equals(seriesInstanceUID)) {
-                        for (InstanceMetadata instance : series.instances) {
-                            if (sopInstanceUID == null || sopInstanceUID.isEmpty() ||
-                                    sopInstanceUID.equals("*") || instance.sopInstanceUID.equals(sopInstanceUID)) {
-                                results.add(instance);
-                            }
-                        }
+        StudyMetadata studyMeta = getOrFetchStudyMetadata(studyInstanceUID);
+        if (studyMeta == null) {
+            return Collections.emptyList();
+        }
+
+        return collectInstances(studyMeta, seriesInstanceUID, sopInstanceUID);
+    }
+
+    /** Collect instances from a study, optionally filtered by series and SOP instance UID. */
+    private List<InstanceMetadata> collectInstances(StudyMetadata studyMeta, String seriesInstanceUID, String sopInstanceUID) {
+        List<InstanceMetadata> results = new ArrayList<>();
+        for (SeriesMetadata series : studyMeta.series) {
+            if (!isSpecified(seriesInstanceUID) || seriesInstanceUID.equals(series.seriesInstanceUID)) {
+                for (InstanceMetadata instance : series.instances) {
+                    if (!isSpecified(sopInstanceUID) || sopInstanceUID.equals(instance.sopInstanceUID)) {
+                        results.add(instance);
                     }
                 }
             }
         }
-
         return results;
+    }
+
+    /** Returns true when a UID filter value is present and not a wildcard. */
+    private boolean isSpecified(String uid) {
+        return uid != null && !uid.isEmpty() && !uid.equals("*");
     }
 
     // ============================================================================
@@ -248,46 +275,64 @@ public class MHDBackedMetadataService {
         study.accessionNumber = attrs.getString(Tag.AccessionNumber);
         study.referringPhysicianName = attrs.getString(Tag.ReferringPhysicianName);
 
-        // Extract series/instance from Evidence Sequence
-        Set<String> modalities = new HashSet<>();
-        Sequence evidenceSeq = attrs.getSequence(Tag.CurrentRequestedProcedureEvidenceSequence);
-        if (evidenceSeq != null) {
-            for (Attributes studyItem : evidenceSeq) {
-                Sequence refSeriesSeq = studyItem.getSequence(Tag.ReferencedSeriesSequence);
-                if (refSeriesSeq != null) {
-                    for (Attributes seriesItem : refSeriesSeq) {
-                        SeriesMetadata series = extractMetadataFromReferencedSeriesSeqItem(seriesItem, study.studyInstanceUID);
-                        study.series.add(series);
-                        study.numberOfStudyRelatedInstances += series.instances.size();
-                        if (series.modality != null) {
-                            modalities.add(series.modality);
-                        }
-                    }
-                }
-            }
-        }
-
+        extractSeriesFromEvidenceSequence(attrs, study);
         addMetadataFromTID1600(attrs, study);
 
         study.numberOfStudyRelatedSeries = study.series.size();
-        study.modalitiesInStudy = modalities.isEmpty() ? null : String.join("\\", modalities);
-
-        // Derive study-level Retrieve URL from first series URL
-        if (!study.series.isEmpty() && study.series.get(0).retrieveURL != null) {
-            String seriesUrl = study.series.get(0).retrieveURL;
-            int seriesIndex = seriesUrl.lastIndexOf("/series/");
-            if (seriesIndex > 0) {
-                study.retrieveURL = seriesUrl.substring(0, seriesIndex);
-            }
-
-            // Register study in WADO-RS proxy registry if available
-            if (proxyRegistry != null && study.studyInstanceUID != null) {
-                proxyRegistry.registerStudy(study.studyInstanceUID, seriesUrl);
-            }
-        }
+        deriveStudyRetrieveURL(study);
 
         return study;
     }
+
+    /**
+     * Populate study.series (and related counts/modalities) from
+     * CurrentRequestedProcedureEvidenceSequence → ReferencedSeriesSequence.
+     */
+    private void extractSeriesFromEvidenceSequence(Attributes attrs, StudyMetadata study) {
+        Sequence evidenceSeq = attrs.getSequence(Tag.CurrentRequestedProcedureEvidenceSequence);
+        if (evidenceSeq == null) return;
+
+        Set<String> modalities = new HashSet<>();
+        for (Attributes studyItem : evidenceSeq) {
+            extractSeriesFromReferencedSeriesSequence(studyItem, study, modalities);
+        }
+        study.modalitiesInStudy = modalities.isEmpty() ? null : String.join("\\", modalities);
+    }
+
+    /** Extract all series from one study item in the evidence sequence. */
+    private void extractSeriesFromReferencedSeriesSequence(Attributes studyItem, StudyMetadata study, Set<String> modalities) {
+        Sequence refSeriesSeq = studyItem.getSequence(Tag.ReferencedSeriesSequence);
+        if (refSeriesSeq == null) return;
+
+        for (Attributes seriesItem : refSeriesSeq) {
+            SeriesMetadata series = extractMetadataFromReferencedSeriesSeqItem(seriesItem, study.studyInstanceUID);
+            study.series.add(series);
+            study.numberOfStudyRelatedInstances += series.instances.size();
+            if (series.modality != null) {
+                modalities.add(series.modality);
+            }
+        }
+    }
+
+    /**
+     * Derive study-level Retrieve URL from first series URL and register with the proxy registry.
+     */
+    private void deriveStudyRetrieveURL(StudyMetadata study) {
+        if (study.series.isEmpty()) return;
+
+        String seriesUrl = study.series.get(0).retrieveURL;
+        if (seriesUrl == null) return;
+
+        int seriesIndex = seriesUrl.lastIndexOf("/series/");
+        if (seriesIndex > 0) {
+            study.retrieveURL = seriesUrl.substring(0, seriesIndex);
+        }
+
+        if (proxyRegistry != null && study.studyInstanceUID != null) {
+            proxyRegistry.registerStudy(study.studyInstanceUID, seriesUrl);
+        }
+    }
+
 
     /**
      * Extract some series and instance metadata from CurrentRequestedProcedureEvidenceSequence / ReferencedSeriesSequence item
@@ -349,67 +394,95 @@ public class MHDBackedMetadataService {
     }
 
     private void addMetadataFromTID1600(Attributes root, StudyMetadata studyMetadata) {
-
         Sequence contentSeq = root.getSequence(Tag.ContentSequence);
+        if (contentSeq == null) return;
 
-        if (contentSeq != null) {
-            for (Attributes topLevelItem : contentSeq) {
-
-                // there is only one Image Library Container TID 1600 according to MADO spec
-                Attributes imageLibraryContainer = SRContentTreeUtils.findContainerByConcept(topLevelItem, CodeConstants.CODE_IMAGE_LIBRARY, CodeConstants.SCHEME_DCM);
-
-                if (imageLibraryContainer != null) {
-                    // there may be several Image Group Library Containers TID 1601, one per series, according to MADO spec
-                    List<Attributes> imageGroupLibraryContainers = SRContentTreeUtils.findDirectChildContainersByConcept(imageLibraryContainer, CodeConstants.CODE_IMAGE_LIBRARY_GROUP, CodeConstants.SCHEME_DCM);
-
-                    // each image library group corresponds to one series
-                    for (Attributes group : imageGroupLibraryContainers) {
-                        Sequence groupContentSeq = group.getSequence(Tag.ContentSequence);
-                        if (groupContentSeq != null) {
-                            // it would be more efficient to iterate through the sequence of items and identify different items
-                            // finding items is less efficient (may iterate through items several times)
-                            String uid = SRContentTreeUtils.findValueByConceptNameAndValueTag(groupContentSeq, CodeConstants.CODE_SERIES_INSTANCE_UID, CodeConstants.SCHEME_DCM, Tag.UID);
-                            if (uid != null && !uid.isEmpty()) {
-
-                                // attributes added by MADO spec
-                                String seriesDescription = SRContentTreeUtils.findValueByConceptNameAndValueTag(groupContentSeq, CodeConstants.CODE_SERIES_DESCRIPTION, CodeConstants.SCHEME_DCM, Tag.TextValue);
-                                String seriesNumber = SRContentTreeUtils.findValueByConceptNameAndValueTag(groupContentSeq, CodeConstants.CODE_SERIES_NUMBER, CodeConstants.SCHEME_DCM, Tag.TextValue);
-
-                                // add these attributes to the existing series metadata (must find the matching series first)
-                                Optional<SeriesMetadata> matchingSeries = studyMetadata.series.stream().filter(s -> s.seriesInstanceUID.equals(uid)).findFirst();
-
-                                matchingSeries.ifPresent(series -> {
-                                    series.seriesDescription = seriesDescription;
-                                    series.seriesNumber = seriesNumber;
-
-                                    // look into Image Library Entry TID 1602 (instance level) for this series and
-                                    // add them to the existing instance metadata (must find the matching instance first)
-                                    List<Attributes> images = SRContentTreeUtils.findItemsByValueType(groupContentSeq, "IMAGE");
-
-                                    for (Attributes image : images) {
-                                        String sopInstanceUID = SRContentTreeUtils.firstItem(image.getSequence(Tag.ReferencedSOPSequence)).getString(Tag.ReferencedSOPInstanceUID);
-                                        if (sopInstanceUID != null && !sopInstanceUID.isEmpty()) {
-
-                                            // instance level attributes added by MADO spec
-                                            String instanceNumber = SRContentTreeUtils.findValueByConceptNameAndValueTag(image.getSequence(Tag.ContentSequence), CodeConstants.CODE_INSTANCE_NUMBER, CodeConstants.SCHEME_DCM, Tag.TextValue);
-                                            String numberOfFrames = SRContentTreeUtils.findValueByConceptNameAndValueTag(image.getSequence(Tag.ContentSequence), CodeConstants.CODE_NUMBER_OF_FRAMES, CodeConstants.SCHEME_DCM, Tag.TextValue);
-
-                                            // add them to the existing instance metadata (must find the matching instance first)
-                                            Optional<InstanceMetadata> matchingInstance = series.instances.stream().filter(in -> sopInstanceUID.equals(in.sopInstanceUID)).findFirst();
-
-                                            matchingInstance.ifPresent(in -> {
-                                                in.instanceNumber = instanceNumber;
-                                                in.numberOfFrames = numberOfFrames;
-                                            });
-                                        }
-                                    }
-                                });
-                            }
-                        }
-                    }
-                }
+        for (Attributes topLevelItem : contentSeq) {
+            // There is only one Image Library Container TID 1600 according to MADO spec
+            Attributes imageLibraryContainer = SRContentTreeUtils.findContainerByConcept(
+                    topLevelItem, CodeConstants.CODE_IMAGE_LIBRARY, CodeConstants.SCHEME_DCM);
+            if (imageLibraryContainer != null) {
+                addMetadataFromImageLibraryContainer(imageLibraryContainer, studyMetadata);
             }
         }
+    }
+
+    /**
+     * Process an Image Library Container (TID 1600) and enrich series/instance metadata.
+     * There may be several Image Library Group Containers (TID 1601), one per series, according to MADO spec.
+     * Each image library group corresponds to one series.
+     */
+    private void addMetadataFromImageLibraryContainer(Attributes imageLibraryContainer, StudyMetadata studyMetadata) {
+        List<Attributes> imageGroupLibraryContainers = SRContentTreeUtils.findDirectChildContainersByConcept(
+                imageLibraryContainer, CodeConstants.CODE_IMAGE_LIBRARY_GROUP, CodeConstants.SCHEME_DCM);
+
+        for (Attributes group : imageGroupLibraryContainers) {
+            Sequence groupContentSeq = group.getSequence(Tag.ContentSequence);
+            if (groupContentSeq != null) {
+                addMetadataFromImageLibraryGroup(groupContentSeq, studyMetadata);
+            }
+        }
+    }
+
+    /**
+     * Process a single Image Library Group (TID 1601) and enrich the matching series and its instances.
+     * It would be more efficient to iterate through the sequence of items and identify different items;
+     * finding items is less efficient (may iterate through items several times).
+     */
+    private void addMetadataFromImageLibraryGroup(Sequence groupContentSeq, StudyMetadata studyMetadata) {
+        String seriesInstanceUID = SRContentTreeUtils.findValueByConceptNameAndValueTag(
+                groupContentSeq, CodeConstants.CODE_SERIES_INSTANCE_UID, CodeConstants.SCHEME_DCM, Tag.UID);
+        if (seriesInstanceUID == null || seriesInstanceUID.isEmpty()) return;
+
+        // Add these attributes to the existing series metadata (must find the matching series first)
+        studyMetadata.series.stream()
+                .filter(s -> s.seriesInstanceUID.equals(seriesInstanceUID))
+                .findFirst()
+                .ifPresent(series -> enrichSeriesFromTID1601(groupContentSeq, series));
+    }
+
+    /**
+     * Enrich a series with description/number from TID 1601 (attributes added by MADO spec),
+     * and look into Image Library Entry TID 1602 (instance level) for each image in this series.
+     */
+    private void enrichSeriesFromTID1601(Sequence groupContentSeq, SeriesMetadata series) {
+        // Attributes added by MADO spec
+        series.seriesDescription = SRContentTreeUtils.findValueByConceptNameAndValueTag(
+                groupContentSeq, CodeConstants.CODE_SERIES_DESCRIPTION, CodeConstants.SCHEME_DCM, Tag.TextValue);
+        series.seriesNumber = SRContentTreeUtils.findValueByConceptNameAndValueTag(
+                groupContentSeq, CodeConstants.CODE_SERIES_NUMBER, CodeConstants.SCHEME_DCM, Tag.TextValue);
+
+        // Look into Image Library Entry TID 1602 (instance level) for this series and
+        // add them to the existing instance metadata (must find the matching instance first)
+        List<Attributes> images = SRContentTreeUtils.findItemsByValueType(groupContentSeq, "IMAGE");
+        for (Attributes image : images) {
+            enrichInstanceFromTID1602(image, series);
+        }
+    }
+
+    /**
+     * Enrich a single instance with instance-level attributes added by MADO spec (TID 1602):
+     * instance number and frame count.
+     */
+    private void enrichInstanceFromTID1602(Attributes image, SeriesMetadata series) {
+        String sopInstanceUID = SRContentTreeUtils.firstItem(image.getSequence(Tag.ReferencedSOPSequence))
+                .getString(Tag.ReferencedSOPInstanceUID);
+        if (sopInstanceUID == null || sopInstanceUID.isEmpty()) return;
+
+        // Instance level attributes added by MADO spec
+        String instanceNumber = SRContentTreeUtils.findValueByConceptNameAndValueTag(
+                image.getSequence(Tag.ContentSequence), CodeConstants.CODE_INSTANCE_NUMBER, CodeConstants.SCHEME_DCM, Tag.TextValue);
+        String numberOfFrames = SRContentTreeUtils.findValueByConceptNameAndValueTag(
+                image.getSequence(Tag.ContentSequence), CodeConstants.CODE_NUMBER_OF_FRAMES, CodeConstants.SCHEME_DCM, Tag.TextValue);
+
+        // Add them to the existing instance metadata (must find the matching instance first)
+        series.instances.stream()
+                .filter(in -> sopInstanceUID.equals(in.sopInstanceUID))
+                .findFirst()
+                .ifPresent(in -> {
+                    in.instanceNumber = instanceNumber;
+                    in.numberOfFrames = numberOfFrames;
+                });
     }
 
     // ============================================================================
@@ -417,93 +490,91 @@ public class MHDBackedMetadataService {
     // ============================================================================
 
     private StudyMetadata convertDocRefToStudyMetadata(DocumentReference docRef) {
-        // DocumentReference contains study-level info from C-FIND
-        // We'll need to parse identifiers and metadata from the FHIR resource
         StudyMetadata study = new StudyMetadata();
-
-        // Extract Study Instance UID from identifier
-        if (docRef.getMasterIdentifier() != null) {
-            study.studyInstanceUID = docRef.getMasterIdentifier().getValue();
-        }
-
-        // Extract other identifiers
-        for (org.hl7.fhir.r4.model.Identifier id : docRef.getIdentifier()) {
-            String system = id.getSystem();
-            String value = id.getValue();
-            if (system != null && system.contains("accession")) {
-                study.accessionNumber = value;
-            }
-        }
-
-        // Extract patient reference
-        if (docRef.getSubject() != null) {
-            if (docRef.getSubject().getIdentifier() != null) {
-                study.patientId = docRef.getSubject().getIdentifier().getValue();
-            }
-            // Extract patient name from subject display
-            if (docRef.getSubject().getDisplay() != null && !docRef.getSubject().getDisplay().isEmpty()) {
-                study.patientName = docRef.getSubject().getDisplay();
-            }
-        }
-
-        // Extract description
+        study.studyInstanceUID = extractStudyInstanceUID(docRef);
+        study.accessionNumber = extractAccessionNumber(docRef);
         study.studyDescription = docRef.getDescription();
+        study.modalitiesInStudy = extractModalitiesInStudy(docRef);
+        study.referringPhysicianName = extractReferringPhysicianName(docRef);
+        extractPatientInfo(docRef, study);
+        extractStudyDateTime(docRef, study);
+        return study;
+    }
 
-        // Extract date and time
-        if (docRef.getDate() != null) {
-            // Format date as DICOM DA
-            java.text.SimpleDateFormat sdfDate = new java.text.SimpleDateFormat("yyyyMMdd");
-            study.studyDate = sdfDate.format(docRef.getDate());
-            // Format time as DICOM TM
-            java.text.SimpleDateFormat sdfTime = new java.text.SimpleDateFormat("HHmmss");
-            study.studyTime = sdfTime.format(docRef.getDate());
-        }
+    private String extractStudyInstanceUID(DocumentReference docRef) {
+        return docRef.getMasterIdentifier() != null ? docRef.getMasterIdentifier().getValue() : null;
+    }
 
-        // Extract modality from context.event (collect all modalities)
-        if (docRef.hasContext() && docRef.getContext().hasEvent()) {
-            List<String> modalities = new ArrayList<>();
-            for (org.hl7.fhir.r4.model.CodeableConcept event : docRef.getContext().getEvent()) {
-                if (event.hasCoding()) {
-                    for (org.hl7.fhir.r4.model.Coding coding : event.getCoding()) {
-                        if (coding.hasCode()) {
-                            String modalityCode = coding.getCode();
-                            if (!modalities.contains(modalityCode)) {
-                                modalities.add(modalityCode);
-                            }
-                        }
-                    }
-                }
-            }
-            if (!modalities.isEmpty()) {
-                // Join with backslash as per DICOM standard for multi-valued CS
-                study.modalitiesInStudy = String.join("\\", modalities);
+    /** Extracts accession number from identifiers or from context.related ServiceRequest. */
+    private String extractAccessionNumber(DocumentReference docRef) {
+        // Check direct identifiers first
+        for (org.hl7.fhir.r4.model.Identifier id : docRef.getIdentifier()) {
+            if (id.getSystem() != null && id.getSystem().contains("accession")) {
+                return id.getValue();
             }
         }
-
-        // Extract accession number from context.related (ServiceRequest)
+        // Fall back to context.related ServiceRequest
         if (docRef.hasContext() && docRef.getContext().hasRelated()) {
             for (org.hl7.fhir.r4.model.Reference related : docRef.getContext().getRelated()) {
                 if ("ServiceRequest".equals(related.getType()) && related.hasIdentifier()) {
-                    if (study.accessionNumber == null || study.accessionNumber.isEmpty()) {
-                        study.accessionNumber = related.getIdentifier().getValue();
-                    }
+                    return related.getIdentifier().getValue();
                 }
             }
         }
+        return null;
+    }
 
-        // Extract referring physician from author
-        if (docRef.hasAuthor() && !docRef.getAuthor().isEmpty()) {
-            org.hl7.fhir.r4.model.Reference author = docRef.getAuthor().get(0);
-            if (author.hasDisplay()) {
-                String authorDisplay = author.getDisplay();
-                // Don't use generic "Unknown Author" as referring physician
-                if (!"Unknown Author".equals(authorDisplay)) {
-                    study.referringPhysicianName = authorDisplay;
+    /** Populates patient ID and name from docRef.subject. */
+    private void extractPatientInfo(DocumentReference docRef, StudyMetadata study) {
+        org.hl7.fhir.r4.model.Reference subject = docRef.getSubject();
+        if (subject == null) return;
+
+        if (subject.getIdentifier() != null) {
+            study.patientId = subject.getIdentifier().getValue();
+        }
+        if (subject.getDisplay() != null && !subject.getDisplay().isEmpty()) {
+            study.patientName = subject.getDisplay();
+        }
+    }
+
+    /** Populates study date and time (DICOM DA/TM format) from docRef.date. */
+    private void extractStudyDateTime(DocumentReference docRef, StudyMetadata study) {
+        if (docRef.getDate() == null) return;
+
+        study.studyDate = new java.text.SimpleDateFormat("yyyyMMdd").format(docRef.getDate());
+        study.studyTime = new java.text.SimpleDateFormat("HHmmss").format(docRef.getDate());
+    }
+
+    /**
+     * Extracts all modalities from context.event codings and joins them with backslash
+     * as per the DICOM standard for multi-valued CS fields.
+     */
+    private String extractModalitiesInStudy(DocumentReference docRef) {
+        if (!docRef.hasContext() || !docRef.getContext().hasEvent()) return null;
+
+        List<String> modalities = new ArrayList<>();
+        for (org.hl7.fhir.r4.model.CodeableConcept event : docRef.getContext().getEvent()) {
+            for (org.hl7.fhir.r4.model.Coding coding : event.getCoding()) {
+                if (coding.hasCode() && !modalities.contains(coding.getCode())) {
+                    modalities.add(coding.getCode());
                 }
             }
         }
+        return modalities.isEmpty() ? null : String.join("\\", modalities);
+    }
 
-        return study;
+    /**
+     * Extracts the referring physician from the first author of the DocumentReference.
+     * Returns null if no author is present or if the author is the generic "Unknown Author".
+     */
+    private String extractReferringPhysicianName(DocumentReference docRef) {
+        if (!docRef.hasAuthor() || docRef.getAuthor().isEmpty()) return null;
+
+        org.hl7.fhir.r4.model.Reference author = docRef.getAuthor().get(0);
+        if (!author.hasDisplay()) return null;
+
+        String display = author.getDisplay();
+        return "Unknown Author".equals(display) ? null : display;
     }
 
     private boolean matchesSeries(SeriesMetadata series, String seriesInstanceUID, String modality) {
