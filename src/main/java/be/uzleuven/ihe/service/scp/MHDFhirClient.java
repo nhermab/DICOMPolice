@@ -2,6 +2,7 @@ package be.uzleuven.ihe.service.scp;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
+import org.hl7.fhir.r4.model.Attachment;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.DocumentReference;
 import org.slf4j.Logger;
@@ -69,18 +70,22 @@ public class MHDFhirClient {
         List<String> params = new ArrayList<>();
 
         if (patientId != null && !patientId.isEmpty()) {
+            //for sure
             params.add("patient.identifier=" + urlEncode(patientId));
         }
 
         if (accessionNumber != null && !accessionNumber.isEmpty()) {
+            // not specified in the trial standard, tentative example
             params.add("accession=" + urlEncode(accessionNumber));
         }
 
         if (studyInstanceUid != null && !studyInstanceUid.isEmpty()) {
+            // not specified in the trial standard, tentative example
             params.add("study-instance-uid=" + urlEncode(studyInstanceUid));
         }
 
         if (modality != null && !modality.isEmpty()) {
+            //not specified in the trial standard, likely not correct
             params.add("modality=" + urlEncode(modality));
         }
 
@@ -186,23 +191,26 @@ public class MHDFhirClient {
         return results.isEmpty() ? null : results.get(0);
     }
 
+
+    // TODO: add retrieveDocumentFHIRMADO function, that returns a FHIR MADO json
+
     /**
      * Retrieve MADO manifest (Binary resource) for a study.
      * Implements ITI-68 (Retrieve Document) transaction.
      *
-     * Optimized to directly construct the MADO manifest URL without querying DocumentReference.
-     * This saves an unnecessary FHIR query since the manifest URL follows a predictable pattern.
-     *
      * @param studyInstanceUid Study Instance UID
      * @return Raw bytes of the MADO manifest, or null if not found
      */
-    public byte[] retrieveDocumentRaw(String studyInstanceUid) throws IOException {
-        // Directly construct the MADO manifest URL
-        // Pattern: {mhdBaseUrl}/studies/{studyUID}/manifest
-        // This skips the unnecessary DocumentReference lookup
-        String manifestUrl = buildManifestUrl(studyInstanceUid);
+    public byte[] retrieveDocumentRawDICOM(String studyInstanceUid) throws IOException {
 
-        LOG.debug("Retrieving MADO manifest from: {}", manifestUrl);
+        // first search fetch the document reference
+        DocumentReference dicomMadoDocRef = getDocumentReference(studyInstanceUid);
+
+        // then fetch the URL to the content attachment raw document
+        Attachment rawDocument = dicomMadoDocRef.getContent().get(0).getAttachment();
+        String manifestUrl = rawDocument.getUrl();
+
+        LOG.debug("Retrieving DICOM MADO manifest from: {}", manifestUrl);
 
         // Download the Binary resource
         HttpURLConnection conn = (HttpURLConnection) new URL(manifestUrl).openConnection();
@@ -234,6 +242,7 @@ public class MHDFhirClient {
      * @param studyInstanceUid Study Instance UID
      * @return Direct URL to MADO manifest
      */
+    /*
     private String buildManifestUrl(String studyInstanceUid) {
         // Use the /mhd/studies/{studyUID}/manifest endpoint
         // This is more efficient than /DocumentReference query + Binary retrieval
@@ -246,6 +255,8 @@ public class MHDFhirClient {
         }
         return baseUrl + "/mhd/studies/" + studyInstanceUid + "/manifest";
     }
+
+     */
 
     /**
      * URL encode a parameter value.

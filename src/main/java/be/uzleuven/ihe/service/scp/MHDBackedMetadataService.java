@@ -225,16 +225,18 @@ public class MHDBackedMetadataService {
             return cached;
         }
 
-        // Fetch MADO from MHD
+        // TODO: add feature to fetch and parse FHIR MADO, currently only DICOM MADO
+
+        // Fetch DICOM MADO from MHD
         LOG.info("Fetching MADO from MHD for study {}", studyInstanceUID);
-        byte[] madoBytes = mhdFhirClient.retrieveDocumentRaw(studyInstanceUID);
+        byte[] madoBytes = mhdFhirClient.retrieveDocumentRawDICOM(studyInstanceUID);
         if (madoBytes == null) {
             LOG.warn("No MADO found for study {}", studyInstanceUID);
             return null;
         }
 
-        // Parse MADO
-        StudyMetadata metadata = parseMADO(madoBytes, studyInstanceUID);
+        // Parse DICOM MADO
+        StudyMetadata metadata = parseDICOMMADO(madoBytes, studyInstanceUID);
         if (metadata != null) {
             metadata.fetchedAt = System.currentTimeMillis();
             metadataCache.put(studyInstanceUID, metadata);
@@ -246,7 +248,7 @@ public class MHDBackedMetadataService {
     /**
      * Parse a MADO manifest into structured metadata.
      */
-    private StudyMetadata parseMADO(byte[] madoBytes, String studyInstanceUID) {
+    private StudyMetadata parseDICOMMADO(byte[] madoBytes, String studyInstanceUID) {
         try (DicomInputStream dis = new DicomInputStream(new ByteArrayInputStream(madoBytes))) {
             Attributes attrs = dis.readDataset();
             return extractStudyMetadata(attrs);
