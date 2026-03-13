@@ -70,7 +70,7 @@ const DicomDownloader = (function() {
         };
 
         setupEventListeners();
-        checkUrlParams();
+        checkUrlParamsAndLoadManifest();
     }
 
     function setupEventListeners() {
@@ -109,14 +109,52 @@ const DicomDownloader = (function() {
         });
     }
 
-    function checkUrlParams() {
+    /**
+     * The URL parameters can be either the FHIR URL to the DICOM MADO Manifest
+     * or the studyUid. If the Manifest URL is provided, loads the manifest directly.
+     * Otherwise if the studyUid is provided, gets the DICOM MADO Manifest URL from MHD
+     * (first Document Reference, then URL to document), and then loads the manifest.
+     *
+     * TODO: make the input clearer and more unified, the behaviour is now a bit hidden
+     */
+    async function checkUrlParamsAndLoadManifest() {
         const urlParams = new URLSearchParams(window.location.search);
         const manifestUrl = urlParams.get('manifestUrl') || urlParams.get('url');
 
         if (manifestUrl) {
             elements.madoUrl.value = manifestUrl;
-            loadFromUrl();
         }
+        else if (urlParams.get('studyUid')) {
+            const studyUid = urlParams.get('studyUid').trim();
+
+            // default FHIR endpoint, TODO get from config
+            const baseUrl = './fhir';
+            const url = `${baseUrl}/DocumentReference?study-instance-uid=${studyUid.toString()}`;
+
+            const response = await fetch(url, {
+                headers: {
+                    'Accept': 'application/fhir+json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const bundle = await response.json();
+
+            // expects a single document reference per studyUid
+            if (!bundle || !bundle.entry || bundle.entry.length !== 1) {
+                throw new Error(`MADO file fetching failed for study UID`);
+            }
+
+            // get the first and only instance of the URL to the DICOM MADO
+            // TODO manage also FHIR MADO
+            const doc = bundle.entry[0].resource;
+            elements.madoUrl.value = doc.content?.[0]?.attachment?.url || '';
+        }
+
+        loadFromUrl();
     }
 
     // ==============================

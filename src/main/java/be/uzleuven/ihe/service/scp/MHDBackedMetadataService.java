@@ -226,7 +226,7 @@ public class MHDBackedMetadataService {
         }
 
         // TODO: Currently centered on DICOM MADO, extend it to be able to handle the FHIR MADO fully
-        //  Currently the FHIR MADO does het fetched in retrieveDocumentRawDICOM but it gets converted to DICOM MADO, a bit ugly, to be improved
+        //  Currently the FHIR MADO does get fetched in retrieveDocumentRawDICOM but it gets converted to DICOM MADO, a bit ugly, to be improved
 
         // Fetch DICOM MADO from MHD
         LOG.info("Fetching MADO from MHD for study {}", studyInstanceUID);
