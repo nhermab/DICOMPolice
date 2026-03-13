@@ -19,6 +19,11 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.dcm4che3.data.Attributes;
+import be.uzleuven.ihe.dicom.convertor.dicom.FHIRToMADOConverter;
+
+import static be.uzleuven.ihe.service.MHD.dicom.DicomBackendService.attributesToDicomBytes;
+
 /**
  * HTTP client for querying a remote MHD Document Responder via FHIR REST API.
  *
@@ -33,6 +38,7 @@ public class MHDFhirClient {
     private final FhirContext fhirContext;
     private final IParser jsonParser;
     private final String mhdBaseUrl;
+    private final FHIRToMADOConverter fhirToMADOConverter = new FHIRToMADOConverter();
 
     public MHDFhirClient(@Value("${mado.scp.mhd-fhir-base-url}") String mhdBaseUrl) {
         this.mhdBaseUrl = mhdBaseUrl;
@@ -191,15 +197,17 @@ public class MHDFhirClient {
         return results.isEmpty() ? null : results.get(0);
     }
 
-
-    // TODO: add retrieveDocumentFHIRMADO function, that returns a FHIR MADO json
-
     /**
-     * Retrieve MADO manifest (Binary resource) for a study.
-     * Implements ITI-68 (Retrieve Document) transaction.
+     * Retrieve DICOM MADO manifest (Binary resource) for a study.
+     * Implements ITI-68 (Retrieve Document) transaction?
+     *
+     * Currently the FHIR MADO is also fetched if provided by MHD, but it gets converted to DICOM MADO
+     * Only the first document reference found for the input studyUID is used.
+     *
+     * // TODO: add separate function retrieveDocumentFHIRMADO
      *
      * @param studyInstanceUid Study Instance UID
-     * @return Raw bytes of the MADO manifest, or null if not found
+     * @return Raw bytes of the DICOM MADO manifest, or null if not found
      */
     public byte[] retrieveDocumentRawDICOM(String studyInstanceUid) throws IOException {
 
@@ -207,32 +215,67 @@ public class MHDFhirClient {
         DocumentReference dicomMadoDocRef = getDocumentReference(studyInstanceUid);
 
         // then fetch the URL to the content attachment raw document
-        Attachment rawDocument = dicomMadoDocRef.getContent().get(0).getAttachment();
-        String manifestUrl = rawDocument.getUrl();
+        Attachment document = dicomMadoDocRef.getContent().get(0).getAttachment();
+        String manifestUrl = document.getUrl();
 
-        LOG.debug("Retrieving DICOM MADO manifest from: {}", manifestUrl);
+        if ("application/dicom".equals(document.getContentType())) {
+            LOG.debug("Retrieving DICOM MADO manifest from: {}", manifestUrl);
 
-        // Download the Binary resource
-        HttpURLConnection conn = (HttpURLConnection) new URL(manifestUrl).openConnection();
-        conn.setRequestMethod("GET");
-        conn.setRequestProperty("Accept", "application/dicom");
-        conn.setConnectTimeout(10000);
-        conn.setReadTimeout(60000);  // Longer timeout for binary data
+            // Download the Binary resource
+            HttpURLConnection conn = (HttpURLConnection) new URL(manifestUrl).openConnection();
+            conn.setRequestMethod("GET");
+            conn.setRequestProperty("Accept", "application/dicom");
+            conn.setConnectTimeout(10000);
+            conn.setReadTimeout(60000);  // Longer timeout for binary data
 
-        int responseCode = conn.getResponseCode();
-        if (responseCode == 200) {
-            try (InputStream is = conn.getInputStream()) {
-                byte[] data = is.readAllBytes();
-                LOG.debug("Retrieved {} bytes for study {}", data.length, studyInstanceUid);
-                return data;
+            int responseCode = conn.getResponseCode();
+            if (responseCode == 200) {
+                try (InputStream is = conn.getInputStream()) {
+                    byte[] data = is.readAllBytes();
+                    LOG.debug("Retrieved {} bytes for study {}", data.length, studyInstanceUid);
+                    return data;
+                }
+            } else if (responseCode == 404) {
+                LOG.warn("MADO manifest not found for study {}", studyInstanceUid);
+                return null;
+            } else {
+                LOG.error("HTTP {} retrieving MADO manifest from: {}", responseCode, manifestUrl);
+                throw new IOException("HTTP " + responseCode + " retrieving MADO manifest: " + manifestUrl);
             }
-        } else if (responseCode == 404) {
-            LOG.warn("MADO manifest not found for study {}", studyInstanceUid);
-            return null;
-        } else {
-            LOG.error("HTTP {} retrieving MADO manifest from: {}", responseCode, manifestUrl);
-            throw new IOException("HTTP " + responseCode + " retrieving MADO manifest: " + manifestUrl);
         }
+        // not yet fully tested because currently no MHD with FHIR MADO available but should work
+        // TODO: implement direct parsing of the FHIR MADO JSON, without converting to DICOM MADO
+        else if ("application/fhir+json".equals(document.getContentType())) {
+            LOG.debug("Retrieving FHIR MADO manifest from: {}", manifestUrl);
+
+            // Download the FHIR JSON resource
+            HttpURLConnection conn = (HttpURLConnection) new URL(manifestUrl).openConnection();
+            conn.setRequestMethod("GET");
+            conn.setRequestProperty("Accept", "application/fhir+json");
+            conn.setConnectTimeout(10000);
+            conn.setReadTimeout(60000);  // Longer timeout for possibly large json
+
+            int responseCode = conn.getResponseCode();
+            if (responseCode == 200) {
+                try (InputStream is = conn.getInputStream()) {
+                    String jsonContent = new String(is.readAllBytes(), StandardCharsets.UTF_8);
+                    Attributes attr = fhirToMADOConverter.convertFromJson(jsonContent);
+                    return attributesToDicomBytes(attr);
+                }
+            } else if (responseCode == 404) {
+                LOG.warn("MADO manifest not found for study {}", studyInstanceUid);
+                return null;
+            } else {
+                LOG.error("HTTP {} retrieving MADO manifest from: {}", responseCode, manifestUrl);
+                throw new IOException("HTTP " + responseCode + " retrieving MADO manifest: " + manifestUrl);
+            }
+        }
+        else {
+            LOG.error("Unsupported content type for MADO manifest: {}", document.getContentType());
+            throw new IOException("Unsupported content type for MADO manifest: " + document.getContentType());
+        }
+
+
     }
 
     /**

@@ -178,7 +178,7 @@ public class DicomBackendService {
     /**
      * Convert DICOM Attributes to Part 10 file bytes.
      */
-    public byte[] attributesToDicomBytes(Attributes attrs) throws IOException {
+    public static byte[] attributesToDicomBytes(Attributes attrs) throws IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
 
         String sopClassUID = attrs.getString(Tag.SOPClassUID);
