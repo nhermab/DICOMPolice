@@ -609,8 +609,11 @@ public class ValidationMessages {
             REF_MADO_TABLE_6_X_2_5_2_1_3 + ": 'Issuer of Patient ID Qualifiers Sequence (0010,0024) ... Type R+.']";
 
     // ========== MADO Retrieval Validation ==========
-    public static final String MADO_RETRIEVAL_NO_INFO = "No retrieval information found (no Retrieve URL, Retrieve Location UID, or Display URI). [" +
-            REF_MADO_TABLE_6_X_2_14_1 + ": 'At least one of Retrieve URL (0008,1190) or Retrieve Location UID (0040,E011) shall be present.']";
+    public static final String MADO_RETRIEVAL_NO_INFO = "Retrieve Location UID (0040,E011) is missing. " +
+            "MADO requires Retrieve Location UID (R+) for each series in the Evidence Sequence. " +
+            "Retrieve URL (0008,1190) is optional (O). [" +
+            REF_MADO_TABLE_6_X_2_14_1 + ": 'Retrieve Location UID (0040,E011) ... R+ ... " +
+            "Retrieve URL (0008,1190) ... O']";
 
     public static final String MADO_RETRIEVAL_URL_NO_SCHEME = "Retrieve URL has no scheme (e.g., http://, https://). [" +
             REF_DICOM_PS3_3 + " C.17.2: 'The value shall be a URL... adhering to RFC 3986.']";
@@ -701,17 +704,17 @@ public class ValidationMessages {
             REF_MADO_TABLE_6_X_2_5_2_1_3 + ": 'Issuer of Patient ID Qualifiers Sequence (0010,0024)... Type R+... " +
             "Only a single Item shall be included in this Sequence.']";
 
-    public static final String MADO_UNIVERSAL_ENTITY_ID_MISSING = "IssuerOfPatientIDQualifiersSequence[0].UniversalEntityID (0010,0032) is missing/empty. " +
+    public static final String MADO_UNIVERSAL_ENTITY_ID_MISSING = "IssuerOfPatientIDQualifiersSequence[0].UniversalEntityID (0040,0032) is missing/empty. " +
             "Required for robust patient ID matching across systems. [" +
-            REF_MADO_TABLE_6_X_2_5_2_1_3 + ": 'Universal Entity ID (0010,0032)... Type R+... " +
+            REF_MADO_TABLE_6_X_2_5_2_1_3 + ": 'Universal Entity ID (0040,0032)... Type R+... " +
             "Globally unique identifier (OID) for the Patient ID Assigning Authority.']";
 
-    public static final String MADO_UNIVERSAL_ENTITY_ID_TYPE_MISSING = "IssuerOfPatientIDQualifiersSequence[0].UniversalEntityIDType (0010,0033) is missing/empty. " +
+    public static final String MADO_UNIVERSAL_ENTITY_ID_TYPE_MISSING = "IssuerOfPatientIDQualifiersSequence[0].UniversalEntityIDType (0040,0033) is missing/empty. " +
             "Required to specify the identifier type. [" +
-            REF_MADO_TABLE_6_X_2_5_2_1_3 + ": 'Universal Entity ID Type (0010,0033)... Type R+... Fixed value: 'ISO'.']";
+            REF_MADO_TABLE_6_X_2_5_2_1_3 + ": 'Universal Entity ID Type (0040,0033)... Type R+... Fixed value: 'ISO'.']";
 
-    public static final String MADO_UNIVERSAL_ENTITY_ID_TYPE_WRONG = "IssuerOfPatientIDQualifiersSequence[0].UniversalEntityIDType (0010,0033) must be 'ISO' but found: %s. [" +
-            REF_MADO_TABLE_6_X_2_5_2_1_3 + ": 'Universal Entity ID Type (0010,0033)... Fixed value: 'ISO'.']";
+    public static final String MADO_UNIVERSAL_ENTITY_ID_TYPE_WRONG = "IssuerOfPatientIDQualifiersSequence[0].UniversalEntityIDType (0040,0033) must be 'ISO' but found: %s. [" +
+            REF_MADO_TABLE_6_X_2_5_2_1_3 + ": 'Universal Entity ID Type (0040,0033)... Fixed value: 'ISO'.']";
 
     public static final String MADO_STUDY_DATE_MISSING = "StudyDate (0008,0020) is missing/empty. MADO requires Study Date. [" +
             REF_MADO_TABLE_6_X_2_6_1 + ": 'Study Date (0008,0020)... Type R+']";
@@ -1079,11 +1082,15 @@ public class ValidationMessages {
     public static final String MADO_DISPLAY_URI_INVALID_SYNTAX =
         "Display URI has invalid syntax: '%s'. Expected a valid URL (http/https scheme). [" +
         "IHE MADO Suppl.: 'Display URI ... optional URL for launching a viewer.']";
+    public static final String MADO_DISPLAY_URI_WRONG_VR =
+        "Display URI private tag (000D,xx01) has VR '%s' but expected 'UR' (Universal Resource Identifier). [" +
+        "IHE MADO Suppl. (Page 53): 'Display URI ... temporary private tag ... VR shall be UR.']";
 
     // ========== MADO-REC-004: IssuerOfPatientID vs UniversalEntityID ==========
     public static final String MADO_ISSUER_PATIENT_ID_MISMATCH =
-        "IssuerOfPatientID (0010,0021) value '%s' does not match UniversalEntityID '%s' in IssuerOfPatientIDQualifiersSequence. " +
-        "When both are present, they should identify the same assigning authority. [" +
+        "IssuerOfPatientID (0010,0021) is present but UniversalEntityID (0040,0032) in " +
+        "IssuerOfPatientIDQualifiersSequence is missing or empty. Both should be present " +
+        "to fully identify the patient ID assigning authority. [" +
         "IHE MADO Suppl.: 'IssuerOfPatientID should label the same authority identified by the Universal Entity ID.']";
 
     // ========== UCUM unit validation ==========

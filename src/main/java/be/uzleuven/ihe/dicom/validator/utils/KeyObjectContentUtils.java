@@ -6,6 +6,7 @@ import org.dcm4che3.data.Tag;
 import be.uzleuven.ihe.dicom.validator.validation.iod.AbstractIODValidator;
 import be.uzleuven.ihe.dicom.validator.model.ValidationResult;
 import be.uzleuven.ihe.dicom.constants.DicomConstants;
+import be.uzleuven.ihe.dicom.constants.CodeConstants;
 import be.uzleuven.ihe.dicom.constants.ValidationMessages;
 
 import java.util.HashSet;
@@ -321,6 +322,13 @@ public class KeyObjectContentUtils {
                         }
                         // Note: Full validation of CID 7011/7012 codes would require a code dictionary
                         break;
+                    }
+
+                    // CP-2595 Row 4b: Procedure Code (121023, DCM) is allowed as an
+                    // optional HAS CONCEPT MOD at the TID 2010 root node. Not a
+                    // Document Title Modifier, so we skip it when searching for those.
+                    if (CodeConstants.CODE_PROCEDURE_CODE.equals(conceptCode)) {
+                        continue; // valid modifier, but not a Document Title Modifier
                     }
                 }
             }

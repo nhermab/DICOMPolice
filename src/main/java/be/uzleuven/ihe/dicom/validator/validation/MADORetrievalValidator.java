@@ -3,6 +3,7 @@ package be.uzleuven.ihe.dicom.validator.validation;
 import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Sequence;
 import org.dcm4che3.data.Tag;
+import org.dcm4che3.data.VR;
 import be.uzleuven.ihe.dicom.validator.model.ValidationResult;
 import be.uzleuven.ihe.dicom.constants.DicomConstants;
 import be.uzleuven.ihe.dicom.constants.ValidationMessages;
@@ -127,23 +128,21 @@ public final class MADORetrievalValidator {
         }
 
         // Report retrieval method findings
-        if (!foundRetrievalURL && !foundRetrievalLocationUID) {
-            result.addError("No retrieval information found (neither Retrieve URL nor Retrieve Location UID). " +
-                            "MADO manifest must include at least one retrieval method per series.", modulePath);
+        // MADO Rev 1.0: RetrieveLocationUID is R+ (strictly required), RetrieveURL is O (optional)
+        if (!foundRetrievalLocationUID) {
+            result.addError(ValidationMessages.MADO_RETRIEVAL_NO_INFO, modulePath);
         } else {
             if (mixedCommunityMode) {
                 result.addWarning("Both Retrieve URL and Retrieve Location UID addressing modes are used across different series. " +
                         "MADO communities should be consistent and use a single addressing mode.", modulePath);
             }
 
-            if (foundRetrievalURL && foundRetrievalLocationUID) {
-                result.addInfo("Both Retrieve URL and Retrieve Location UID are present. " +
-                        "Consumer should prefer one based on deployment configuration.", modulePath);
-            } else if (foundRetrievalURL) {
-                result.addInfo("Using Retrieve URL (WADO-RS) addressing mode. Found " + baseURLs.size() +
-                        " unique base URL(s).", modulePath);
+            if (foundRetrievalURL) {
+                result.addInfo("Both Retrieve URL (optional) and Retrieve Location UID (R+) are present. " +
+                        "Consumer should prefer one based on deployment configuration. Found " +
+                        baseURLs.size() + " unique base URL(s).", modulePath);
             } else {
-                result.addInfo("Using Retrieve Location UID addressing mode. Found " + locationUIDs.size() +
+                result.addInfo("Using Retrieve Location UID addressing mode (R+). Found " + locationUIDs.size() +
                         " unique location UID(s).", modulePath);
             }
         }
@@ -170,6 +169,14 @@ public final class MADORetrievalValidator {
             String displayURI = dataset.getString(displayURITag);
             if (displayURI != null && !displayURI.trim().isEmpty()) {
                 result.addInfo(ValidationMessages.MADO_DISPLAY_URI_PRIVATE_TAG_FOUND, modulePath);
+
+                // MADO spec (Page 53): Display URI private tag must use VR of UR
+                VR actualVR = dataset.getVR(displayURITag);
+                if (actualVR != null && actualVR != VR.UR) {
+                    result.addWarning(String.format(ValidationMessages.MADO_DISPLAY_URI_WRONG_VR,
+                            actualVR.name()), modulePath);
+                }
+
                 // Validate URI syntax
                 if (!displayURI.startsWith("http://") && !displayURI.startsWith("https://")) {
                     result.addWarning(String.format(ValidationMessages.MADO_DISPLAY_URI_INVALID_SYNTAX,

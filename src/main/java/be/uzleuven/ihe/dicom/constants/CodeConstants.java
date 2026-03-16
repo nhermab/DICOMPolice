@@ -39,6 +39,10 @@ public final class CodeConstants {
 
     public static final String CODE_TARGET_REGION = "123014";
 
+    // CP-2595 (Page 8, Row 4b): Procedure Code allowed as HAS CONCEPT MOD in TID 2010 root
+    public static final String CODE_PROCEDURE_CODE = "121023";
+    public static final String MEANING_PROCEDURE_CODE = "Procedure Code";
+
     // Default anatomical region for MADO (SNOMED CT: Upper trunk - 67734004)
     public static final String CODE_REGION_UPPER_TRUNK = "67734004";
     public static final String MEANING_REGION_UPPER_TRUNK = "Upper trunk";
