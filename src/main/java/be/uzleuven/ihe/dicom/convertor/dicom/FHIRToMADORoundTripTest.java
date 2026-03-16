@@ -427,19 +427,19 @@ public class FHIRToMADORoundTripTest {
      * Compares Series Date/Time values in Image Library Groups.
      */
     private void compareSeriesDateTimeInContent(Sequence origContent, Sequence rtContent) {
-        // Extract Series Date/Time from original
-        Map<String, String> origSeriesDates = extractSeriesDateTimeFromContent(origContent, "ddd003");
-        Map<String, String> origSeriesTimes = extractSeriesDateTimeFromContent(origContent, "ddd004");
+        // Extract Series Date/Time from original (MADOTEMP003 = Series Date, MADOTEMP004 = Series Time)
+        Map<String, String> origSeriesDates = extractSeriesDateTimeFromContent(origContent, "MADOTEMP003");
+        Map<String, String> origSeriesTimes = extractSeriesDateTimeFromContent(origContent, "MADOTEMP004");
 
         // Extract Series Date/Time from round-tripped
-        Map<String, String> rtSeriesDates = extractSeriesDateTimeFromContent(rtContent, "ddd003");
-        Map<String, String> rtSeriesTimes = extractSeriesDateTimeFromContent(rtContent, "ddd004");
+        Map<String, String> rtSeriesDates = extractSeriesDateTimeFromContent(rtContent, "MADOTEMP003");
+        Map<String, String> rtSeriesTimes = extractSeriesDateTimeFromContent(rtContent, "MADOTEMP004");
 
         // Compare Series Dates
         if (origSeriesDates.isEmpty() && rtSeriesDates.isEmpty()) {
-            warnings.add("Series Date (ddd003): none in either");
+            warnings.add("Series Date (MADOTEMP003): none in either");
         } else if (origSeriesDates.equals(rtSeriesDates)) {
-            matches.add("Series Date (ddd003): " + origSeriesDates.size() + " values preserved");
+            matches.add("Series Date (MADOTEMP003): " + origSeriesDates.size() + " values preserved");
         } else {
             // Check which dates match
             int matchCount = 0;
@@ -449,18 +449,18 @@ public class FHIRToMADORoundTripTest {
                 }
             }
             if (matchCount == origSeriesDates.size()) {
-                matches.add("Series Date (ddd003): all " + matchCount + " values preserved");
+                matches.add("Series Date (MADOTEMP003): all " + matchCount + " values preserved");
             } else {
-                mismatches.add("Series Date (ddd003): " + matchCount + "/" + origSeriesDates.size() +
+                mismatches.add("Series Date (MADOTEMP003): " + matchCount + "/" + origSeriesDates.size() +
                     " preserved. Orig=" + origSeriesDates + " RT=" + rtSeriesDates);
             }
         }
 
         // Compare Series Times
         if (origSeriesTimes.isEmpty() && rtSeriesTimes.isEmpty()) {
-            warnings.add("Series Time (ddd004): none in either");
+            warnings.add("Series Time (MADOTEMP004): none in either");
         } else if (origSeriesTimes.equals(rtSeriesTimes)) {
-            matches.add("Series Time (ddd004): " + origSeriesTimes.size() + " values preserved");
+            matches.add("Series Time (MADOTEMP004): " + origSeriesTimes.size() + " values preserved");
         } else {
             int matchCount = 0;
             for (Map.Entry<String, String> entry : origSeriesTimes.entrySet()) {
@@ -469,9 +469,9 @@ public class FHIRToMADORoundTripTest {
                 }
             }
             if (matchCount == origSeriesTimes.size()) {
-                matches.add("Series Time (ddd004): all " + matchCount + " values preserved");
+                matches.add("Series Time (MADOTEMP004): all " + matchCount + " values preserved");
             } else {
-                mismatches.add("Series Time (ddd004): " + matchCount + "/" + origSeriesTimes.size() +
+                mismatches.add("Series Time (MADOTEMP004): " + matchCount + "/" + origSeriesTimes.size() +
                     " preserved. Orig=" + origSeriesTimes + " RT=" + rtSeriesTimes);
             }
         }
@@ -479,7 +479,7 @@ public class FHIRToMADORoundTripTest {
 
     /**
      * Extracts Series Date or Time values from Content Sequence.
-     * @param codeValue "ddd003" for Series Date, "ddd004" for Series Time
+     * @param codeValue "MADOTEMP003" for Series Date, "MADOTEMP004" for Series Time
      * @return Map of Series UID to Date/Time value
      */
     private Map<String, String> extractSeriesDateTimeFromContent(Sequence contentSeq, String codeValue) {
@@ -531,8 +531,8 @@ public class FHIRToMADORoundTripTest {
 
             String code = conceptNameSeq.get(0).getString(Tag.CodeValue);
 
-            if ("ddd006".equals(code) && "UIDREF".equals(item.getString(Tag.ValueType))) {
-                // Series Instance UID
+            if ("112002".equals(code) && "UIDREF".equals(item.getString(Tag.ValueType))) {
+                // Series Instance UID (112002, DCM)
                 seriesUID = item.getString(Tag.UID);
             } else if (codeValue.equals(code) && "TEXT".equals(item.getString(Tag.ValueType))) {
                 // Series Date or Time
@@ -564,12 +564,14 @@ public class FHIRToMADORoundTripTest {
     }
 
     private String extractStudyUIDFromContent(Sequence contentSeq) {
+        // CP-2595: Study Instance UID is no longer a content item.
+        // Check for legacy ddd011 code or deprecated 110180 code for backward compat.
         for (Attributes item : contentSeq) {
             if ("UIDREF".equals(item.getString(Tag.ValueType))) {
                 Sequence conceptNameSeq = item.getSequence(Tag.ConceptNameCodeSequence);
                 if (conceptNameSeq != null && !conceptNameSeq.isEmpty()) {
                     String codeValue = conceptNameSeq.get(0).getString(Tag.CodeValue);
-                    if ("ddd011".equals(codeValue)) { // Study Instance UID
+                    if ("ddd011".equals(codeValue) || "110180".equals(codeValue)) { // Legacy Study Instance UID
                         return item.getString(Tag.UID);
                     }
                 }

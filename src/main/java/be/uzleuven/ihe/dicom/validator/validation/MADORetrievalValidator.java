@@ -4,6 +4,7 @@ import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Sequence;
 import org.dcm4che3.data.Tag;
 import be.uzleuven.ihe.dicom.validator.model.ValidationResult;
+import be.uzleuven.ihe.dicom.constants.DicomConstants;
 import be.uzleuven.ihe.dicom.constants.ValidationMessages;
 
 import java.net.URI;
@@ -78,8 +79,9 @@ public final class MADORetrievalValidator {
                     validateRetrieveURI(retrieveURI, result, seriesPath);
                 }
 
-                // Enforce: per series, at least one retrieval method must be present
-                if (!seriesHasURL && !seriesHasLoc) {
+                // MADO-KOS-044/045: RetrieveLocationUID is R+ (always required),
+                // even when Retrieve URL mode is used
+                if (!seriesHasLoc) {
                     result.addError(ValidationMessages.RETRIEVE_LOCATION_UID_MISSING, seriesPath);
                 }
 
@@ -148,6 +150,32 @@ public final class MADORetrievalValidator {
 
         if (foundRetrieveURI) {
             result.addInfo("RetrieveURI (0040,E010) present for remote viewer/server-side rendering option.", modulePath);
+        }
+
+        // MADO-REC-003: Check for Display URI via temporary private tag
+        validateDisplayURIPrivateTag(dataset, result, modulePath);
+    }
+
+    /**
+     * MADO-REC-003: Check for Display URI via temporary private tag (000D,xx01)
+     * under creator IHE_MADO_PRIVATE.
+     * This is needed during Trial Implementation before a standard tag is assigned.
+     */
+    private static void validateDisplayURIPrivateTag(Attributes dataset, ValidationResult result, String modulePath) {
+        // Scan for private creator "IHE_MADO_PRIVATE" in group 000D
+        String privateCreator = dataset.getString(DicomConstants.MADO_PRIVATE_GROUP << 16 | 0x0010);
+        if (DicomConstants.MADO_PRIVATE_CREATOR.equals(privateCreator)) {
+            // Private tag block found; check for Display URI (offset 0x01)
+            int displayURITag = (DicomConstants.MADO_PRIVATE_GROUP << 16) | 0x1001;
+            String displayURI = dataset.getString(displayURITag);
+            if (displayURI != null && !displayURI.trim().isEmpty()) {
+                result.addInfo(ValidationMessages.MADO_DISPLAY_URI_PRIVATE_TAG_FOUND, modulePath);
+                // Validate URI syntax
+                if (!displayURI.startsWith("http://") && !displayURI.startsWith("https://")) {
+                    result.addWarning(String.format(ValidationMessages.MADO_DISPLAY_URI_INVALID_SYNTAX,
+                            displayURI), modulePath);
+                }
+            }
         }
     }
 

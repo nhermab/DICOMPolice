@@ -75,6 +75,9 @@ public class SCUManifestOptionsParser extends ArgumentParser {
                 case "--institution-name":
                     options.getDefaults().withInstitutionName(requireValue(args, ++i, arg));
                     break;
+                case "--placer-order":
+                    options.getDefaults().withPlacerOrderNumber(requireValue(args, ++i, arg));
+                    break;
 
                 // Query criteria
                 case "--accession":
@@ -204,7 +207,8 @@ public class SCUManifestOptionsParser extends ArgumentParser {
         System.out.println("  --accession-issuer-oid <OID>      (alias: --accissuer)");
         System.out.println("  --retrieve-location-uid <UID>     (aliases: --repouid, -repouid)");
         System.out.println("  --wado-base-url <URL>             (alias: --wado)");
-        System.out.println("  --institution-name <Name>\n");
+        System.out.println("  --institution-name <Name>");
+        System.out.println("  --placer-order <OrderNumber>      Placer Order Number for MADO R+ (auto-generated if omitted)\n");
 
         System.out.println("Examples:\n");
         System.out.println("  Create single KOS by StudyInstanceUID:\n" +

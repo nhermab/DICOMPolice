@@ -59,6 +59,19 @@ public class ManifestHeaderUtils {
         public String specificCharacterSet = "ISO_IR 192"; // UTF-8
 
         public boolean includeTypeOfPatientID = false; // MADO-specific
+
+        /**
+         * Placer Order Number for ReferencedRequestSequence (MADO R+).
+         * If null or empty, auto-generated at population time.
+         */
+        public String placerOrderNumber = null;
+
+        /**
+         * Order Placer Identifier OID for OrderPlacerIdentifierSequence (0040,0026).
+         * Per MADO Table 6.X.2.11-1, RC+ (required when PlacerOrderNumber is not empty).
+         * If null, falls back to {@link #accessionNumberIssuerOid} or patientIdIssuerOid.
+         */
+        public String orderPlacerOid = null;
     }
 
     /**
@@ -104,9 +117,24 @@ public class ManifestHeaderUtils {
             addPatientIDQualifiers(attrs, config.patientIdIssuerOid);
         }
 
-        // MADO-specific attribute
+        // MADO-specific attributes
         if (config.includeTypeOfPatientID) {
             attrs.setString(Tag.TypeOfPatientID, VR.CS, DicomConstants.VALUE_TYPE_TEXT);
+
+            // MADO R+: OtherPatientIDsSequence (0010,1002) must contain at least one item
+            // that duplicates the primary Patient ID (0010,0020) with its issuer qualifiers.
+            Sequence otherPatientIdsSeq = attrs.newSequence(Tag.OtherPatientIDsSequence, 1);
+            Attributes otherIdItem = new Attributes();
+            otherIdItem.setString(Tag.PatientID, VR.LO,
+                config.patientID != null ? config.patientID : "UNKNOWN");
+            if (config.issuerOfPatientID != null) {
+                otherIdItem.setString(Tag.IssuerOfPatientID, VR.LO, config.issuerOfPatientID);
+            }
+            otherIdItem.setString(Tag.TypeOfPatientID, VR.CS, DicomConstants.VALUE_TYPE_TEXT);
+            if (config.patientIdIssuerOid != null) {
+                addPatientIDQualifiers(otherIdItem, config.patientIdIssuerOid);
+            }
+            otherPatientIdsSeq.add(otherIdItem);
         }
     }
 
@@ -219,25 +247,30 @@ public class ManifestHeaderUtils {
     }
 
     /**
-     * Populates Referenced Study Sequence (Type 2).
-     * Must exist even if empty per Key Object Document Module requirements.
-     * Note: An empty sequence may trigger a "Bad Sequence Number" warning in strict validators,
-     * but omitting it entirely causes a "Missing Attribute" critical error which is worse.
+     * Populates Referenced Study Sequence (Type 3 per DICOM PS3.3 Table C.7-3).
+     * Optional attribute; included for interoperability with legacy systems.
      */
     public static void populateReferencedStudySequence(Attributes target) {
-        // Type 2 - create empty sequence (required by Key Object Document Module)
+        // Type 3 (optional) - create empty sequence for interoperability
         target.newSequence(Tag.ReferencedStudySequence, 0);
     }
 
     /**
      * Populates Referenced Request Sequence with all required Type 2 attributes.
      * Called by both KOS and MADO creators to ensure IHE XDS-I.b compliance.
+     *
+     * @param placerOrderNumber the placer order number to use; if null or empty, one is auto-generated.
+     * @param orderPlacerOid the OID for the order placer's assigning authority; used to populate
+     *                       OrderPlacerIdentifierSequence (0040,0026) which is RC+ when PlacerOrderNumber is not empty.
+     *                       If null, falls back to accessionNumberIssuerOid.
      */
     public static void populateReferencedRequestSequence(
         Attributes target,
         String studyInstanceUID,
         String accessionNumber,
-        String accessionNumberIssuerOid
+        String accessionNumberIssuerOid,
+        String placerOrderNumber,
+        String orderPlacerOid
     ) {
         Sequence refRequestSeq = target.newSequence(Tag.ReferencedRequestSequence, 1);
         Attributes reqItem = new Attributes();
@@ -261,8 +294,27 @@ public class ManifestHeaderUtils {
         reqItem.setString(Tag.RequestedProcedureID, VR.SH, "");
         reqItem.setString(Tag.RequestedProcedureDescription, VR.LO, "");
 
-        // Placer Order Number / Imaging Service Request (Type 2 - can be empty)
-        reqItem.setString(Tag.PlacerOrderNumberImagingServiceRequest, VR.LO, "");
+        // Placer Order Number / Imaging Service Request (MADO R+)
+        // Must be non-empty; auto-generate if not provided.
+        String resolvedPlacerOrderNumber = (placerOrderNumber != null && !placerOrderNumber.trim().isEmpty())
+            ? placerOrderNumber
+            : "PLC-" + java.util.UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        reqItem.setString(Tag.PlacerOrderNumberImagingServiceRequest, VR.LO, resolvedPlacerOrderNumber);
+
+        // OrderPlacerIdentifierSequence (0040,0026) - RC+ per MADO Table 6.X.2.11-1:
+        // "Required if Placer Order Number/Imaging Service Request (0040,2016) is not empty."
+        // Contains the HL7v2 Hierarchic Designator Macro (Assigning Authority OID).
+        String resolvedOrderPlacerOid = orderPlacerOid;
+        if (resolvedOrderPlacerOid == null || resolvedOrderPlacerOid.trim().isEmpty()) {
+            resolvedOrderPlacerOid = accessionNumberIssuerOid; // fall back
+        }
+        if (resolvedOrderPlacerOid != null && !resolvedOrderPlacerOid.trim().isEmpty()) {
+            Sequence orderPlacerSeq = reqItem.newSequence(Tag.OrderPlacerIdentifierSequence, 1);
+            Attributes orderPlacerItem = new Attributes();
+            orderPlacerItem.setString(Tag.UniversalEntityID, VR.UT, resolvedOrderPlacerOid);
+            orderPlacerItem.setString(Tag.UniversalEntityIDType, VR.CS, "ISO");
+            orderPlacerSeq.add(orderPlacerItem);
+        }
 
         // Filler Order Number / Imaging Service Request (Type 2 - can be empty)
         reqItem.setString(Tag.FillerOrderNumberImagingServiceRequest, VR.LO, "");
@@ -271,6 +323,36 @@ public class ManifestHeaderUtils {
         reqItem.newSequence(Tag.RequestedProcedureCodeSequence, 0);
 
         refRequestSeq.add(reqItem);
+    }
+
+    /**
+     * Populates Referenced Request Sequence with all required Type 2 attributes.
+     * Overload that accepts placerOrderNumber without separate orderPlacerOid.
+     * The orderPlacerOid defaults to accessionNumberIssuerOid.
+     */
+    public static void populateReferencedRequestSequence(
+        Attributes target,
+        String studyInstanceUID,
+        String accessionNumber,
+        String accessionNumberIssuerOid,
+        String placerOrderNumber
+    ) {
+        populateReferencedRequestSequence(target, studyInstanceUID, accessionNumber,
+            accessionNumberIssuerOid, placerOrderNumber, null);
+    }
+
+    /**
+     * Populates Referenced Request Sequence with all required Type 2 attributes.
+     * Backwards-compatible overload; auto-generates the Placer Order Number.
+     */
+    public static void populateReferencedRequestSequence(
+        Attributes target,
+        String studyInstanceUID,
+        String accessionNumber,
+        String accessionNumberIssuerOid
+    ) {
+        populateReferencedRequestSequence(target, studyInstanceUID, accessionNumber,
+            accessionNumberIssuerOid, null);
     }
 
     /**

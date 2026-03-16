@@ -134,11 +134,12 @@ public class MADOSCUManifestCreator extends SCUManifestCreator {
         ManifestHeaderUtils.populateSRDocumentModule(mado, config);
 
         // Add missing Type 2 attributes for IHE XDS-I.b compliance
-        // ReferencedStudySequence must exist (Type 2) even if empty - omitting causes "Missing Attribute" error
+        // ReferencedStudySequence is Type 3 (optional per PS3.3 Table C.7-3), but included for interoperability
         ManifestHeaderUtils.populateReferencedStudySequence(mado);
         // ReferencedRequestSequence contains the procedure/order tags - they do NOT go at root level
         ManifestHeaderUtils.populateReferencedRequestSequence(mado, normalizedStudyInstanceUID,
-            accessionNumber, defaults.accessionNumberIssuerOid);
+            accessionNumber, defaults.accessionNumberIssuerOid, config.placerOrderNumber,
+            config.orderPlacerOid);
 
         // SR root content item attributes
         configureSRRootAttributes(mado);
@@ -166,9 +167,11 @@ public class MADOSCUManifestCreator extends SCUManifestCreator {
         mado.setString(Tag.ValueType, VR.CS, "CONTAINER");
         mado.setString(Tag.ContinuityOfContent, VR.CS, be.uzleuven.ihe.dicom.constants.DicomConstants.CONTINUITY_SEPARATE);
 
-        // Document Title: MADO requires Manifest or Manifest with Description
+        // Document Title: MADO requires "Manifest with Description" (MADOTEMP001, 99IHE)
+        // Per CP-2595 TI: MADOTEMP placeholder codes MUST use the 99IHE private scheme,
+        // NOT DCM, because CP-2595 is still in draft during the MADO Trial Implementation.
         Sequence conceptNameCodeSeq = mado.newSequence(Tag.ConceptNameCodeSequence, 1);
-        conceptNameCodeSeq.add(code(CODE_MANIFEST_WITH_DESCRIPTION, SCHEME_DCM, MEANING_MANIFEST_WITH_DESCRIPTION));
+        conceptNameCodeSeq.add(code(CODE_MANIFEST_WITH_DESCRIPTION, SCHEME_99IHE, MEANING_MANIFEST_WITH_DESCRIPTION));
 
         // Explicitly identify TID 2010 (XDS-I / KOS template)
         mado.newSequence(Tag.ContentTemplateSequence, 1)

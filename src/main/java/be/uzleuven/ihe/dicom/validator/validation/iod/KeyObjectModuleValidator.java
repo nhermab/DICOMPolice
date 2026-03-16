@@ -141,9 +141,11 @@ public class KeyObjectModuleValidator {
         // Additional Type 2 attributes required by DICOM PS3.3 Table C.17-2
         // These must be present even if empty
 
-        // Referenced Study Sequence - Type 2 (must exist, can be empty)
+        // Referenced Study Sequence - Type 3 (optional per DICOM PS3.3 Table C.7-3 General Study Module)
+        // Note: Previously treated as Type 2, but PS3.3 defines it as Type 3 (strictly optional).
         if (!dataset.contains(Tag.ReferencedStudySequence)) {
-            result.addError(ValidationMessages.KOS_MISSING_REFERENCED_STUDY_SEQUENCE, modulePath);
+            result.addInfo("ReferencedStudySequence (0008,1110) is absent. " +
+                    "This is a Type 3 (optional) attribute per DICOM PS3.3 Table C.7-3.", modulePath);
         }
 
         // Note: PlacerOrderNumber, FillerOrderNumber, RequestedProcedureID, RequestedProcedureDescription,

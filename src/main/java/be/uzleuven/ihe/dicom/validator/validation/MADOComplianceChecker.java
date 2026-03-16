@@ -195,7 +195,7 @@ public final class MADOComplianceChecker {
 
     /**
      * Check 3: Document Title
-     * MADO requires "Manifest" (113030, DCM) or "Manifest with Description" (ddd001, DCM).
+     * MADO requires "Manifest" (113030, DCM) or "Manifest with Description" (MADOTEMP001, 99IHE).
      */
     private static void checkDocumentTitle(Attributes dataset, ValidationResult result,
                                           String modulePath, boolean verbose) {
@@ -217,14 +217,36 @@ public final class MADOComplianceChecker {
 
         // Check for valid MADO titles
         boolean isManifest = CodeConstants.CODE_KOS_MANIFEST.equals(codeValue) && CodeConstants.SCHEME_DCM.equals(codingScheme);
-        boolean isManifestWithDesc = CODE_MANIFEST_WITH_DESCRIPTION.equals(codeValue) && CodeConstants.SCHEME_DCM.equals(codingScheme);
+        boolean isManifestWithDesc = CODE_MANIFEST_WITH_DESCRIPTION.equals(codeValue) && CodeConstants.SCHEME_99IHE.equals(codingScheme);
 
         if (!isManifest && !isManifestWithDesc) {
-            // Check if it's a generic KOS title
-            if ("113000".equals(codeValue) && CodeConstants.SCHEME_DCM.equals(codingScheme)) {
-                result.addError("MADO COMPLIANCE FAILURE:\n" + "  Document Title is (113000, DCM, 'Of Interest') - generic KOS title.\n" + "  MADO requires:\n" + "    (113030, DCM, 'Manifest') OR\n" + "    (ddd001, DCM, 'Manifest with Description')\n" + "  Fix: Change ConceptNameCodeSequence to use MADO manifest title.", modulePath);
+            // Check for deprecated ddd001 code
+            if ("ddd001".equals(codeValue)) {
+                result.addWarning("MADO COMPLIANCE WARNING:\n"
+                        + "  Document Title uses deprecated provisional code: (ddd001, " + codingScheme + ")\n"
+                        + "  CP-2595 requires: (" + CODE_MANIFEST_WITH_DESCRIPTION + ", " + CodeConstants.SCHEME_99IHE + ", 'Manifest with Description')\n"
+                        + "  Please update to MADOTEMP001 with scheme 99IHE.", modulePath);
+            } else if (CODE_MANIFEST_WITH_DESCRIPTION.equals(codeValue) && CodeConstants.SCHEME_DCM.equals(codingScheme)) {
+                // MADOTEMP001 with wrong scheme
+                result.addError("MADO COMPLIANCE FAILURE:\n"
+                        + "  Document Title uses correct code (" + CODE_MANIFEST_WITH_DESCRIPTION + ") but wrong scheme: DCM\n"
+                        + "  CP-2595 requires scheme '" + CodeConstants.SCHEME_99IHE + "' for MADOTEMP codes.\n"
+                        + "  Fix: Change CodingSchemeDesignator to '" + CodeConstants.SCHEME_99IHE + "'.", modulePath);
+            } else if ("113000".equals(codeValue) && CodeConstants.SCHEME_DCM.equals(codingScheme)) {
+                // Generic KOS title
+                result.addError("MADO COMPLIANCE FAILURE:\n"
+                        + "  Document Title is (113000, DCM, 'Of Interest') - generic KOS title.\n"
+                        + "  MADO requires:\n"
+                        + "    (113030, DCM, 'Manifest') OR\n"
+                        + "    (" + CODE_MANIFEST_WITH_DESCRIPTION + ", " + CodeConstants.SCHEME_99IHE + ", 'Manifest with Description')\n"
+                        + "  Fix: Change ConceptNameCodeSequence to use MADO manifest title.", modulePath);
             } else {
-                result.addError("MADO COMPLIANCE FAILURE:\n" + "  Document Title: (" + codeValue + ", " + codingScheme + ", '" + codeMeaning + "')\n" + "  MADO requires:\n" + "    (113030, DCM, 'Manifest') OR\n" + "    (ddd001, DCM, 'Manifest with Description')\n" + "  Fix: Change ConceptNameCodeSequence to use MADO manifest title.", modulePath);
+                result.addError("MADO COMPLIANCE FAILURE:\n"
+                        + "  Document Title: (" + codeValue + ", " + codingScheme + ", '" + codeMeaning + "')\n"
+                        + "  MADO requires:\n"
+                        + "    (113030, DCM, 'Manifest') OR\n"
+                        + "    (" + CODE_MANIFEST_WITH_DESCRIPTION + ", " + CodeConstants.SCHEME_99IHE + ", 'Manifest with Description')\n"
+                        + "  Fix: Change ConceptNameCodeSequence to use MADO manifest title.", modulePath);
             }
         } else if (verbose) {
             result.addInfo("Document Title is valid for MADO: (" + codeValue + ", " +

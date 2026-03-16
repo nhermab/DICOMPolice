@@ -6,6 +6,11 @@ package be.uzleuven.ihe.dicom.constants;
  */
 public final class DicomConstants {
 
+    // Private Creator for MADO Display URI (temporary per Trial Implementation)
+    public static final String MADO_PRIVATE_CREATOR = "IHE_MADO_PRIVATE";
+    // Private tag group for Display URI (000D is the group assigned to IHE_MADO_PRIVATE)
+    public static final int MADO_PRIVATE_GROUP = 0x000D;
+
     private DicomConstants() {
     }
 
@@ -49,6 +54,9 @@ public final class DicomConstants {
     public static final String VALUE_TYPE_TEXT = "TEXT";
     public static final String VALUE_TYPE_PNAME = "PNAME";
     public static final String VALUE_TYPE_NUM = "NUM";
+    public static final String VALUE_TYPE_DATE = "DATE";
+    public static final String VALUE_TYPE_TIME = "TIME";
+    public static final String VALUE_TYPE_DATETIME = "DATETIME";
 
     /**
      * SR Continuity of Content (0040,A050) value for containers.

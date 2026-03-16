@@ -45,28 +45,65 @@ public final class CodeConstants {
 
 
 
-    //TODO: these codes are placeholders and need proper DCM codes
-    /*
-    * Since IHE MADO is using an unfinished DICOM CP, the new codes  are not yet assigned,
-    * so be wary of taking this beyond a proof-of-concept
-    * (normally for a trial of not-yet-finished changes, private codes will be assigned,
-    *  e.g., 99IHERADTF or similar ... please do NOT use "DCM" as the coding scheme when they are not valid codes )
-    *
-    * */
-    public static final String CODE_MANIFEST_WITH_DESCRIPTION = "ddd001";
-    public static final String CODE_SERIES_DESCRIPTION = "ddd002";
-    public static final String CODE_SERIES_DATE = "ddd003";
-    public static final String CODE_SERIES_TIME = "ddd004";
-    public static final String CODE_SERIES_NUMBER = "ddd005";
-    public static final String CODE_SERIES_INSTANCE_UID = "ddd006";
-    public static final String CODE_NUM_SERIES_RELATED_INSTANCES = "ddd007";
-    public static final String CODE_INSTANCE_NUMBER = "ddd008";
-    public static final String CODE_STUDY_INSTANCE_UID = "ddd011";
-    /** Instance Number for an Image Library Entry, value type TEXT, required by MADO (R+). */
-    public static final String CODE_KOS_TITLE = "ddd061";
-    public static final String CODE_KOS_OBJECT_DESCRIPTION =  "ddd061";
+    // ============================================================================
+    // MADO Trial Implementation Codes (CP-2595 / 99IHE scheme)
+    // ============================================================================
+    // Per DICOM CP-2595 Trial Implementation: temporary codes using the 99IHE
+    // coding scheme designator. These will be replaced with final DCM codes once
+    // CP-2595 is published. Do NOT use "DCM" as the coding scheme for these codes.
+    //
+    // See also: SCHEME_99IHE constant below.
+    // ============================================================================
 
-    public static final String CODE_SOP_INSTANCE_UID = "ddd060";
+    /** Root Node (TID 2010) document title: "Manifest with Description" */
+    public static final String CODE_MANIFEST_WITH_DESCRIPTION = "MADOTEMP001";
+    /** Series Description content item (TID 1602, VT=TEXT) */
+    public static final String CODE_SERIES_DESCRIPTION = "MADOTEMP002";
+    /** Series Date content item (TID 1602, VT=DATE) */
+    public static final String CODE_SERIES_DATE = "MADOTEMP003";
+    /** Series Time content item (TID 1602, VT=TIME) */
+    public static final String CODE_SERIES_TIME = "MADOTEMP004";
+    /** Series Number content item – note: uses standard DCM code 113607 per spec, but kept here for mapping */
+    public static final String CODE_SERIES_NUMBER = "113607";
+    /** Series Instance UID content item – note: uses standard DCM code 112002 per spec */
+    public static final String CODE_SERIES_INSTANCE_UID = "112002";
+    /** Number of Series Related Instances (TID 1602, VT=NUM, units={instances}) */
+    public static final String CODE_NUM_SERIES_RELATED_INSTANCES = "MADOTEMP007";
+    /** Instance Number content item (TID 1601/1602, VT=TEXT) – note: uses standard DCM code 113609 per spec */
+    public static final String CODE_INSTANCE_NUMBER = "113609";
+    /** Number of Study Related Series (TID 1600 study-level, VT=NUM, units={series}) */
+    public static final String CODE_NUM_STUDY_RELATED_SERIES = "MADOTEMP009";
+
+    // ============================================================================
+    // TID 16XX KOS Descriptor Codes (standard DCM codes for KOS references)
+    // ============================================================================
+    /** Document Title extracted from referenced KOS (TID 16XX, VT=CODE) */
+    public static final String CODE_KOS_DOCUMENT_TITLE = "121144";
+    /** Key Object Description from referenced KOS (TID 16XX, VT=TEXT) */
+    public static final String CODE_KOS_OBJECT_DESCRIPTION = "113012";
+
+    // Legacy aliases – kept for backward compatibility in validation messages
+    /** @deprecated Use CODE_KOS_DOCUMENT_TITLE instead */
+    @Deprecated
+    public static final String CODE_KOS_TITLE = CODE_KOS_DOCUMENT_TITLE;
+
+    /**
+     * Study Instance UID content item – no longer a MADOTEMP code (not in CP-2595 study-level items).
+     * The Study Instance UID is conveyed via the top-level DICOM tag (0020,000D), not as a TID 1600 content item.
+     * Kept for backward compatibility with creator code.
+     * @deprecated Study Instance UID is not a TID 1600 content item in CP-2595
+     */
+    @Deprecated
+    public static final String CODE_STUDY_INSTANCE_UID = "110180";
+
+    /**
+     * SOP Instance UID content item code – no longer used as a MADOTEMP code.
+     * In CP-2595, SOP Instance UIDs are conveyed via ReferencedSOPSequence, not content items.
+     * Kept for backward compatibility with creator code.
+     * @deprecated SOP Instance UIDs are conveyed via ReferencedSOPSequence in CP-2595
+     */
+    @Deprecated
+    public static final String CODE_SOP_INSTANCE_UID = "110181";
 
 
 
@@ -127,8 +164,8 @@ public final class CodeConstants {
     // ============================================================================
 
     public static final String SCHEME_DCM = "DCM";
-    //PLACEHOLDER FOR PUBLIC COMMEND IHE MADO SPEC
-    public static final String SCHEME_IHE_PC_PH_SCEME_DDCM = "DCM";
+    /** IHE Trial Implementation coding scheme designator for MADO CP-2595 codes */
+    public static final String SCHEME_99IHE = "99IHE";
     public static final String SCHEME_SRT = "SRT";
     public static final String SCHEME_SCT = "SCT"; // SNOMED CT
 
@@ -150,6 +187,9 @@ public final class CodeConstants {
 
     // Key Object Selection meanings
     public static final String MEANING_KOS_DESCRIPTION = "Key Object Description";
+    public static final String MEANING_KOS_DOCUMENT_TITLE = "Document Title";
+    /** @deprecated Use MEANING_KOS_DOCUMENT_TITLE instead */
+    @Deprecated
     public static final String MEANING_KOS_TITLE = "KOS Title Code";
 
     // Modality and region meanings
@@ -168,6 +208,7 @@ public final class CodeConstants {
     public static final String MEANING_INSTANCE_NUMBER = "Instance Number";
     public static final String MEANING_NUMBER_OF_FRAMES = "Number of Frames";
     public static final String MEANING_NUM_SERIES_RELATED_INSTANCES = "Number of Series Related Instances";
+    public static final String MEANING_NUM_STUDY_RELATED_SERIES = "Number of Study Related Series";
 
     // Reuse shared concept codes and coding scheme designator
     public static final String KOS_SOP_CLASS_UID = "1.2.840.10008.5.1.4.1.1.88.59";

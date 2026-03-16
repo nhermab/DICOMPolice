@@ -21,8 +21,8 @@ public class DicomSequenceUtils {
         Attributes item = new Attributes();
         item.setString(Tag.StudyInstanceUID, VR.UI, studyInstanceUID);
         item.setString(Tag.AccessionNumber, VR.SH, accessionNumber);
-        item.setString(Tag.PlacerOrderNumberImagingServiceRequest, VR.LO,
-                      "PLC" + (100000 + randomInt(900000)));
+        String placerOrder = "PLC" + (100000 + randomInt(900000));
+        item.setString(Tag.PlacerOrderNumberImagingServiceRequest, VR.LO, placerOrder);
         item.setString(Tag.FillerOrderNumberImagingServiceRequest, VR.LO,
                       "FIL" + (100000 + randomInt(900000)));
         rrs.add(item);
@@ -41,8 +41,19 @@ public class DicomSequenceUtils {
         // Add issuer
         addAccessionNumberIssuer(item, issuerOID);
 
-        item.setString(Tag.PlacerOrderNumberImagingServiceRequest, VR.LO,
-                      "PLACER-ORDER-" + (1000 + randomInt(9000)));
+        String placerOrder = "PLACER-ORDER-" + (1000 + randomInt(9000));
+        item.setString(Tag.PlacerOrderNumberImagingServiceRequest, VR.LO, placerOrder);
+
+        // OrderPlacerIdentifierSequence (0040,0026) - RC+ per MADO Table 6.X.2.11-1:
+        // Required when PlacerOrderNumber is not empty.
+        if (issuerOID != null && !issuerOID.isEmpty()) {
+            Sequence orderPlacerSeq = item.newSequence(Tag.OrderPlacerIdentifierSequence, 1);
+            Attributes orderPlacerItem = new Attributes();
+            orderPlacerItem.setString(Tag.UniversalEntityID, VR.UT, issuerOID);
+            orderPlacerItem.setString(Tag.UniversalEntityIDType, VR.CS, "ISO");
+            orderPlacerSeq.add(orderPlacerItem);
+        }
+
         rrs.add(item);
     }
 

@@ -36,8 +36,14 @@ public final class MADOProfileUtils {
 
         String modulePath = "MADOProfile";
 
+        // MADO-REC-001: Profile version stamp
+        result.addInfo(ValidationMessages.MADO_PROFILE_VERSION, modulePath);
+
         // Phase 1: Check for forbidden elements
         validateForbiddenElements(dataset, result, modulePath, ctx);
+
+        // Phase 1b: MADO-KOS-046 - Reject by-reference content items
+        validateNoByReferenceContent(dataset, result, modulePath);
 
         // Phase 2: Validate timezone offset consistency
         MADOTimezoneValidator.validateTimezoneConsistency(dataset, result, modulePath);
@@ -170,6 +176,32 @@ public final class MADOProfileUtils {
         return false;
     }
 
+    /**
+     * MADO-KOS-046: Reject by-reference content items.
+     * KOS content must use by-value relationships only.
+     */
+    private static void validateNoByReferenceContent(Attributes dataset, ValidationResult result, String modulePath) {
+        Sequence contentSeq = dataset.getSequence(Tag.ContentSequence);
+        if (contentSeq != null) {
+            checkByReferenceRecursive(contentSeq, result, modulePath + ".ContentSequence");
+        }
+    }
+
+    private static void checkByReferenceRecursive(Sequence seq, ValidationResult result, String path) {
+        for (int i = 0; i < seq.size(); i++) {
+            Attributes item = seq.get(i);
+            String itemPath = path + "[" + i + "]";
+            // ReferencedContentItemIdentifier (0040,DB73) indicates by-reference
+            if (item.contains(Tag.ReferencedContentItemIdentifier)) {
+                result.addError(String.format(ValidationMessages.MADO_BY_REFERENCE_CONTENT_FORBIDDEN, itemPath), itemPath);
+            }
+            Sequence nested = item.getSequence(Tag.ContentSequence);
+            if (nested != null) {
+                checkByReferenceRecursive(nested, result, itemPath + ".ContentSequence");
+            }
+        }
+    }
+
     private static void validateForbiddenElements(Attributes dataset, ValidationResult result, String modulePath, AbstractIODValidator ctx) {
         // Use XDS-I.b profile utilities for common forbidden element checks
         XDSIManifestProfileUtils.validateForbiddenElements(dataset, result, modulePath);
@@ -201,6 +233,9 @@ public final class MADOProfileUtils {
 
         String manifestStudyUID = dataset.getString(Tag.StudyInstanceUID);
 
+        // MADO-KOS-027: Track (AccessionNumber, PlacerOrderNumber) pairs for dedup check
+        java.util.Set<String> seenPairs = new java.util.HashSet<>();
+
         // Validate each request item
         for (int i = 0; i < refRequestSeq.size(); i++) {
             Attributes item = refRequestSeq.get(i);
@@ -209,6 +244,14 @@ public final class MADOProfileUtils {
             String itemStudyUID = item.getString(Tag.StudyInstanceUID);
             String accessionNumber = item.getString(Tag.AccessionNumber);
             String placerOrderNumber = item.getString(Tag.PlacerOrderNumberImagingServiceRequest);
+
+            // MADO-KOS-027: Check for duplicate (AccessionNumber, PlacerOrderNumber) pairs
+            String pairKey = (accessionNumber != null ? accessionNumber.trim() : "") + "|"
+                    + (placerOrderNumber != null ? placerOrderNumber.trim() : "");
+            if (!seenPairs.add(pairKey)) {
+                result.addError(String.format(ValidationMessages.MADO_REFERENCED_REQUEST_DUPLICATE_PAIR,
+                        accessionNumber, placerOrderNumber), itemPath);
+            }
 
             if (itemStudyUID == null || itemStudyUID.trim().isEmpty()) {
                 result.addError(String.format(ValidationMessages.REFERENCED_REQUEST_STUDY_UID_MISSING, i), itemPath);
@@ -245,6 +288,12 @@ public final class MADOProfileUtils {
 
             if (placerOrderNumber == null || placerOrderNumber.trim().isEmpty()) {
                 result.addError(String.format(ValidationMessages.REFERENCED_REQUEST_PLACER_ORDER_MISSING, i), itemPath);
+            } else {
+                // RC+: Order Placer Identifier Sequence required if Placer Order Number is not empty
+                Sequence orderPlacerSeq = item.getSequence(Tag.OrderPlacerIdentifierSequence);
+                if (orderPlacerSeq == null || orderPlacerSeq.isEmpty()) {
+                    result.addError(String.format(ValidationMessages.MADO_ORDER_PLACER_IDENTIFIER_MISSING, i), itemPath);
+                }
             }
         }
     }

@@ -145,8 +145,9 @@ public class MADOAttributesUtils {
         d.setString(Tag.ContinuityOfContent, VR.CS, be.uzleuven.ihe.dicom.constants.DicomConstants.CONTINUITY_SEPARATE);
 
         // Root Concept: Manifest with Description (Triggers MADO logic)
+        // CP-2595: (MADOTEMP001, 99IHE, "Manifest with Description")
         d.newSequence(Tag.ConceptNameCodeSequence, 1)
-                .add(code(CODE_MANIFEST_WITH_DESCRIPTION, SCHEME_DCM, MEANING_MANIFEST_WITH_DESCRIPTION));
+                .add(code(CODE_MANIFEST_WITH_DESCRIPTION, SCHEME_99IHE, MEANING_MANIFEST_WITH_DESCRIPTION));
 
         d.newSequence(Tag.ContentTemplateSequence, 1)
                 .add(createTemplateItem("2010"));
@@ -217,13 +218,15 @@ public class MADOAttributesUtils {
 
         Sequence libContent = libContainer.newSequence(Tag.ContentSequence, 20);
 
-        // TID 1600 Study-level Acquisition Context requirements
+        // TID 1600 Study-level Acquisition Context requirements (CP-2595)
         libContent.add(createCodeItem("HAS ACQ CONTEXT", CODE_MODALITY, SCHEME_DCM, MEANING_MODALITY,
                 code(CODE_MODALITY_CT, SCHEME_DCM, MEANING_MODALITY_CT)));
-        libContent.add(createUIDRefItem("HAS ACQ CONTEXT", CODE_STUDY_INSTANCE_UID, SCHEME_DCM, MEANING_STUDY_INSTANCE_UID,
-                study.getStudyInstanceUID()));
         libContent.add(createCodeItem("HAS ACQ CONTEXT", CODE_TARGET_REGION, SCHEME_DCM, MEANING_TARGET_REGION,
                 code(CODE_REGION_UPPER_TRUNK, SCHEME_SCT, MEANING_REGION_UPPER_TRUNK)));
+        // Number of Study Related Series (MADOTEMP009, 99IHE) - R+
+        libContent.add(createNumericItem("HAS ACQ CONTEXT", CODE_NUM_STUDY_RELATED_SERIES, SCHEME_99IHE,
+                MEANING_NUM_STUDY_RELATED_SERIES, study.getSeriesList().size(),
+                "{series}", "UCUM", "series"));
 
         // Populate Library Groups (One per Series)
         int seriesNumber = 1;

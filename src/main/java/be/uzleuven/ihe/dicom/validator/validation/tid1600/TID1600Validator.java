@@ -36,13 +36,19 @@ public final class TID1600Validator {
                 foundImageLibrary = true;
                 result.addInfo("MADO Approach 2: TID 1600 Image Library (111028, DCM) detected", modulePath);
                 TID1600ImageLibraryValidator.validateImageLibraryContainer(item, result, modulePath + ".ImageLibrary", verbose);
+
+                // Study-level attributes (Modality, Target Region, Number of Study Related Series)
+                // are HAS ACQ CONTEXT children INSIDE the Image Library container, not at root level.
+                Sequence imageLibraryContentSeq = item.getSequence(Tag.ContentSequence);
+                if (imageLibraryContentSeq != null && !imageLibraryContentSeq.isEmpty()) {
+                    TID1600StudyValidator.validateStudyLevelAttributes(imageLibraryContentSeq, result,
+                            modulePath + ".ImageLibrary", verbose);
+                }
             }
         }
 
         if (!foundImageLibrary) {
             result.addError(ValidationMessages.TID1600_APPROACH2_MISSING_IMAGE_LIBRARY, modulePath);
         }
-
-        TID1600StudyValidator.validateStudyLevelAttributes(contentSeq, result, modulePath, verbose);
     }
 }

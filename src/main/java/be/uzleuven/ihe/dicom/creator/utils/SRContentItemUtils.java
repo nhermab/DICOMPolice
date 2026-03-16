@@ -50,6 +50,27 @@ public class SRContentItemUtils {
     }
 
     /**
+     * Creates a NUM content item with MeasurementUnitsCodeSequence.
+     *
+     * @param unitCode   UCUM unit code value (e.g. "{series}", "{instances}", "mm")
+     * @param unitScheme coding scheme for units (typically "UCUM")
+     * @param unitMeaning human-readable unit meaning
+     */
+    public static Attributes createNumericItem(String relationshipType, String codeValue, String scheme,
+                                              String meaning, int number,
+                                              String unitCode, String unitScheme, String unitMeaning) {
+        Attributes item = new Attributes();
+        item.setString(Tag.RelationshipType, VR.CS, relationshipType);
+        item.setString(Tag.ValueType, VR.CS, DicomConstants.VALUE_TYPE_NUM);
+        item.newSequence(Tag.ConceptNameCodeSequence, 1).add(code(codeValue, scheme, meaning));
+        Attributes mv = new Attributes();
+        mv.setString(Tag.NumericValue, VR.DS, Integer.toString(number));
+        mv.newSequence(Tag.MeasurementUnitsCodeSequence, 1).add(code(unitCode, unitScheme, unitMeaning));
+        item.newSequence(Tag.MeasuredValueSequence, 1).add(mv);
+        return item;
+    }
+
+    /**
      * Creates a NUM content item.
      */
     public static Attributes createNumericItem(String relationshipType, String codeValue, String scheme,

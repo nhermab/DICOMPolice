@@ -553,8 +553,9 @@ public class FHIRToMADOConverter {
         mado.setString(Tag.ContinuityOfContent, VR.CS, DicomConstants.CONTINUITY_SEPARATE);
 
         // Document Title: MADO requires Manifest or Manifest with Description
+        // CP-2595: (MADOTEMP001, 99IHE, "Manifest with Description")
         Sequence conceptNameCodeSeq = mado.newSequence(Tag.ConceptNameCodeSequence, 1);
-        conceptNameCodeSeq.add(code(CODE_MANIFEST_WITH_DESCRIPTION, SCHEME_DCM, MEANING_MANIFEST_WITH_DESCRIPTION));
+        conceptNameCodeSeq.add(code(CODE_MANIFEST_WITH_DESCRIPTION, SCHEME_99IHE, MEANING_MANIFEST_WITH_DESCRIPTION));
 
         // Explicitly identify TID 2010 (XDS-I / KOS template)
         mado.newSequence(Tag.ContentTemplateSequence, 1)
@@ -890,16 +891,18 @@ public class FHIRToMADOConverter {
 
         Sequence libContent = libContainer.newSequence(Tag.ContentSequence, 50);
 
-        // Image Library context
+        // Image Library context (CP-2595 TID 1600 study-level)
         libContent.add(createCodeItem("HAS ACQ CONTEXT", CODE_MODALITY, SCHEME_DCM,
             MEANING_MODALITY, code(studyModality, SCHEME_DCM, studyModality)));
-
-        libContent.add(createUIDRefItem("HAS ACQ CONTEXT", CODE_STUDY_INSTANCE_UID,
-            SCHEME_DCM, MEANING_STUDY_INSTANCE_UID, studyUID));
 
         libContent.add(createCodeItem("HAS ACQ CONTEXT", CODE_TARGET_REGION,
             SCHEME_DCM, MEANING_TARGET_REGION,
             code(targetRegionCode, targetRegionScheme, targetRegionMeaning)));
+
+        // Number of Study Related Series (MADOTEMP009, 99IHE) - R+ per CP-2595
+        libContent.add(createNumericItem("HAS ACQ CONTEXT", CODE_NUM_STUDY_RELATED_SERIES,
+            SCHEME_99IHE, MEANING_NUM_STUDY_RELATED_SERIES, study.getSeries().size(),
+            "{series}", "UCUM", "series"));
 
         // Add series groups
         int seriesNumber = 1;
@@ -941,30 +944,31 @@ public class FHIRToMADOConverter {
         groupSeq.add(createUIDRefItem("HAS ACQ CONTEXT", CODE_SERIES_INSTANCE_UID,
             SCHEME_DCM, MEANING_SERIES_INSTANCE_UID, seriesUid));
 
-        // Series Description
+        // Series Description (MADOTEMP002, 99IHE)
         groupSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_SERIES_DESCRIPTION,
-            SCHEME_DCM, MEANING_SERIES_DESCRIPTION, seriesDescription));
+            SCHEME_99IHE, MEANING_SERIES_DESCRIPTION, seriesDescription));
 
-        // Series Date (ddd003) - only if available from extension
+        // Series Date (MADOTEMP003, 99IHE) - only if available from extension
         if (seriesDate != null && !seriesDate.isEmpty()) {
             groupSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_SERIES_DATE,
-                SCHEME_DCM, MEANING_SERIES_DATE, seriesDate));
+                SCHEME_99IHE, MEANING_SERIES_DATE, seriesDate));
         }
 
-        // Series Time (ddd004) - only if available from extension
+        // Series Time (MADOTEMP004, 99IHE) - only if available from extension
         if (seriesTime != null && !seriesTime.isEmpty()) {
             groupSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_SERIES_TIME,
-                SCHEME_DCM, MEANING_SERIES_TIME, seriesTime));
+                SCHEME_99IHE, MEANING_SERIES_TIME, seriesTime));
         }
 
-        // Series Number
+        // Series Number (113607, DCM)
         groupSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_SERIES_NUMBER,
             SCHEME_DCM, MEANING_SERIES_NUMBER, Integer.toString(seriesNum)));
 
-        // Number of instances
+        // Number of instances (MADOTEMP007, 99IHE)
         groupSeq.add(createNumericItem("HAS ACQ CONTEXT", CODE_NUM_SERIES_RELATED_INSTANCES,
-            SCHEME_DCM, MEANING_NUM_SERIES_RELATED_INSTANCES,
-            series.hasInstance() ? series.getInstance().size() : 0));
+            SCHEME_99IHE, MEANING_NUM_SERIES_RELATED_INSTANCES,
+            series.hasInstance() ? series.getInstance().size() : 0,
+            "{instances}", "UCUM", "instances"));
 
         // IMAGE items for each instance in the series
         for (ImagingStudy.ImagingStudySeriesInstanceComponent instance : series.getInstance()) {
@@ -1019,7 +1023,8 @@ public class FHIRToMADOConverter {
         Integer numberOfFrames = extractNumberOfFramesFromExtension(instance);
         if (numberOfFrames != null && be.uzleuven.ihe.dicom.validator.validation.tid1600.TID1600Rules.isMultiframeSOP(sopClassUID)) {
             contentSeq.add(createNumericItem("HAS ACQ CONTEXT", CODE_NUMBER_OF_FRAMES,
-                    CodeConstants.SCHEME_DCM, MEANING_NUMBER_OF_FRAMES, numberOfFrames));
+                    CodeConstants.SCHEME_DCM, MEANING_NUMBER_OF_FRAMES, numberOfFrames,
+                    "{frames}", "UCUM", "frames"));
         }
 
         return entry;

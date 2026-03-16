@@ -8,6 +8,20 @@ public class DefaultMetadata {
     /** Default Patient ID Issuer OID (for IssuerOfPatientIDQualifiersSequence) */
     public String patientIdIssuerOid = "1.2.3.4.5.6.7.8.9";
 
+    /**
+     * Placer Order Number for ReferencedRequestSequence (MADO R+).
+     * If null or empty, a value is auto-generated at manifest creation time.
+     * Set this to the real placer order number if your system provides one.
+     */
+    public String placerOrderNumber = null;
+
+    /**
+     * Order Placer Identifier OID for OrderPlacerIdentifierSequence (0040,0026).
+     * Per MADO Table 6.X.2.11-1, this is RC+ (required when PlacerOrderNumber is not empty).
+     * If null, defaults to {@link #patientIdIssuerOid} at manifest creation time.
+     */
+    public String orderPlacerOid = null;
+
     /** Default Accession Number Issuer OID (for IssuerOfAccessionNumberSequence) */
     public String accessionNumberIssuerOid = "1.2.3.4.5.6.7.8.10";
 
@@ -98,6 +112,16 @@ public class DefaultMetadata {
 
     public DefaultMetadata withResponseTimeout(int timeout) {
         this.responseTimeout = timeout;
+        return this;
+    }
+
+    public DefaultMetadata withPlacerOrderNumber(String placerOrderNumber) {
+        this.placerOrderNumber = placerOrderNumber;
+        return this;
+    }
+
+    public DefaultMetadata withOrderPlacerOid(String oid) {
+        this.orderPlacerOid = oid;
         return this;
     }
 }

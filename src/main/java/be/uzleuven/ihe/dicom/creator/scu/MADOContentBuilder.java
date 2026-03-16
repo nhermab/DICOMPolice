@@ -109,12 +109,15 @@ class MADOContentBuilder {
         libContent.add(createCodeItem("HAS ACQ CONTEXT", CodeConstants.CODE_MODALITY, CodeConstants.SCHEME_DCM,
             CodeConstants.MEANING_MODALITY, code(studyModality, CodeConstants.SCHEME_DCM, studyModality)));
 
-        libContent.add(createUIDRefItem("HAS ACQ CONTEXT", CodeConstants.CODE_STUDY_INSTANCE_UID,
-            CodeConstants.SCHEME_DCM, CodeConstants.MEANING_STUDY_INSTANCE_UID, normalizedStudyInstanceUID));
-
         libContent.add(createCodeItem("HAS ACQ CONTEXT", CodeConstants.CODE_TARGET_REGION,
             CodeConstants.SCHEME_DCM, CodeConstants.MEANING_TARGET_REGION,
             code(CodeConstants.SNOMED_LOWER_TRUNK, "SCT", "Lower trunk")));
+
+        // Number of Study Related Series (MADOTEMP009, 99IHE) - R+ per CP-2595
+        // Units: {series} UCUM per DICOM NUM item requirement
+        libContent.add(createNumericItem("HAS ACQ CONTEXT", CodeConstants.CODE_NUM_STUDY_RELATED_SERIES,
+            CodeConstants.SCHEME_99IHE, CodeConstants.MEANING_NUM_STUDY_RELATED_SERIES, allSeries.size(),
+            "{series}", "UCUM", "series"));
     }
 
     private void addSeriesGroups(Sequence libContent) {
@@ -164,20 +167,21 @@ class MADOContentBuilder {
             CodeConstants.SCHEME_DCM, CodeConstants.MEANING_SERIES_INSTANCE_UID, normalizedSeriesUid));
 
         groupSeq.add(createTextItem("HAS ACQ CONTEXT", CodeConstants.CODE_SERIES_DESCRIPTION,
-            CodeConstants.SCHEME_DCM, CodeConstants.MEANING_SERIES_DESCRIPTION, seriesDescription));
+            CodeConstants.SCHEME_99IHE, CodeConstants.MEANING_SERIES_DESCRIPTION, seriesDescription));
 
         groupSeq.add(createTextItem("HAS ACQ CONTEXT", CodeConstants.CODE_SERIES_DATE,
-            CodeConstants.SCHEME_DCM, CodeConstants.MEANING_SERIES_DATE, seriesDate));
+            CodeConstants.SCHEME_99IHE, CodeConstants.MEANING_SERIES_DATE, seriesDate));
 
         groupSeq.add(createTextItem("HAS ACQ CONTEXT", CodeConstants.CODE_SERIES_TIME,
-            CodeConstants.SCHEME_DCM, CodeConstants.MEANING_SERIES_TIME, seriesTime));
+            CodeConstants.SCHEME_99IHE, CodeConstants.MEANING_SERIES_TIME, seriesTime));
 
         groupSeq.add(createTextItem("HAS ACQ CONTEXT", CodeConstants.CODE_SERIES_NUMBER,
             CodeConstants.SCHEME_DCM, CodeConstants.MEANING_SERIES_NUMBER, Integer.toString(seriesNumber)));
 
         groupSeq.add(createNumericItem("HAS ACQ CONTEXT", CodeConstants.CODE_NUM_SERIES_RELATED_INSTANCES,
-            CodeConstants.SCHEME_DCM, CodeConstants.MEANING_NUM_SERIES_RELATED_INSTANCES,
-            sd.instances != null ? sd.instances.size() : 0));
+            CodeConstants.SCHEME_99IHE, CodeConstants.MEANING_NUM_SERIES_RELATED_INSTANCES,
+            sd.instances != null ? sd.instances.size() : 0,
+            "{instances}", "UCUM", "instances"));
     }
 
     /**
@@ -346,7 +350,8 @@ class MADOContentBuilder {
                 try {
                     int numFrames = Integer.parseInt(numFramesStr);
                     entryContent.add(createNumericItem("HAS ACQ CONTEXT", CodeConstants.CODE_NUMBER_OF_FRAMES,
-                        CodeConstants.SCHEME_DCM, CodeConstants.MEANING_NUMBER_OF_FRAMES, numFrames));
+                        CodeConstants.SCHEME_DCM, CodeConstants.MEANING_NUMBER_OF_FRAMES, numFrames,
+                        "{frames}", "UCUM", "frames"));
                 } catch (NumberFormatException ignore) {
                     // Keep the manifest valid; omission will be caught by validator if required.
                 }

@@ -269,9 +269,18 @@ public class SRReferenceUtils {
             ctx.checkRequiredAttribute(item, Tag.SeriesInstanceUID, "SeriesInstanceUID", result, itemPath);
             ctx.checkUID(item, Tag.SeriesInstanceUID, "SeriesInstanceUID", result, itemPath);
 
-            // Retrieve AE Title - Type 1 for IHE XDS-I.b
+            // Retrieve AE Title - Type 1 for IHE XDS-I.b KOS.
+            // NOT required for MADO: the profile uses WADO-RS (RetrieveURL / RetrieveLocationUID)
+            // for retrieval, so an absent AE Title is normal and must not produce an error.
+            boolean isMado = be.uzleuven.ihe.dicom.validator.validation.iod.AbstractIODValidator
+                    .getActiveProfile() != null
+                    && be.uzleuven.ihe.dicom.validator.validation.iod.AbstractIODValidator
+                    .getActiveProfile().toUpperCase().contains("MADO");
             if (!item.contains(Tag.RetrieveAETitle)) {
-                result.addError(String.format(ValidationMessages.XDSI_RETRIEVE_AE_TITLE_MISSING, i), itemPath);
+                if (!isMado) {
+                    result.addError(String.format(ValidationMessages.XDSI_RETRIEVE_AE_TITLE_MISSING, i), itemPath);
+                }
+                // For MADO: absence of AE Title is expected — no error, no warning needed.
             } else {
                 // Validate AE Title format if present
                 String aeTitle = item.getString(Tag.RetrieveAETitle);

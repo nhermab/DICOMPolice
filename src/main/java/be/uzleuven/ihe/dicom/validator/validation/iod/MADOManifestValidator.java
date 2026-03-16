@@ -19,8 +19,8 @@ import static be.uzleuven.ihe.dicom.constants.CodeConstants.CODE_MANIFEST_WITH_D
  */
 public class MADOManifestValidator extends KeyObjectSelectionValidator {
 
-    // MADO uses different document title than XDS-I.b
-    private static final String MADO_MANIFEST_CSD = "DCM";
+    // MADO CP-2595 Trial Implementation: uses 99IHE scheme for MADOTEMP codes
+    private static final String MADO_MANIFEST_CSD = CodeConstants.SCHEME_99IHE;
     private static final String MADO_MANIFEST_CODE_MEANING = "Manifest with Description";
 
     private static final String PROFILE_IHE_MADO = "IHEMADO";
@@ -143,6 +143,20 @@ public class MADOManifestValidator extends KeyObjectSelectionValidator {
                 result.addError(String.format(ValidationMessages.MADO_UNIVERSAL_ENTITY_ID_TYPE_WRONG,
                         universalEntityIdType), modulePath);
             }
+
+            // MADO-REC-004: Cross-check IssuerOfPatientID (0010,0021) vs UniversalEntityID.
+            // Only compare when IssuerOfPatientID looks like an OID (contains '.').
+            // A plain local namespace label (e.g. "HOSPITAL_A") is structurally different
+            // from an OID and cannot be meaningfully compared by string equality.
+            String issuerOfPatientID = dataset.getString(Tag.IssuerOfPatientID);
+            if (issuerOfPatientID != null && !issuerOfPatientID.trim().isEmpty()
+                    && universalEntityId != null && !universalEntityId.trim().isEmpty()
+                    && issuerOfPatientID.contains(".")) {
+                if (!issuerOfPatientID.trim().equals(universalEntityId.trim())) {
+                    result.addWarning(String.format(ValidationMessages.MADO_ISSUER_PATIENT_ID_MISMATCH,
+                            issuerOfPatientID, universalEntityId), modulePath);
+                }
+            }
         }
 
         // Type of Patient ID validation
@@ -154,10 +168,24 @@ public class MADOManifestValidator extends KeyObjectSelectionValidator {
             }
         }
 
-        // Other Patient IDs Sequence recommended for regional/national identifiers
-        if (!dataset.contains(Tag.OtherPatientIDsSequence)) {
-            result.addInfo("OtherPatientIDsSequence (0010,1002) not present. Consider including " +
-                    "national/regional/local patient identifiers for cross-border use.", modulePath);
+        // Other Patient IDs Sequence (0010,1002) - R+ in MADO, must contain same Patient ID as (0010,0020)
+        Sequence otherPatientIdsSeq = dataset.getSequence(Tag.OtherPatientIDsSequence);
+        if (otherPatientIdsSeq == null || otherPatientIdsSeq.isEmpty()) {
+            result.addError(ValidationMessages.MADO_OTHER_PATIENT_IDS_MISSING, modulePath);
+        } else if (patientId != null && !patientId.trim().isEmpty()) {
+            // Verify it contains the same Patient ID present in (0010,0020)
+            boolean foundMatchingId = false;
+            for (Attributes otherIdItem : otherPatientIdsSeq) {
+                String otherId = otherIdItem.getString(Tag.PatientID);
+                if (patientId.trim().equals(otherId != null ? otherId.trim() : "")) {
+                    foundMatchingId = true;
+                    break;
+                }
+            }
+            if (!foundMatchingId) {
+                result.addWarning("OtherPatientIDsSequence does not contain the same Patient ID as (0010,0020): '"
+                        + patientId + "'. MADO requires the primary Patient ID to be included.", modulePath);
+            }
         }
     }
 
@@ -257,17 +285,29 @@ public class MADOManifestValidator extends KeyObjectSelectionValidator {
         String csd = item.getString(Tag.CodingSchemeDesignator);
         String meaning = item.getString(Tag.CodeMeaning);
 
-        // MADO requires either (113030, DCM, "Manifest") OR (ddd001, DCM, "Manifest with Description")
+        // MADO requires either (113030, DCM, "Manifest") OR (MADOTEMP001, 99IHE, "Manifest with Description")
         boolean isManifest = CodeConstants.CODE_KOS_MANIFEST.equals(codeValue) && "DCM".equals(csd);
         boolean isManifestWithDesc = CODE_MANIFEST_WITH_DESCRIPTION.equals(codeValue) && MADO_MANIFEST_CSD.equals(csd);
 
         if (!isManifest && !isManifestWithDesc) {
-            result.addError(
-                "MADO ConceptNameCodeSequence (Document Title) must be either:\n" +
-                "  (113030, DCM, \"Manifest\") OR\n" +
-                "  (" + CODE_MANIFEST_WITH_DESCRIPTION + ", " + MADO_MANIFEST_CSD + ", \"" + MADO_MANIFEST_CODE_MEANING + "\")\n" +
-                "Found: (" + codeValue + ", " + csd + ", \"" + meaning + "\")\n" +
-                "Note: Generic KOS titles like (113000, DCM, \"Of Interest\") are NOT valid for MADO.", modulePath);
+            // Check for MADOTEMP001 with wrong scheme (common migration mistake)
+            if (CODE_MANIFEST_WITH_DESCRIPTION.equals(codeValue) && "DCM".equals(csd)) {
+                result.addError(
+                    "MADO ConceptNameCodeSequence uses correct code (" + CODE_MANIFEST_WITH_DESCRIPTION
+                    + ") but wrong CodingSchemeDesignator: 'DCM'.\n"
+                    + "CP-2595 requires: (" + CODE_MANIFEST_WITH_DESCRIPTION + ", " + MADO_MANIFEST_CSD
+                    + ", \"" + MADO_MANIFEST_CODE_MEANING + "\")", modulePath);
+            } else if ("ddd001".equals(codeValue)) {
+                // Legacy deprecated code
+                result.addWarning(String.format(ValidationMessages.MADO_DEPRECATED_DDD_CODE, codeValue, csd), modulePath);
+            } else {
+                result.addError(
+                    "MADO ConceptNameCodeSequence (Document Title) must be either:\n" +
+                    "  (113030, DCM, \"Manifest\") OR\n" +
+                    "  (" + CODE_MANIFEST_WITH_DESCRIPTION + ", " + MADO_MANIFEST_CSD + ", \"" + MADO_MANIFEST_CODE_MEANING + "\")\n" +
+                    "Found: (" + codeValue + ", " + csd + ", \"" + meaning + "\")\n" +
+                    "Note: Generic KOS titles like (113000, DCM, \"Of Interest\") are NOT valid for MADO.", modulePath);
+            }
         }
     }
 }

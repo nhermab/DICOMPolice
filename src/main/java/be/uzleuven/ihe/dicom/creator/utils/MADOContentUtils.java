@@ -41,10 +41,10 @@ public class MADOContentUtils {
 
         Sequence descSeq = kosDesc.newSequence(Tag.ContentSequence, 10);
 
-        // KOS Title Code (required by this repo's validator for V-DESC-02)
+        // Document Title (121144, DCM) - required by CP-2595 TID 16XX
         // Use an example from CID 7010-ish style; validator only checks presence.
         descSeq.add(createCodeItem(be.uzleuven.ihe.dicom.constants.DicomConstants.RELATIONSHIP_CONTAINS,
-            CODE_KOS_TITLE, SCHEME_DCM, MEANING_KOS_TITLE,
+            CODE_KOS_DOCUMENT_TITLE, SCHEME_DCM, MEANING_KOS_DOCUMENT_TITLE,
             code(CODE_OF_INTEREST, SCHEME_DCM, MEANING_OF_INTEREST)));
 
         // KOS Description (optional)
@@ -168,18 +168,19 @@ public class MADOContentUtils {
                 code(series.getModality(), SCHEME_DCM, series.getModality())));
         groupSeq.add(createUIDRefItem("HAS ACQ CONTEXT", CODE_SERIES_INSTANCE_UID, SCHEME_DCM,
                 MEANING_SERIES_INSTANCE_UID, series.getSeriesUID()));
-        groupSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_SERIES_DESCRIPTION, SCHEME_DCM,
+        groupSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_SERIES_DESCRIPTION, SCHEME_99IHE,
                 MEANING_SERIES_DESCRIPTION, series.getDescription()));
-        groupSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_SERIES_DATE, SCHEME_DCM,
+        groupSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_SERIES_DATE, SCHEME_99IHE,
                 MEANING_SERIES_DATE, series.getSeriesDate()));
-        groupSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_SERIES_TIME, SCHEME_DCM,
+        groupSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_SERIES_TIME, SCHEME_99IHE,
                 MEANING_SERIES_TIME, series.getSeriesTime()));
         // KOS TID 2010 forbids NUM, so represent the series number as TEXT.
         groupSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_SERIES_NUMBER, SCHEME_DCM,
                 MEANING_SERIES_NUMBER, Integer.toString(series.getSeriesNumber())));
         // Number of Series Related Instances (NUM) - Required by MADO TID 1602
-        groupSeq.add(createNumericItem("HAS ACQ CONTEXT", CODE_NUM_SERIES_RELATED_INSTANCES, SCHEME_DCM,
-                MEANING_NUM_SERIES_RELATED_INSTANCES, series.getInstances().size()));
+        groupSeq.add(createNumericItem("HAS ACQ CONTEXT", CODE_NUM_SERIES_RELATED_INSTANCES, SCHEME_99IHE,
+                MEANING_NUM_SERIES_RELATED_INSTANCES, series.getInstances().size(),
+                "{instances}", "UCUM", "instances"));
 
         // Instance Level Entries (TID 1601) - metadata and IMAGE as siblings
         int instanceNumber = 1;
@@ -191,7 +192,7 @@ public class MADOContentUtils {
             // Add Number of Frames as sibling if multiframe (HAS ACQ CONTEXT)
             if (StudyGeneratorUtils.isMultiframe(inst.getSopClassUID())) {
                 groupSeq.add(createNumericItem("HAS ACQ CONTEXT", CODE_NUMBER_OF_FRAMES, SCHEME_DCM,
-                        MEANING_NUMBER_OF_FRAMES, 10));
+                        MEANING_NUMBER_OF_FRAMES, 10, "{frames}", "UCUM", "frames"));
             }
 
             // Add the IMAGE item (CONTAINS) - no nested ContentSequence
@@ -222,9 +223,9 @@ public class MADOContentUtils {
 
         Sequence descSeq = kosDesc.newSequence(Tag.ContentSequence, 10);
 
-        // KOS Title Code
+        // Document Title (121144, DCM) - required by CP-2595 TID 16XX
         descSeq.add(createCodeItem(be.uzleuven.ihe.dicom.constants.DicomConstants.RELATIONSHIP_CONTAINS,
-            CODE_KOS_TITLE, SCHEME_DCM, MEANING_KOS_TITLE,
+            CODE_KOS_DOCUMENT_TITLE, SCHEME_DCM, MEANING_KOS_DOCUMENT_TITLE,
             code(CODE_OF_INTEREST, SCHEME_DCM, MEANING_OF_INTEREST)));
 
         // KOS Description

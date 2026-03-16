@@ -16,29 +16,134 @@ public class ValidationMessages {
     private static final String CODE_SERIES_INSTANCE_UID = CodeConstants.CODE_SERIES_INSTANCE_UID;
     private static final String CODE_NUM_SERIES_RELATED_INSTANCES = CodeConstants.CODE_NUM_SERIES_RELATED_INSTANCES;
     private static final String CODE_INSTANCE_NUMBER = CodeConstants.CODE_INSTANCE_NUMBER;
-    private static final String CODE_STUDY_INSTANCE_UID = CodeConstants.CODE_STUDY_INSTANCE_UID;
-    private static final String CODE_SOP_INSTANCE_UID = CodeConstants.CODE_SOP_INSTANCE_UID;
-    private static final String CODE_KOS_TITLE = CodeConstants.CODE_KOS_TITLE;
-    // ddd009 not yet defined in CodeConstants, using literal for now
+    private static final String CODE_NUM_STUDY_RELATED_SERIES = CodeConstants.CODE_NUM_STUDY_RELATED_SERIES;
+    private static final String CODE_KOS_DOCUMENT_TITLE = CodeConstants.CODE_KOS_DOCUMENT_TITLE;
     private static final String CODE_KEY_OBJECT_DESCRIPTION = CodeConstants.CODE_KOS_OBJECT_DESCRIPTION;
+    private static final String SCHEME_99IHE = CodeConstants.SCHEME_99IHE;
 
     // ========== Specification References ==========
-    public static final String REF_MADO_6_X_1_2_2_5_2 = "IHE MADO Suppl. 6.X.1.2.2.5.2";
-    public static final String REF_MADO_6_X_1_2_3_4 = "IHE MADO Suppl. 6.X.1.2.3.4";
-    public static final String REF_MADO_6_X_1_2_3_4_2 = "IHE MADO Suppl. 6.X.1.2.3.4.2";
-    public static final String REF_MADO_6_X_1_2_3_5 = "IHE MADO Suppl. 6.X.1.2.3.5";
-    public static final String REF_MADO_6_X_1_2_2_3_2 = "IHE MADO Suppl. 6.X.1.2.2.3.2";
-    public static final String REF_MADO_TABLE_6_X_1_2_3_4_2_1 = "IHE MADO Suppl. Table 6.X.1.2.3.4.2-1";
-    public static final String REF_MADO_6_X_1_2_2_6 = "IHE MADO Suppl. 6.X.1.2.2.6";
-    public static final String REF_MADO_6_X_1_2_1_2 = "IHE MADO Suppl. 6.X.1.2.1.2";
-    public static final String REF_MADO_6_X_1_2_2_1_2 = "IHE MADO Suppl. 6.X.1.2.2.1.2";
-    public static final String REF_MADO_6_X_1_2_2_2_2 = "IHE MADO Suppl. 6.X.1.2.2.2.2";
-    public static final String REF_MADO_APPENDIX_A = "IHE MADO Suppl. Appx A";
-    public static final String REF_MADO_APPENDIX_B = "IHE MADO Suppl. Appx B";
-    public static final String REF_MADO_TABLE_B_1_2_1 = "IHE MADO Suppl. Table B.1.2-1";
-    public static final String REF_MADO_TABLE_B_2_2_1 = "IHE MADO Suppl. Table B.2.2-1";
-    public static final String REF_MADO_TABLE_B_3_2_1 = "IHE MADO Suppl. Table B.3.2-1";
-    public static final String REF_MADO_TABLE_B_4_2_1 = "IHE MADO Suppl. Table B.4.2-1";
+    // MADO TI (Rev 1.0 / CP-2595 VP4) section references
+    // KOS-Based Imaging Study Manifest lives under Section 6.X.2
+
+    // --- 6.X.2.4 : IOD / Module map ---
+    /** IOD definition, builds on DICOM PS3.3 A.35.4 - MADO TI Section 6.X.2.4 */
+    public static final String REF_MADO_6_X_2_4 = "IHE MADO Suppl. 6.X.2.4";
+    /** Table of module usage (presence/IHE-usage) - MADO TI Table 6.X.2.4-1 */
+    public static final String REF_MADO_TABLE_6_X_2_4_1 = "IHE MADO Suppl. Table 6.X.2.4-1";
+    /** @deprecated Use {@link #REF_MADO_6_X_2_4} / {@link #REF_MADO_TABLE_6_X_2_4_1} */
+    @Deprecated public static final String REF_MADO_6_X_1_2_1_2 = REF_MADO_6_X_2_4;
+
+    // --- 6.X.2.5 : Patient Module ---
+    /** Patient Module section - MADO TI Section 6.X.2.5 */
+    public static final String REF_MADO_6_X_2_5 = "IHE MADO Suppl. 6.X.2.5";
+    /** Patient ID constraints (PatientID required R+) - MADO TI Section 6.X.2.5.2.1.1 */
+    public static final String REF_MADO_6_X_2_5_2_1_1 = "IHE MADO Suppl. 6.X.2.5.2.1.1";
+    /** Issuer of Patient ID Qualifiers Sequence macro table - MADO TI Table 6.X.2.5.2.1.3-1 */
+    public static final String REF_MADO_TABLE_6_X_2_5_2_1_3 = "IHE MADO Suppl. Table 6.X.2.5.2.1.3-1";
+    /** @deprecated Use {@link #REF_MADO_6_X_2_5_2_1_1} for PatientID; {@link #REF_MADO_TABLE_6_X_2_5_2_1_3} for IssuerOfPatientIDQualifiers */
+    @Deprecated public static final String REF_MADO_6_X_1_2_2_1_2 = REF_MADO_6_X_2_5_2_1_1;
+    /** @deprecated Use {@link #REF_MADO_TABLE_6_X_2_5_2_1_3} */
+    @Deprecated public static final String REF_MADO_TABLE_6_X_1_2_2_1_1 = REF_MADO_TABLE_6_X_2_5_2_1_3;
+    /** @deprecated Use {@link #REF_MADO_TABLE_6_X_2_5_2_1_3} */
+    @Deprecated public static final String REF_MADO_TABLE_6_X_2_5_1 = REF_MADO_TABLE_6_X_2_5_2_1_3;
+
+    // --- 6.X.2.6 : General Study Module ---
+    /** General Study Module section - MADO TI Section 6.X.2.6 */
+    public static final String REF_MADO_6_X_2_6 = "IHE MADO Suppl. 6.X.2.6";
+    /** General Study Module attribute table - MADO TI Table 6.X.2.6-1 */
+    public static final String REF_MADO_TABLE_6_X_2_6_1 = "IHE MADO Suppl. Table 6.X.2.6-1";
+    /** Accession numbering workflow cases - MADO TI Section 6.X.2.6.1 */
+    public static final String REF_MADO_6_X_2_6_1 = "IHE MADO Suppl. 6.X.2.6.1";
+    /** @deprecated Use {@link #REF_MADO_TABLE_6_X_2_6_1} for attribute checks, {@link #REF_MADO_6_X_2_6_1} for accession-number workflow */
+    @Deprecated public static final String REF_MADO_6_X_1_2_2_2_2 = REF_MADO_TABLE_6_X_2_6_1;
+    /** @deprecated Use {@link #REF_MADO_TABLE_6_X_2_6_1} */
+    @Deprecated public static final String REF_MADO_TABLE_6_X_1_2_2_2_1 = REF_MADO_TABLE_6_X_2_6_1;
+
+    // --- 6.X.2.7 : Equipment Module ---
+    /** Equipment Module attribute table - MADO TI Table 6.X.2.7-1 */
+    public static final String REF_MADO_TABLE_6_X_2_7_1 = "IHE MADO Suppl. Table 6.X.2.7-1";
+
+    // --- 6.X.2.8 / 6.X.2.8.1 : Evidence Sequence + Referenced Request Sequence ---
+    /** Evidence Sequence (CurrentRequestedProcedureEvidenceSequence) profiling - MADO TI Table 6.X.2.8-1 */
+    public static final String REF_MADO_TABLE_6_X_2_8_1 = "IHE MADO Suppl. Table 6.X.2.8-1";
+    /** Referenced Request Sequence macro section - MADO TI Section 6.X.2.8.1 */
+    public static final String REF_MADO_6_X_2_8_1 = "IHE MADO Suppl. 6.X.2.8.1";
+    /** Referenced Request Sequence attribute table - MADO TI Table 6.X.2.8.1-1 */
+    public static final String REF_MADO_TABLE_6_X_2_8_1_1 = "IHE MADO Suppl. Table 6.X.2.8.1-1";
+    /** @deprecated Use {@link #REF_MADO_6_X_2_8_1} / {@link #REF_MADO_TABLE_6_X_2_8_1_1} for ReferencedRequestSequence;
+     *  {@link #REF_MADO_TABLE_6_X_2_12_1} for issuer internals (UniversalEntityID/Type) */
+    @Deprecated public static final String REF_MADO_6_X_1_2_2_3_2 = REF_MADO_6_X_2_8_1;
+    /** @deprecated Use {@link #REF_MADO_6_X_2_8_1} */
+    @Deprecated public static final String REF_MADO_6_X_2_11 = REF_MADO_6_X_2_8_1;
+
+    // --- 6.X.2.9 : SR Document Content Module (TID 2010 + TID 1600) ---
+    /** SR Document Content Module (TID 2010 includes TID 1600) - MADO TI Section 6.X.2.9 */
+    public static final String REF_MADO_6_X_2_9 = "IHE MADO Suppl. 6.X.2.9";
+    /** Study-level TID 1600 descriptors (Modality, Target Region, Num Series) - MADO TI Table 6.X.2.9-1 */
+    public static final String REF_MADO_TABLE_6_X_2_9_1 = "IHE MADO Suppl. Table 6.X.2.9-1";
+    /** Series-level TID 1602 descriptors (Series Date/Time/Desc/Num/UID, Num Instances) - MADO TI Table 6.X.2.9-2 */
+    public static final String REF_MADO_TABLE_6_X_2_9_2 = "IHE MADO Suppl. Table 6.X.2.9-2";
+    /** Instance-level TID 1600 entry descriptors (Instance Number, Num Frames) - MADO TI Table 6.X.2.9-3 */
+    public static final String REF_MADO_TABLE_6_X_2_9_3 = "IHE MADO Suppl. Table 6.X.2.9-3";
+    /** KOS-entry TID 16XX descriptors (Document Title, Key Object Description) - MADO TI Table 6.X.2.9-4 */
+    public static final String REF_MADO_TABLE_6_X_2_9_4 = "IHE MADO Suppl. Table 6.X.2.9-4";
+    /** @deprecated Use {@link #REF_MADO_6_X_2_9} and the specific 6.X.2.9-* table refs */
+    @Deprecated public static final String REF_MADO_6_X_1_2_2_5_2 = REF_MADO_6_X_2_9;
+
+    // --- 6.X.2.10 : SOP Common Module (Timezone) ---
+    /** SOP Common Module section - MADO TI Section 6.X.2.10 */
+    public static final String REF_MADO_6_X_2_10 = "IHE MADO Suppl. 6.X.2.10";
+    /** SOP Common Module attribute table (TimezoneOffsetFromUTC R+) - MADO TI Table 6.X.2.10-1 */
+    public static final String REF_MADO_TABLE_6_X_2_10_1 = "IHE MADO Suppl. Table 6.X.2.10-1";
+    /** @deprecated Use {@link #REF_MADO_TABLE_6_X_2_10_1} for timezone attribute checks */
+    @Deprecated public static final String REF_MADO_6_X_1_2_2_6 = REF_MADO_TABLE_6_X_2_10_1;
+
+    // --- 6.X.2.12 : HL7v2 Hierarchic Designator Macro (UniversalEntityID inside issuers) ---
+    /** HL7v2 Hierarchic Designator macro table (UniversalEntityID, UniversalEntityIDType) - MADO TI Table 6.X.2.12-1 */
+    public static final String REF_MADO_TABLE_6_X_2_12_1 = "IHE MADO Suppl. Table 6.X.2.12-1";
+
+    // --- 6.X.2.13 : Hierarchical SOP Instance Reference Macro (study-level hierarchy + Display URI) ---
+    /** Hierarchical SOP Instance Reference Macro section - MADO TI Section 6.X.2.13 */
+    public static final String REF_MADO_6_X_2_13 = "IHE MADO Suppl. 6.X.2.13";
+    /** Hierarchical SOP Instance Reference Macro attribute table - MADO TI Table 6.X.2.13-1 */
+    public static final String REF_MADO_TABLE_6_X_2_13_1 = "IHE MADO Suppl. Table 6.X.2.13-1";
+    /** @deprecated Use {@link #REF_MADO_6_X_2_13} / {@link #REF_MADO_TABLE_6_X_2_13_1} */
+    @Deprecated public static final String REF_MADO_6_X_1_2_3_4 = REF_MADO_6_X_2_13;
+    /** @deprecated Use {@link #REF_MADO_TABLE_6_X_2_13_1} (study/instance hierarchy) */
+    @Deprecated public static final String REF_MADO_TABLE_B_1_2_1 = REF_MADO_TABLE_6_X_2_13_1;
+    /** @deprecated Use {@link #REF_MADO_TABLE_6_X_2_9_4} (KOS-entry descriptors) */
+    @Deprecated public static final String REF_MADO_TABLE_B_4_2_1 = REF_MADO_TABLE_6_X_2_9_4;
+
+    // --- 6.X.2.14 : Hierarchical Series Reference Macro (series-level retrieval: RetrieveLocationUID, RetrieveURL) ---
+    /** Hierarchical Series Reference Macro section - MADO TI Section 6.X.2.14 */
+    public static final String REF_MADO_6_X_2_14 = "IHE MADO Suppl. 6.X.2.14";
+    /** Hierarchical Series Reference Macro attribute table - MADO TI Table 6.X.2.14-1 */
+    public static final String REF_MADO_TABLE_6_X_2_14_1 = "IHE MADO Suppl. Table 6.X.2.14-1";
+    /** @deprecated Use {@link #REF_MADO_6_X_2_14} / {@link #REF_MADO_TABLE_6_X_2_14_1} */
+    @Deprecated public static final String REF_MADO_6_X_1_2_3_4_2 = REF_MADO_6_X_2_14;
+    /** @deprecated Use {@link #REF_MADO_6_X_2_14} / {@link #REF_MADO_TABLE_6_X_2_14_1} */
+    @Deprecated public static final String REF_MADO_6_X_1_2_3_5 = REF_MADO_6_X_2_14;
+    /** @deprecated Use {@link #REF_MADO_TABLE_6_X_2_14_1} */
+    @Deprecated public static final String REF_MADO_TABLE_6_X_1_2_3_4_2_1 = REF_MADO_TABLE_6_X_2_14_1;
+    /** @deprecated Use {@link #REF_MADO_TABLE_6_X_2_14_1} (series retrieval info) */
+    @Deprecated public static final String REF_MADO_TABLE_B_2_2_1 = REF_MADO_TABLE_6_X_2_14_1;
+    /** @deprecated Use {@link #REF_MADO_TABLE_6_X_2_9_2} (series-level SR content) */
+    @Deprecated public static final String REF_MADO_TABLE_B_3_2_1 = REF_MADO_TABLE_6_X_2_9_2;
+
+    // --- Appendix A / B (legacy - no longer content-rule appendices in Rev 1.0) ---
+    /**
+     * NOTE: In MADO Rev 1.0, Appendix A covers search-parameter mapping, NOT KOS content rules.
+     * References to Appendix A for TID 2010 modifications / Evidence / Purpose-of-Reference
+     * should be re-homed to {@link #REF_MADO_TABLE_6_X_2_8_1} or DICOM PS3.3 C.17.6.2.
+     * @deprecated Map to the appropriate 6.X.2.* ref instead.
+     */
+    @Deprecated public static final String REF_MADO_APPENDIX_A = "IHE MADO Suppl. Appx A [stale - see 6.X.2.8-1 / DICOM PS3.3 C.17.6.2 for Evidence/TID 2010 rules]";
+    /**
+     * @deprecated Appendix B has been removed in IHE MADO Rev 1.0.
+     * Use TID 1600 Image Library (Section 6.X.2.9) instead.
+     */
+    @Deprecated public static final String REF_MADO_APPENDIX_B = "IHE MADO Suppl. Appx B [REMOVED in Rev 1.0 - use TID 1600 Image Library, Section 6.X.2.9]";
+
     public static final String REF_MADO_X_1_1_1 = "IHE MADO Suppl. X.1.1.1";
     public static final String REF_MADO_X_2 = "IHE MADO Suppl. X.2";
     public static final String REF_DICOM_PS3_3 = "DICOM PS3.3";
@@ -51,8 +156,6 @@ public class ValidationMessages {
     public static final String REF_DICOM_PS3_5_SEC_7_5 = "DICOM PS3.5 Section 7.5";
     public static final String REF_DICOM_PS3_3_C_17_3 = "DICOM PS3.3 C.17.3";
     public static final String REF_DICOM_PS3_3_C_17_6_2 = "DICOM PS3.3 C.17.6.2";
-    public static final String REF_MADO_TABLE_6_X_1_2_2_1_1 = "IHE MADO Suppl. Table 6.X.1.2.2.1-1";
-    public static final String REF_MADO_TABLE_6_X_1_2_2_2_1 = "IHE MADO Suppl. Table 6.X.1.2.2.2-1";
 
     // ========== IOD Attribute Validation (AbstractIODValidator) ==========
     public static final String IOD_MISSING_REQUIRED_ATTRIBUTE = "Missing required attribute: %s %s. [" +
@@ -118,23 +221,23 @@ public class ValidationMessages {
             "XDS-I.b Key Object Selection should use TID 2010.";
 
     public static final String TID2010_ERROR = "ContentTemplateSequence has TemplateIdentifier=2010 but MappingResource is not 'DCMR'. " +
-            "Expected MappingResource='DCMR'. [" + REF_MADO_6_X_1_2_2_5_2 +
+            "Expected MappingResource='DCMR'. [" + REF_MADO_6_X_2_9 +
             ": 'The TID 2010 'Key Object Selection' Template shall include the TID 1600 'Image Library' Template...']";
 
     public static final String TID2010_INFO = "ContentTemplateSequence correctly identifies TID 2010 (DCMR)";
 
     // ========== Document Title / Concept Name ==========
-    public static final String CONCEPT_NAME_MISSING = "ConceptNameCodeSequence is missing. [" + REF_MADO_6_X_1_2_2_5_2 +
+    public static final String CONCEPT_NAME_MISSING = "ConceptNameCodeSequence is missing. [" + REF_MADO_6_X_2_9 +
             ": 'The CID 7010 Key Object Selection Document Title shall be set to 'Manifest with Description'...']";
 
     public static final String DOCUMENT_TITLE_WRONG = "Document Title must be 'Manifest with Description' for MADO manifests. [" +
-            REF_MADO_6_X_1_2_2_5_2 + ": 'The SR Document Content Module shall be constructed from TID 2010... " +
+            REF_MADO_6_X_2_9 + ": 'The SR Document Content Module shall be constructed from TID 2010... " +
             "The CID 7010 Key Object Selection Document Title shall be set to 'Manifest with Description'...']";
 
     // ========== Content Item Constraints ==========
     public static final String CONTENT_ITEM_MISSING = "In TID 1600 'Image Library' required content items are missing: %s. [" +
-            REF_MADO_6_X_1_2_2_5_2 + ": 'In the TID 1600 'Image Library' the following content Items shall be present... " +
-            "[Modality R+, Study Instance UID R+, Target Region R+]']";
+            REF_MADO_TABLE_6_X_2_9_1 + ": 'In the TID 1600 'Image Library' the following content Items shall be present... " +
+            "[Modality R+, Target Region R+]']";
 
     public static final String CODE_SEQUENCE_SINGLE_ITEM = "Code Sequence %s must contain exactly one item. [" + REF_DICOM_PS3_3 +
             ": 'Only a single Item shall be included in this Sequence.']";
@@ -150,7 +253,7 @@ public class ValidationMessages {
             REF_DICOM_PS3_3 + " TID 2010: 'The Value Type of the Content Item... shall be consistent with the constraints of TID 2010.']";
 
     public static final String KOS_PURPOSE_OF_REFERENCE_FORBIDDEN = "PurposeOfReferenceCodeSequence (0040,A170) must not be present in KOS references. [" +
-            REF_MADO_APPENDIX_A + " (TID 2010 Mod): 'Row 11 Purpose of reference shall not be present.']";
+            REF_DICOM_PS3_3 + " C.17.6.2 (TID 2010): 'Row 11 Purpose of reference shall not be present.']";
 
     public static final String KOS_CONCEPT_NAME_SEQUENCE_EMPTY = "ConceptNameCodeSequence is empty. [" +
             REF_DICOM_PS3_3 + " C.17.3: 'Concept Name Code Sequence (0040,A043) ... Type 1 ... Shall be present.']";
@@ -230,60 +333,60 @@ public class ValidationMessages {
             REF_DICOM_PS3_3 + " C.17.2: 'Each SOP Instance should typically be referenced only once in the content tree.']";
 
     public static final String SR_RETRIEVE_URL_INVALID = "Retrieve URL (0008,1190) must be a valid absolute URL starting with http:// or https://. Found: %s. [" +
-            REF_MADO_6_X_1_2_3_5 + ": 'Retrieve URL (0008,1190)... shall contain a URL that can be used to retrieve the instance.']";
+            REF_MADO_TABLE_6_X_2_14_1 + ": 'Retrieve URL (0008,1190)... shall contain a URL that can be used to retrieve the instance.']";
 
     public static final String SR_RETRIEVE_URL_CONTAINS_SPACES = "Retrieve URL (0008,1190) contains spaces which are not allowed in URLs. [" +
-            REF_MADO_6_X_1_2_3_5 + ": 'Retrieve URL shall conform to RFC 3986 URL format.']";
+            REF_MADO_TABLE_6_X_2_14_1 + ": 'Retrieve URL shall conform to RFC 3986 URL format.']";
 
     public static final String SR_RETRIEVE_LOCATION_UID_INVALID = "Retrieve Location UID (0040,E011) is invalid. Must be a valid UID format (digits and dots, max 64 chars). [" +
-            REF_MADO_6_X_1_2_3_4_2 + " (" + REF_MADO_TABLE_6_X_1_2_3_4_2_1 + "); " + REF_DICOM_PS3_5 + " Section 6.2: " +
+            REF_MADO_6_X_2_14 + " (" + REF_MADO_TABLE_6_X_2_14_1 + "); " + REF_DICOM_PS3_5 + " Section 6.2: " +
             "'Retrieve Location UID (0040,E011) ... Type R+ ... The value of this attribute is an OID... " +
             "Value Representation UI (Unique Identifier)... Character Repertoire: '0'-'9', '.' ... Length of Value: 64 bytes maximum.']";
 
     // ========== UID Hierarchy =========="
     public static final String STUDY_UID_MISSING_EVIDENCE = "Study Instance UID missing in Evidence Sequence item %s. [" +
-            REF_MADO_6_X_1_2_3_4 + ", " + REF_MADO_TABLE_B_1_2_1 +
+            REF_MADO_TABLE_6_X_2_13_1 +
             ": 'This sequence shall contain as many Related Series Sequences (0008,1250) as there are Series... " +
             "Study Instance UID (0020,000D) is required to establish the study-series-instance hierarchy.']";
 
     public static final String SERIES_UID_MISSING_EVIDENCE = "Series Instance UID missing in Evidence Sequence study %s, series %s. [" +
-            REF_MADO_6_X_1_2_3_4 + ", " + REF_MADO_TABLE_B_2_2_1 +
+            REF_MADO_TABLE_6_X_2_14_1 +
             ": '[Referenced SOP Sequence] shall contain as many instance UID as there are instances... " +
             "Series Instance UID (0020,000E) is required to establish the series-instance relationship.']";
 
     public static final String SOP_INSTANCE_UID_MISSING_EVIDENCE = "SOP Instance UID (Referenced SOP Instance UID) missing in Evidence Sequence. [" +
-            REF_MADO_6_X_1_2_3_4 + ", " + REF_MADO_TABLE_B_3_2_1 +
+            REF_MADO_TABLE_6_X_2_9_2 +
             ": 'Referenced SOP Instance UID (0008,1155) is Type 1 (Required) in Referenced SOP Sequence. " +
             "Each instance reference must include the SOP Instance UID to uniquely identify the DICOM object.']";
 
-    public static final String SERIES_HIERARCHY_ERROR = "Series hierarchy error: %s. [" + REF_MADO_6_X_1_2_3_4 +
+    public static final String SERIES_HIERARCHY_ERROR = "Series hierarchy error: %s. [" + REF_MADO_6_X_2_13 +
             ": '[Referenced SOP Sequence] shall contain as many instance UID as there are instances...']";
 
     // ========== MADO Profile Detection ==========
     public static final String MADO_APPROACH_DETECTION = "Detecting MADO approach (KOS vs FHIR). [" + REF_MADO_X_2 +
             ": 'The Manifest Content Creator shall support both formats... The Imaging Document Consumer shall support at least one of the two formats.']";
 
-    public static final String MADO_APPENDIX_B_NOT_SUPPORTED = "MADO Format: Appendix B style attributes detected, but Approach 2 (TID 1600 Image Library) is required for this manifest. [" +
-            REF_MADO_6_X_1_2_2_5_2 + ": 'The SR Document Content Module shall be constructed from TID 2010... " +
+    public static final String MADO_APPENDIX_B_NOT_SUPPORTED = "MADO Format: Appendix B style attributes detected, but TID 1600 Image Library (Section 6.X.2.9) is required for this manifest. [" +
+            REF_MADO_6_X_2_9 + ": 'The SR Document Content Module shall be constructed from TID 2010... " +
             "The TID 2010 'Key Object Selection' Template shall include the TID 1600 'Image Library' Template...']";
 
-    public static final String MADO_APPROACH_2_NOT_DETECTED = "MADO Format: Unable to identify Approach 2 (TID 1600 Image Library). " +
+    public static final String MADO_APPROACH_2_NOT_DETECTED = "MADO Format: Unable to identify TID 1600 Image Library in ContentSequence. " +
             "This KOS does not meet MADO KOS-Based Imaging Study Manifest requirements. [" +
-            REF_MADO_6_X_1_2_2_5_2 + ": 'In the TID 1600 'Image Library' the following content Items shall be present...']";
+            REF_MADO_TABLE_6_X_2_9_1 + ": 'In the TID 1600 'Image Library' the following content Items shall be present...']";
 
     public static final String MADO_CONTENT_SEQUENCE_MISSING_APPROACH = "ContentSequence is missing/empty. MADO requires TID 1600 Image Library in content tree. [" +
-            REF_MADO_6_X_1_2_2_5_2 + ": 'The SR Document Content Module shall be constructed from TID 2010... " +
+            REF_MADO_6_X_2_9 + ": 'The SR Document Content Module shall be constructed from TID 2010... " +
             "The TID 2010 template shall include the TID 1600 'Image Library' Template.']";
 
     public static final String MADO_FORMAT_DETECTION_FAILED = "MADO Format Detection Failed:\n" +
             "  - Expected: TID 1600 Image Library container (111028, DCM, \"Image Library\") in ContentSequence\n" +
-            "  - Alternative: Appendix B extended attributes in Evidence sequence\n" +
+            "  - Note: Appendix B extended attributes are no longer supported in IHE MADO Rev 1.0\n" +
             "  - Found: Neither. This appears to be a generic KOS, not a MADO manifest.\n" +
             "  Note: Flat ContentSequence with COMPOSITE references is NOT valid MADO structure. [" +
-            REF_MADO_6_X_1_2_2_5_2 + ", " + REF_MADO_APPENDIX_B + "]";
+            REF_MADO_6_X_2_9 + "]";
 
     public static final String MADO_CONTENT_SEQUENCE_MISSING = "ContentSequence is missing/empty. MADO manifest must contain TID 1600 Image Library. [" +
-            REF_MADO_6_X_1_2_2_5_2 + ": 'The SR Document Content Module shall be constructed from TID 2010... " +
+            REF_MADO_6_X_2_9 + ": 'The SR Document Content Module shall be constructed from TID 2010... " +
             "ContentSequence (0040,A730) shall contain the TID 1600 Image Library structure.']";
 
     public static final String MADO_NO_INSTANCE_REFERENCES = "MADO manifest does not reference any instances (no content refs and no evidence refs). [" +
@@ -297,64 +400,64 @@ public class ValidationMessages {
 
     // ========== Forbidden Elements ==========
     public static final String FORBIDDEN_ELEMENT = "Element %s (Purpose of reference) shall not be present in MADO manifests. [" +
-            REF_MADO_APPENDIX_A + " (TID 2010 Mod): 'Row 11 Purpose of reference shall not be present.']";
+            REF_DICOM_PS3_3 + " C.17.6.2 (TID 2010): 'Row 11 Purpose of reference shall not be present.']";
 
     public static final String FORBIDDEN_IOCM_TITLE = "Document title code indicates an IOCM Rejection Note (CodeValue=%s); " +
             "this is not allowed for a MADO sharing manifest. [" +
-            REF_MADO_APPENDIX_A + " (CID 7010): 'MADO manifests shall use 'Manifest with Description' " +
+            REF_MADO_6_X_2_9 + " (CID 7010): 'MADO manifests shall use 'Manifest with Description' " +
             "or 'Signed Manifest'. IOCM rejection note codes are prohibited in cross-enterprise sharing contexts.']";
 
     // ========== Referenced Request Sequence ==========
     public static final String REFERENCED_REQUEST_MISSING = "Referenced Request Sequence (0040,A370) is missing or empty. [" +
-            REF_MADO_6_X_1_2_2_3_2 + ": 'Referenced Request Sequence (0040,A370) ... R+ ... One or more Items shall be included in this Sequence.']";
+            REF_MADO_6_X_2_8_1 + ": 'Referenced Request Sequence (0040,A370) ... R+ ... One or more Items shall be included in this Sequence.']";
 
     public static final String REFERENCED_REQUEST_EMPTY = "Referenced Request Sequence (0040,A370) must contain at least one item. [" +
-            REF_MADO_6_X_1_2_2_3_2 + ": 'One or more Items shall be included in this Sequence.']";
+            REF_MADO_6_X_2_8_1 + ": 'One or more Items shall be included in this Sequence.']";
 
     public static final String REFERENCED_REQUEST_MISSING_MADO = "ReferencedRequestSequence (0040,A370) is missing/empty. MADO requires request information " +
             "for each unique Accession Number/Placer Order combination. [" +
-            REF_MADO_6_X_1_2_2_3_2 + ": 'Referenced Request Sequence (0040,A370) ... R+ ... One or more Items shall be included in this Sequence.']";
+            REF_MADO_6_X_2_8_1 + ": 'Referenced Request Sequence (0040,A370) ... R+ ... One or more Items shall be included in this Sequence.']";
 
     public static final String REFERENCED_REQUEST_STUDY_UID_MISSING = "StudyInstanceUID missing/empty in ReferencedRequestSequence item %d. [" +
-            REF_MADO_6_X_1_2_2_3_2 + ": 'Study Instance UID (0020,000D) ... R+ ... " +
+            REF_MADO_TABLE_6_X_2_8_1_1 + ": 'Study Instance UID (0020,000D) ... R+ ... " +
             "Shall match the Study Instance UID of the Key Object Selection Document.']";
 
     public static final String REFERENCED_REQUEST_STUDY_UID_MISMATCH = "ReferencedRequestSequence item %d has StudyInstanceUID %s " +
             "which does not match manifest StudyInstanceUID %s. [" +
-            REF_MADO_6_X_1_2_2_3_2 + ": 'Study Instance UID (0020,000D) ... R+ ... " +
+            REF_MADO_TABLE_6_X_2_8_1_1 + ": 'Study Instance UID (0020,000D) ... R+ ... " +
             "Shall match the Study Instance UID of the Key Object Selection Document.']";
 
     public static final String REFERENCED_REQUEST_ACCESSION_MISSING = "AccessionNumber missing in ReferencedRequestSequence item %d. [" +
-            REF_MADO_6_X_1_2_2_3_2 + ": 'Accession Number (0008,0050) ... R+ ... " +
+            REF_MADO_TABLE_6_X_2_8_1_1 + ": 'Accession Number (0008,0050) ... R+ ... " +
             "Required to link the manifest to the originating imaging request.']";
 
     public static final String REFERENCED_REQUEST_ISSUER_MISSING = "IssuerOfAccessionNumberSequence (0008,0051) missing/empty in ReferencedRequestSequence item %d. [" +
-            REF_MADO_6_X_1_2_2_3_2 + ": 'Issuer of Accession Number Sequence (0008,0051) ... RC+ ... " +
+            REF_MADO_TABLE_6_X_2_8_1_1 + ": 'Issuer of Accession Number Sequence (0008,0051) ... RC+ ... " +
             "Required if Accession Number is present. Shall contain UniversalEntityID and UniversalEntityIDType.']";
 
     public static final String REFERENCED_REQUEST_UNIVERSAL_ENTITY_ID_MISSING = "IssuerOfAccessionNumberSequence[0].UniversalEntityID (0040,0032) missing/empty in ReferencedRequestSequence item %d. [" +
-            REF_MADO_6_X_1_2_2_3_2 + ": 'Universal Entity ID (0040,0032) ... R+ ... " +
+            REF_MADO_TABLE_6_X_2_12_1 + ": 'Universal Entity ID (0040,0032) ... R+ ... " +
             "Required to uniquely identify the assigning authority using an OID, UUID, or other registered identifier.']";
 
     public static final String REFERENCED_REQUEST_UNIVERSAL_ENTITY_ID_TYPE_MISSING = "IssuerOfAccessionNumberSequence[0].UniversalEntityIDType (0040,0033) missing/empty in ReferencedRequestSequence item %d. [" +
-            REF_MADO_6_X_1_2_2_3_2 + ": 'Universal Entity ID Type (0040,0033) ... R+ ... " +
+            REF_MADO_TABLE_6_X_2_12_1 + ": 'Universal Entity ID Type (0040,0033) ... R+ ... " +
             "Required. Shall be 'ISO' for OID-based identifiers.']";
 
     public static final String REFERENCED_REQUEST_UNIVERSAL_ENTITY_ID_TYPE_WRONG = "IssuerOfAccessionNumberSequence[0].UniversalEntityIDType (0040,0033) must be 'ISO' but found: %s. [" +
-            REF_MADO_6_X_1_2_2_3_2 + ": 'Universal Entity ID Type (0040,0033) ... R+ ... " +
+            REF_MADO_TABLE_6_X_2_12_1 + ": 'Universal Entity ID Type (0040,0033) ... R+ ... " +
             "Shall be 'ISO' when UniversalEntityID contains an OID.']";
 
     public static final String REFERENCED_REQUEST_PLACER_ORDER_MISSING = "PlacerOrderNumber (0040,2016) missing/empty in ReferencedRequestSequence item %d. [" +
-            REF_MADO_6_X_1_2_2_3_2 + ": 'Placer Order Number / Imaging Service Request (0040,2016) ... R+ ... " +
+            REF_MADO_TABLE_6_X_2_8_1_1 + ": 'Placer Order Number / Imaging Service Request (0040,2016) ... R+ ... " +
             "Required to link the manifest to the specific imaging order that requested the study.']";
 
     // ========== Retrieval Information ==========
     public static final String RETRIEVE_LOCATION_UID_MISSING = "Expected RetrieveLocationUID (0040,E011) for MADO manifest. [" +
-            REF_MADO_6_X_1_2_3_5 + ", " + REF_MADO_TABLE_B_2_2_1 +
+            REF_MADO_TABLE_6_X_2_14_1 +
             ": 'Retrieve Location UID (0040,E011) ... R+ ... The value of this attribute is an OID that may be used as a reference to obtain the endpoint...']";
 
     public static final String RETRIEVE_URL_INFO = "Retrieve URL (0008,1190) is optional but recommended for simplified access. [" +
-            REF_MADO_6_X_1_2_3_5 + ": 'Retrieve URL (0008,1190) ... O']";
+            REF_MADO_TABLE_6_X_2_14_1 + ": 'Retrieve URL (0008,1190) ... O']";
 
     // ========== Character Set Validation ==========
     public static final String SPECIFIC_CHARACTER_SET_REQUIRED = "Specific Character Set (0008,0005) is required when using non-ASCII characters. [" +
@@ -363,7 +466,7 @@ public class ValidationMessages {
 
     // ========== Advanced Encoding Validation ==========
     public static final String UTF8_COMBINED_WITH_OTHER_CHARSETS = "SpecificCharacterSet (0008,0005) contains ISO_IR 192 (UTF-8) combined with other character sets. UTF-8 must be the only value. [" +
-            REF_MADO_6_X_1_2_1_2 + ": 'Specific Character Set (0008,0005)... MADO Actors shall support ISO_IR 192 (UTF-8).' " +
+            REF_MADO_6_X_2_10 + ": 'Specific Character Set (0008,0005)... MADO Actors shall support ISO_IR 192 (UTF-8).' " +
             "(Implies if UTF-8 is used, it should be the sole value for interoperability in this profile).]";
 
     public static final String ESCAPE_SEQUENCES_WITHOUT_ISO2022 = "Attribute %s %s contains escape sequences (0x1B) but no ISO 2022 character set is declared in SpecificCharacterSet (0008,0005). [" +
@@ -384,7 +487,7 @@ public class ValidationMessages {
 
     // ========== Digital Signatures ==========
     public static final String SIGNED_MANIFEST_SIGNATURE_MISSING = "Document Title indicates 'Signed Manifest' but Digital Signatures Sequence is missing or empty. [" +
-            REF_MADO_APPENDIX_A + " (CID 7010): 'Code Meaning: Signed Manifest... Definition: A signed list of objects... " +
+            REF_MADO_6_X_2_9 + " (CID 7010): 'Code Meaning: Signed Manifest... Definition: A signed list of objects... " +
             "referenced securely with either Digital Signatures or MACs.']";
 
     public static final String DIGITAL_SIGNATURES_EMPTY = "Digital Signatures Sequence (FFFA,FFFA) is present but empty. [" +
@@ -444,28 +547,47 @@ public class ValidationMessages {
             "'Code Meaning (0008,0104)... Type 1'; 'Coding Scheme Designator (0008,0102)... Type 1.']";
 
     // ========== MADO Appendix B Validation ==========
-    public static final String APPENDIX_B_EVIDENCE_MISSING_CRITICAL = "CurrentRequestedProcedureEvidenceSequence is missing (Appendix B format). [" +
-            REF_MADO_APPENDIX_B + ": 'Current Requested Procedure Evidence Sequence (0040,A375) ... Type R' " +
-            "(MADO Appendix B relies on this sequence).]";
+    // NOTE: Appendix B has been REMOVED in IHE MADO Rev 1.0. These messages are retained for
+    // backward compatibility with legacy files but indicate the format is no longer supported.
+    /** @deprecated Appendix B format is no longer supported in IHE MADO Rev 1.0. */
+    @Deprecated
+    public static final String APPENDIX_B_EVIDENCE_MISSING_CRITICAL = "Appendix B format is no longer supported in IHE MADO Rev 1.0. " +
+            "The manifest must use TID 1600 Image Library (Section 6.X.2.9). " +
+            "[Original check: CurrentRequestedProcedureEvidenceSequence is missing (Appendix B format).]";
 
-    public static final String APPENDIX_B_SERIES_MODALITY_MISSING = "Appendix B Requirement V-ALT-01: Modality (0008,0060) is missing in Referenced Series Sequence. [" +
-            REF_MADO_APPENDIX_B + " Table B.3.2-1: 'Modality (0008,0060)... Type R+' (Added to Hierarchical SOP Instance Ref Macro).]";
+    /** @deprecated Appendix B format is no longer supported in IHE MADO Rev 1.0. */
+    @Deprecated
+    public static final String APPENDIX_B_SERIES_MODALITY_MISSING = "Appendix B format is no longer supported in IHE MADO Rev 1.0. " +
+            "The manifest must use TID 1600 Image Library (Section 6.X.2.9). " +
+            "[Original check: Appendix B Requirement V-ALT-01: Modality (0008,0060) is missing in Referenced Series Sequence.]";
 
-    public static final String APPENDIX_B_SERIES_UID_MISSING_ERROR = "Appendix B Requirement V-ALT-01: SeriesInstanceUID (0020,000E) is missing in Referenced Series Sequence. [" +
-            REF_MADO_APPENDIX_B + " Table B.3.2-1: 'Series Instance UID... Type R+' (Added to Hierarchical SOP Instance Ref Macro).]";
+    /** @deprecated Appendix B format is no longer supported in IHE MADO Rev 1.0. */
+    @Deprecated
+    public static final String APPENDIX_B_SERIES_UID_MISSING_ERROR = "Appendix B format is no longer supported in IHE MADO Rev 1.0. " +
+            "The manifest must use TID 1600 Image Library (Section 6.X.2.9). " +
+            "[Original check: Appendix B Requirement V-ALT-01: SeriesInstanceUID (0020,000E) is missing in Referenced Series Sequence.]";
 
-    public static final String APPENDIX_B_SOP_SEQUENCE_MISSING_ERROR = "ReferencedSOPSequence is missing in series item. [" +
-            REF_MADO_APPENDIX_B + ".1: 'Referenced SOP Sequence... Type R' (Required by Hierarchical SOP Instance Reference Macro).]";
+    /** @deprecated Appendix B format is no longer supported in IHE MADO Rev 1.0. */
+    @Deprecated
+    public static final String APPENDIX_B_SOP_SEQUENCE_MISSING_ERROR = "Appendix B format is no longer supported in IHE MADO Rev 1.0. " +
+            "The manifest must use TID 1600 Image Library (Section 6.X.2.9). " +
+            "[Original check: ReferencedSOPSequence is missing in series item.]";
 
-    public static final String APPENDIX_B_SOP_CLASS_MISSING_ERROR = "Appendix B Requirement V-ALT-02: ReferencedSOPClassUID (0008,1150) is missing. [" +
-            REF_MADO_APPENDIX_B + ".1: 'Referenced SOP Class UID... Type 1' (Standard DICOM macro attribute).]";
+    /** @deprecated Appendix B format is no longer supported in IHE MADO Rev 1.0. */
+    @Deprecated
+    public static final String APPENDIX_B_SOP_CLASS_MISSING_ERROR = "Appendix B format is no longer supported in IHE MADO Rev 1.0. " +
+            "The manifest must use TID 1600 Image Library (Section 6.X.2.9). " +
+            "[Original check: Appendix B Requirement V-ALT-02: ReferencedSOPClassUID (0008,1150) is missing.]";
 
-    public static final String APPENDIX_B_SOP_INSTANCE_UID_MISSING = "Appendix B Requirement V-ALT-02: ReferencedSOPInstanceUID (0008,1155) is missing. [" +
-            REF_MADO_APPENDIX_B + ".1: 'Referenced SOP Instance UID... Type 1.']";
+    /** @deprecated Appendix B format is no longer supported in IHE MADO Rev 1.0. */
+    @Deprecated
+    public static final String APPENDIX_B_SOP_INSTANCE_UID_MISSING = "Appendix B format is no longer supported in IHE MADO Rev 1.0. " +
+            "The manifest must use TID 1600 Image Library (Section 6.X.2.9). " +
+            "[Original check: Appendix B Requirement V-ALT-02: ReferencedSOPInstanceUID (0008,1155) is missing.]";
 
     // ========== MADO Compliance Checker ==========
     public static final String MADO_COMPLIANCE_EVIDENCE_MISSING = "CRITICAL MADO COMPLIANCE FAILURE: Evidence Sequence is missing. [" +
-            REF_MADO_6_X_1_2_1_2 + " (Table 6.X.1.2.1.2-1): 'Evidence Sequence ... Usage M ... IHE Usage M' (Required Module).]";
+            REF_MADO_TABLE_6_X_2_4_1 + " / " + REF_MADO_TABLE_6_X_2_8_1 + ": 'Current Requested Procedure Evidence Sequence ... Usage M ... IHE Usage M' (Required Module).]";
 
     public static final String MADO_COMPLIANCE_CONTENT_SEQUENCE_MISSING = "MADO COMPLIANCE FAILURE: ContentSequence is missing/empty. [" +
             REF_MADO_6_X_1_2_2_5_2 + ": 'The SR Document Content Module shall be constructed from TID 2010... including TID 1600.']";
@@ -475,20 +597,20 @@ public class ValidationMessages {
             "(Not generic 'Of Interest').]";
 
     public static final String MADO_COMPLIANCE_TIMEZONE_MISSING = "TimezoneOffsetFromUTC (0008,0201) is missing. [" +
-            REF_MADO_6_X_1_2_2_6 + ": 'Timezone Offset From UTC (0008,0201) ... Type R+.']";
+            REF_MADO_TABLE_6_X_2_10_1 + ": 'Timezone Offset From UTC (0008,0201) ... Type R+.']";
 
     public static final String MADO_COMPLIANCE_INSTITUTION_NAME_MISSING = "InstitutionName (0008,0080) is missing. [" +
-            "IHE MADO Suppl. Table 6.X.1.2.2.3.2-1: 'Institution Name (0008,0080) ... Type R+.']";
+            "IHE MADO Suppl. Table 6.X.2.7-1: 'Institution Name (0008,0080) ... Type R+.']";
 
     public static final String MADO_COMPLIANCE_MANUFACTURER_MISSING = "Manufacturer (0008,0070) is missing. [" +
-            "IHE MADO Suppl. Table 6.X.1.2.2.3.2-1: 'Manufacturer (0008,0070) ... Type R+.']";
+            "IHE MADO Suppl. Table 6.X.2.7-1: 'Manufacturer (0008,0070) ... Type R+.']";
 
     public static final String MADO_COMPLIANCE_ISSUER_PATIENT_ID_MISSING = "IssuerOfPatientIDQualifiersSequence (0010,0024) is MISSING. [" +
-            REF_MADO_TABLE_6_X_1_2_2_1_1 + ": 'Issuer of Patient ID Qualifiers Sequence (0010,0024) ... Type R+.']";
+            REF_MADO_TABLE_6_X_2_5_2_1_3 + ": 'Issuer of Patient ID Qualifiers Sequence (0010,0024) ... Type R+.']";
 
     // ========== MADO Retrieval Validation ==========
-    public static final String MADO_RETRIEVAL_NO_INFO = "No retrieval information found (no Retrieve URL, Retrieve Location UID, or Retrieve URI). [" +
-            REF_MADO_6_X_1_2_3_5 + ": 'At least one of Retrieve URL (0008,1190) or Retrieve Location UID (0040,E011) shall be present.']";
+    public static final String MADO_RETRIEVAL_NO_INFO = "No retrieval information found (no Retrieve URL, Retrieve Location UID, or Display URI). [" +
+            REF_MADO_TABLE_6_X_2_14_1 + ": 'At least one of Retrieve URL (0008,1190) or Retrieve Location UID (0040,E011) shall be present.']";
 
     public static final String MADO_RETRIEVAL_URL_NO_SCHEME = "Retrieve URL has no scheme (e.g., http://, https://). [" +
             REF_DICOM_PS3_3 + " C.17.2: 'The value shall be a URL... adhering to RFC 3986.']";
@@ -500,8 +622,8 @@ public class ValidationMessages {
             REF_DICOM_PS3_5 + " Section 6.2: 'Value Representation UI (Unique Identifier)... Character Repertoire: '0'-'9', '.' ... " +
             "Length of Value: 64 bytes maximum.']";
 
-    public static final String MADO_RETRIEVAL_URI_NO_SCHEME = "Retrieve URI has no scheme. [" +
-            "IHE MADO Suppl. 6.X.1.2.3.3.2: 'Retrieve URI (0040,E010)... The value of this attribute is a complete URL...']";
+    public static final String MADO_RETRIEVAL_URI_NO_SCHEME = "Display URI has no scheme. [" +
+            REF_MADO_TABLE_6_X_2_13_1 + ": 'Display URI... The value of this attribute is a complete URL...']";
 
     // ========== MADO Timezone Validation ==========
     public static final String MADO_TIMEZONE_INVALID_FORMAT = "TimezoneOffsetFromUTC has invalid format (must be ±HHMM). [" +
@@ -534,15 +656,15 @@ public class ValidationMessages {
 
     // ========== Evidence Sequence ==========
     public static final String EVIDENCE_SEQUENCE_MISSING = "Evidence Sequence (CurrentRequestedProcedureEvidenceSequence 0040,A375) is missing. [" +
-            REF_MADO_APPENDIX_A + ": 'Current Requested Procedure Evidence Sequence (0040,A375)... R' (Modified KOS definition in MADO).]";
+            REF_MADO_TABLE_6_X_2_8_1 + ": 'Current Requested Procedure Evidence Sequence (0040,A375)... R' (MADO Evidence Sequence profiling).]";
 
-    public static final String EVIDENCE_SEQUENCE_EMPTY = "Evidence Sequence is present but empty. [" + REF_MADO_6_X_1_2_1_2 +
-            ": 'Evidence Sequence ... Usage M ... IHE Usage M' (Table 6.X.1.2.1.2-1).]";
+    public static final String EVIDENCE_SEQUENCE_EMPTY = "Evidence Sequence is present but empty. [" + REF_MADO_TABLE_6_X_2_8_1 +
+            ": 'Current Requested Procedure Evidence Sequence (0040,A375) ... Usage M ... IHE Usage M' (Table 6.X.2.4-1).]";
 
     // ========== Key Object Module Validation ==========
     public static final String KOS_EVIDENCE_SEQUENCE_MISSING = "CurrentRequestedProcedureEvidenceSequence (0040,A375) is MISSING. " +
             "Key Object Selection Document SHALL reference at least one SOP Instance. [" +
-            REF_MADO_APPENDIX_A + "; " + REF_DICOM_PS3_3_C_17_6_2 + ": " +
+            REF_MADO_TABLE_6_X_2_8_1 + "; " + REF_DICOM_PS3_3_C_17_6_2 + ": " +
             "'Current Requested Procedure Evidence Sequence (0040,A375)... Type 1... One or more Items shall be included in this Sequence.' (MADO enforces presence).]";
 
     public static final String KOS_EVIDENCE_SEQUENCE_EMPTY_ERROR = "CurrentRequestedProcedureEvidenceSequence is present but empty. " +
@@ -568,58 +690,58 @@ public class ValidationMessages {
 
     // ========== MADO Manifest Validation ==========
     public static final String MADO_SOP_CLASS_UID_MISSING = "SOPClassUID (0008,0016) is missing/empty. MADO manifest must be a KOS document. [" +
-            "IHE MADO Suppl. 6.X.1.2.1.1: 'DICOM PS 3.3: A.35.4 Key Object Selection Document IOD' " +
-            "(Implicit requirement: SOP Class UID must match the IOD used).]";
+            "IHE MADO Suppl. 6.X.2.4: 'This section builds upon the DICOM IOD specification of a Key Object Selection SOP Class " +
+            "(Implicit requirement: SOP Class UID must match the IOD used).']";
 
     public static final String MADO_SOP_CLASS_UID_WRONG = "SOPClassUID (0008,0016) must be Key Object Selection Document Storage (%s) but found: %s. [" +
-            "IHE MADO Suppl. 6.X.1.2.1.1: 'SOP Class UID shall be 1.2.840.10008.5.1.4.1.1.88.59 (Key Object Selection Document Storage).']";
+            REF_MADO_6_X_2_4 + " / " + REF_DICOM_PS3_3 + " A.35.4: 'SOP Class UID shall be 1.2.840.10008.5.1.4.1.1.88.59 (Key Object Selection Document Storage).']";
 
     public static final String MADO_ISSUER_PATIENT_ID_QUALIFIERS_MISSING = "IssuerOfPatientIDQualifiersSequence (0010,0024) is missing/empty. " +
             "MADO requires robust patient identification. [" +
-            REF_MADO_TABLE_6_X_1_2_2_1_1 + ": 'Issuer of Patient ID Qualifiers Sequence (0010,0024)... Type R+... " +
+            REF_MADO_TABLE_6_X_2_5_2_1_3 + ": 'Issuer of Patient ID Qualifiers Sequence (0010,0024)... Type R+... " +
             "Only a single Item shall be included in this Sequence.']";
 
     public static final String MADO_UNIVERSAL_ENTITY_ID_MISSING = "IssuerOfPatientIDQualifiersSequence[0].UniversalEntityID (0010,0032) is missing/empty. " +
             "Required for robust patient ID matching across systems. [" +
-            REF_MADO_TABLE_6_X_1_2_2_1_1 + ": 'Universal Entity ID (0010,0032)... Type R+... " +
+            REF_MADO_TABLE_6_X_2_5_2_1_3 + ": 'Universal Entity ID (0010,0032)... Type R+... " +
             "Globally unique identifier (OID) for the Patient ID Assigning Authority.']";
 
     public static final String MADO_UNIVERSAL_ENTITY_ID_TYPE_MISSING = "IssuerOfPatientIDQualifiersSequence[0].UniversalEntityIDType (0010,0033) is missing/empty. " +
             "Required to specify the identifier type. [" +
-            REF_MADO_TABLE_6_X_1_2_2_1_1 + ": 'Universal Entity ID Type (0010,0033)... Type R+... Fixed value: 'ISO'.']";
+            REF_MADO_TABLE_6_X_2_5_2_1_3 + ": 'Universal Entity ID Type (0010,0033)... Type R+... Fixed value: 'ISO'.']";
 
     public static final String MADO_UNIVERSAL_ENTITY_ID_TYPE_WRONG = "IssuerOfPatientIDQualifiersSequence[0].UniversalEntityIDType (0010,0033) must be 'ISO' but found: %s. [" +
-            REF_MADO_TABLE_6_X_1_2_2_1_1 + ": 'Universal Entity ID Type (0010,0033)... Fixed value: 'ISO'.']";
+            REF_MADO_TABLE_6_X_2_5_2_1_3 + ": 'Universal Entity ID Type (0010,0033)... Fixed value: 'ISO'.']";
 
     public static final String MADO_STUDY_DATE_MISSING = "StudyDate (0008,0020) is missing/empty. MADO requires Study Date. [" +
-            REF_MADO_TABLE_6_X_1_2_2_2_1 + ": 'Study Date (0008,0020)... Type R+']";
+            REF_MADO_TABLE_6_X_2_6_1 + ": 'Study Date (0008,0020)... Type R+']";
 
     public static final String MADO_STUDY_TIME_MISSING = "StudyTime (0008,0030) is missing/empty. MADO requires Study Time. [" +
-            REF_MADO_TABLE_6_X_1_2_2_2_1 + ": 'Study Time (0008,0030)... Type R+']";
+            REF_MADO_TABLE_6_X_2_6_1 + ": 'Study Time (0008,0030)... Type R+']";
 
     public static final String MADO_ACCESSION_NUMBER_MISSING = "AccessionNumber (0008,0050) is missing. MADO requires Accession Number (or empty if multiple via ReferencedRequestSequence). [" +
-            REF_MADO_TABLE_6_X_1_2_2_2_1 + ": 'Accession Number (0008,0050)... Type R+']";
+            REF_MADO_TABLE_6_X_2_6_1 + ": 'Accession Number (0008,0050)... Type R+']";
 
     public static final String MADO_ACCESSION_NUMBER_NOT_EMPTY_WITH_MULTIPLE_REQUESTS = "AccessionNumber (0008,0050) must be empty when multiple requests/accessions are present (ReferencedRequestSequence has %d items). [" +
-            REF_MADO_TABLE_6_X_1_2_2_2_1 + ": 'Accession Number (0008,0050)... Shall be empty when there are multiple accession numbers for the study " +
+            REF_MADO_6_X_2_6_1 + ": 'Accession Number (0008,0050)... Shall be empty when there are multiple accession numbers for the study " +
             "(see Referenced Request Sequence).']";
 
     public static final String MADO_ISSUER_ACCESSION_INCONSISTENT = "AccessionNumber is present but IssuerOfAccessionNumberSequence (0008,0051) is inconsistent (should match first Referenced Request issuer). [" +
-            REF_MADO_TABLE_6_X_1_2_2_2_1 + ": 'Issuer of Accession Number Sequence (0008,0051)... Required if Accession Number (0008,0050) is not empty.']";
+            REF_MADO_TABLE_6_X_2_6_1 + ": 'Issuer of Accession Number Sequence (0008,0051)... Required if Accession Number (0008,0050) is not empty.']";
 
     public static final String MADO_ISSUER_ACCESSION_MISSING = "AccessionNumber attribute is present but IssuerOfAccessionNumberSequence (0008,0051) is missing. " +
             "MADO requires issuer information for accession numbers. [" +
-            REF_MADO_TABLE_6_X_1_2_2_2_1 + ": 'Issuer of Accession Number Sequence (0008,0051)... Required if Accession Number (0008,0050) is not empty.']";
+            REF_MADO_TABLE_6_X_2_6_1 + ": 'Issuer of Accession Number Sequence (0008,0051)... Required if Accession Number (0008,0050) is not empty.']";
 
     public static final String MADO_CONCEPT_NAME_SEQUENCE_MISSING = "ConceptNameCodeSequence is missing. MADO requires document title. [" +
             REF_MADO_6_X_1_2_2_5_2 + ": 'The CID 7010 Key Object Selection Document Title shall be set to 'Manifest with Description'...']";
 
     // ========== Timezone =========="
     public static final String TIMEZONE_OFFSET_MANDATORY = "TimezoneOffsetFromUTC (0008,0201) is mandatory in MADO manifests. [" +
-            REF_MADO_6_X_1_2_2_6 + ": 'Timezone Offset From UTC (0008,0201) ... R+ ... Contains the offset from UTC to the timezone for all DA and TM Attributes...']";
+            REF_MADO_TABLE_6_X_2_10_1 + ": 'Timezone Offset From UTC (0008,0201) ... R+ ... Contains the offset from UTC to the timezone for all DA and TM Attributes...']";
 
     public static final String TIMEZONE_OFFSET_INCONSISTENT = "TimezoneOffsetFromUTC values are inconsistent across sequences: %s. [" +
-            REF_MADO_6_X_1_2_2_6 + ": Timezone must be consistent throughout the manifest.]";
+            REF_MADO_TABLE_6_X_2_10_1 + ": Timezone must be consistent throughout the manifest.]";
 
     // ========== Part 10 File Format ==========
     public static final String PART10_FILE_FORMAT_VIOLATION = "DICOM Part 10 File Format Violation: %s. [" +
@@ -630,105 +752,109 @@ public class ValidationMessages {
 
     // ========== Patient IE ==========
     public static final String PATIENT_ID_REQUIRED = "Patient ID (0010,0020) is required (R+) in MADO manifests. [" +
-            REF_MADO_6_X_1_2_2_1_2 + ": 'Patient ID (0010,0020) ... R+']";
+            REF_MADO_6_X_2_5_2_1_1 + ": 'Patient ID (0010,0020) ... R+']";
 
     public static final String ISSUER_OF_PATIENT_ID_QUALIFIERS = "Issuer of Patient ID Qualifiers Sequence (0010,0024) is required (R+). [" +
-            REF_MADO_6_X_1_2_2_1_2 + ": 'Issuer of Patient ID Qualifiers Sequence (0010,0024) ... R+ ... Only a single Item shall be included in this Sequence.']";
+            REF_MADO_TABLE_6_X_2_5_2_1_3 + ": 'Issuer of Patient ID Qualifiers Sequence (0010,0024) ... R+ ... Only a single Item shall be included in this Sequence.']";
 
     // ========== Study IE ==========
     public static final String ACCESSION_NUMBER_CONSTRAINT = "Accession Number (0008,0050) shall be empty when there are multiple accession numbers for the study. [" +
-            REF_MADO_6_X_1_2_2_2_2 + ": 'Accession Number (0008,0050) ... Shall be empty when there are multiple accession numbers for the study']";
+            REF_MADO_6_X_2_6_1 + ": 'Accession Number (0008,0050) ... Shall be empty when there are multiple accession numbers for the study']";
 
     public static final String ISSUER_OF_ACCESSION_NUMBER_REQUIRED = "Issuer of Accession Number Sequence is required (RC+) when Accession Number is not empty. [" +
-            REF_MADO_6_X_1_2_2_2_2 + ": 'Issuer of Accession Number Sequence ... RC+ Required if Accession Number is not empty.']";
+            REF_MADO_TABLE_6_X_2_6_1 + ": 'Issuer of Accession Number Sequence ... RC+ Required if Accession Number is not empty.']";
 
     // ========== Equipment IE ==========
     public static final String MANUFACTURER_REQUIRED = "Manufacturer (0008,0070) is required (R+) in MADO manifests. [" +
-            REF_MADO_6_X_1_2_2_3_2 + ": 'Manufacturer (0008,0070) ... R+']";
+            REF_MADO_TABLE_6_X_2_7_1 + ": 'Manufacturer (0008,0070) ... R+']";
 
     public static final String INSTITUTION_NAME_REQUIRED = "Institution Name (0008,0080) is required (R+) in MADO manifests. [" +
-            REF_MADO_6_X_1_2_2_3_2 + ": 'Institution Name (0008,0080) ... R+']";
+            REF_MADO_TABLE_6_X_2_7_1 + ": 'Institution Name (0008,0080) ... R+']";
 
     // ========== TID 1600 Image Library ==========
     public static final String TID1600_CONTAINER_NO_CONTENT = "TID 1600 Image Library container has no content items. [" +
-            REF_MADO_6_X_1_2_2_5_2 + ": 'In the TID 1600 'Image Library' the following content Items shall be present...' (Implies the container must be populated).]";
+            REF_MADO_TABLE_6_X_2_9_1 + ": 'In the TID 1600 'Image Library' the following content Items shall be present...' (Implies the container must be populated).]";
 
     public static final String TID1600_IMAGE_LIBRARY_EMPTY = "TID 1600 Image Library is empty. Must contain at least one Image Library Group (TID 1602). [" +
-            REF_MADO_6_X_1_2_2_5_2 + ": 'In the TID 1600 'Image Library' the following content Items shall be present... [TID 1602 Group R+]']";
+            REF_MADO_TABLE_6_X_2_9_1 + ": 'In the TID 1600 'Image Library' the following content Items shall be present... [TID 1602 Group R+]']";
 
     public static final String TID1600_GROUP_NO_CONTENT = "TID 1600 Image Library Group has no content items. [" +
-            REF_MADO_6_X_1_2_2_5_2 + ": 'The following content Items shall be present in the 'Image Library Group'...']";
+            REF_MADO_TABLE_6_X_2_9_2 + ": 'The following content Items shall be present in the 'Image Library Group'...']";
 
     public static final String TID1600_GROUP_MISSING_MODALITY = "TID 1600 Image Library Group missing Modality (121139, DCM, \"Modality\"). [" +
-            REF_MADO_6_X_1_2_2_5_2 + ": 'The following content Items shall be present in the 'Image Library Group'... Modality (121139, DCM) R+']";
+            REF_MADO_TABLE_6_X_2_9_2 + ": 'The following content Items shall be present in the 'Image Library Group'... Modality (121139, DCM) R+']";
 
-    public static final String TID1600_GROUP_MISSING_SERIES_DATE = "TID 1600 Image Library Group missing Series Date (" + CODE_SERIES_DATE + ", DCM, \"Series Date\"). [" +
-            REF_MADO_6_X_1_2_2_5_2 + ": 'The following content Items shall be present... Series Date (" + CODE_SERIES_DATE + ", DCM) R+']";
+    public static final String TID1600_GROUP_MISSING_SERIES_DATE = "TID 1602 Image Library Group missing Series Date (" + CODE_SERIES_DATE + ", " + SCHEME_99IHE + ", \"Series Date\"). [" +
+            REF_MADO_TABLE_6_X_2_9_2 + ": 'The following content Items shall be present... Series Date (" + CODE_SERIES_DATE + ", " + SCHEME_99IHE + ") RC+']";
 
-    public static final String TID1600_GROUP_MISSING_SERIES_TIME = "TID 1600 Image Library Group missing Series Time (" + CODE_SERIES_TIME + ", DCM, \"Series Time\"). [" +
-            REF_MADO_6_X_1_2_2_5_2 + ": 'The following content Items shall be present... Series Time (" + CODE_SERIES_TIME + ", DCM) R+']";
+    public static final String TID1600_GROUP_MISSING_SERIES_TIME = "TID 1602 Image Library Group missing Series Time (" + CODE_SERIES_TIME + ", " + SCHEME_99IHE + ", \"Series Time\"). [" +
+            REF_MADO_TABLE_6_X_2_9_2 + ": 'The following content Items shall be present... Series Time (" + CODE_SERIES_TIME + ", " + SCHEME_99IHE + ") RC+']";
 
-    public static final String TID1600_GROUP_MISSING_SERIES_DESCRIPTION = "TID 1600 Image Library Group missing Series Description (" + CODE_SERIES_DESCRIPTION + ", DCM, \"Series Description\"). [" +
-            REF_MADO_6_X_1_2_2_5_2 + ": 'The following content Items shall be present... Series Description (" + CODE_SERIES_DESCRIPTION + ", DCM) R+']";
+    public static final String TID1600_GROUP_MISSING_SERIES_DESCRIPTION = "TID 1602 Image Library Group missing Series Description (" + CODE_SERIES_DESCRIPTION + ", " + SCHEME_99IHE + ", \"Series Description\"). [" +
+            REF_MADO_TABLE_6_X_2_9_2 + ": 'The following content Items shall be present... Series Description (" + CODE_SERIES_DESCRIPTION + ", " + SCHEME_99IHE + ") RC+']";
 
-    public static final String TID1600_GROUP_MISSING_SERIES_NUMBER = "TID 1600 Image Library Group missing Series Number (" + CODE_SERIES_NUMBER + ", DCM, \"Series Number\"). [" +
-            REF_MADO_6_X_1_2_2_5_2 + ": 'The following content Items shall be present... Series Number (" + CODE_SERIES_NUMBER + ", DCM) R+']";
+    public static final String TID1600_GROUP_MISSING_SERIES_NUMBER = "TID 1602 Image Library Group missing Series Number (" + CODE_SERIES_NUMBER + ", DCM, \"Series Number\"). [" +
+            REF_MADO_TABLE_6_X_2_9_2 + ": 'The following content Items shall be present... Series Number (" + CODE_SERIES_NUMBER + ", DCM) RC+']";
 
-    public static final String TID1600_GROUP_MISSING_SERIES_UID = "TID 1600 Image Library Group missing Series Instance UID (" + CODE_SERIES_INSTANCE_UID + ", DCM, \"Series Instance UID\"). [" +
-            REF_MADO_6_X_1_2_2_5_2 + ": 'The following content Items shall be present... Series Instance UID (" + CODE_SERIES_INSTANCE_UID + ", DCM) R+']";
+    public static final String TID1600_GROUP_MISSING_SERIES_UID = "TID 1602 Image Library Group missing Series Instance UID (" + CODE_SERIES_INSTANCE_UID + ", DCM, \"Series Instance UID\"). [" +
+            REF_MADO_TABLE_6_X_2_9_2 + ": 'The following content Items shall be present... Series Instance UID (" + CODE_SERIES_INSTANCE_UID + ", DCM) R+']";
 
-    public static final String TID1600_GROUP_MISSING_SERIES_RELATED_INSTANCES = "TID 1600 Image Library Group missing Number of Series Related Instances (" + CODE_NUM_SERIES_RELATED_INSTANCES + ", DCM). [" +
-            "IHE MADO Suppl. Appx A (TID 1602, Row 12f): 'Number of Series Related Instances (" + CODE_NUM_SERIES_RELATED_INSTANCES + ", DCM)... Usage U' " +
-            "(Note: MADO Validator enforces this as R+ based on profile consistency requirements).]";
+    public static final String TID1600_GROUP_MISSING_SERIES_RELATED_INSTANCES = "TID 1602 Image Library Group missing Number of Series Related Instances (" + CODE_NUM_SERIES_RELATED_INSTANCES + ", " + SCHEME_99IHE + "). [" +
+            "IHE MADO Suppl. (TID 1602): 'Number of Series Related Instances (" + CODE_NUM_SERIES_RELATED_INSTANCES + ", " + SCHEME_99IHE + ")... R+ Units: {instances}']";
 
     public static final String TID1600_ENTRY_NO_REFERENCED_SOP = "TID 1600 Image Library Entry has no ReferencedSOPSequence. [" +
             REF_DICOM_PS3_3 + " (Ref SOP Seq): 'Referenced SOP Sequence (0008,1199)... One or more Items shall be included in this Sequence.' " +
             "(For a specific entry pointing to a single instance, exactly one is expected).]";
 
-    public static final String TID1600_ENTRY_MISSING_INSTANCE_NUMBER = "TID 1600 Image Library Entry missing Instance Number (" + CODE_INSTANCE_NUMBER + ", DCM). [" +
-            REF_MADO_6_X_1_2_2_5_2 + ": 'The following content Items shall be present in the 'Image Library Entry'... " +
+    public static final String TID1600_ENTRY_MISSING_INSTANCE_NUMBER = "TID 1601/1602 Image Library Entry missing Instance Number (" + CODE_INSTANCE_NUMBER + ", DCM). [" +
+            REF_MADO_TABLE_6_X_2_9_3 + ": 'The following content Items shall be present in the 'Image Library Entry'... " +
             "Instance Number (" + CODE_INSTANCE_NUMBER + ", DCM)... RC+ Required when present in the referenced SOP Instance.']";
 
     public static final String TID1600_ENTRY_MISSING_NUMBER_OF_FRAMES = "TID 1600 Image Library Entry missing Number of Frames (121140, DCM). [" +
-            REF_MADO_6_X_1_2_2_5_2 + ": 'Number of Frames (121140, DCM)... RC+ Required when the SOP Class is multiframe.']";
+            REF_MADO_TABLE_6_X_2_9_3 + ": 'Number of Frames (121140, DCM)... RC+ Required when the SOP Class is multiframe.']";
 
-    public static final String TID1600_KOS_REFERENCE_MISSING_TITLE_CODE = "KOS reference missing KOS Title Code or SOP Instance UIDs. [" +
-            REF_MADO_6_X_1_2_2_5_2 + ": 'The following content Items shall be present in a container... when the related instance is a KOS... " +
-            "KOS Title Code (" + CODE_KOS_TITLE + ", DCM) R+... SOP Instance UID (" + CODE_SOP_INSTANCE_UID + ", DCM) R+.']";
+    public static final String TID1600_KOS_REFERENCE_MISSING_TITLE_CODE = "KOS reference missing Document Title or Key Object Description. [" +
+            REF_MADO_TABLE_6_X_2_9_4 + ": 'The following content Items shall be present... when the related instance is a KOS... " +
+            "Document Title (" + CODE_KOS_DOCUMENT_TITLE + ", DCM) R+... Key Object Description (" + CODE_KEY_OBJECT_DESCRIPTION + ", DCM) RC+.']";
 
     public static final String TID1600_KEY_IMAGE_FLAGGING_REQUIREMENT = "TID 16XX Requirement V-DESC-02: Key Image Description required. [" +
-            REF_MADO_6_X_1_2_2_5_2 + ": 'Key Object Description (" + CODE_KEY_OBJECT_DESCRIPTION + ", DCM)... RC+ Required when present in the referenced KOS instance.']";
+            REF_MADO_TABLE_6_X_2_9_4 + ": 'Key Object Description (" + CODE_KEY_OBJECT_DESCRIPTION + ", DCM)... RC+ Required when present in the referenced KOS instance.']";
 
     // ========== TID 1600 Root Validator ==========
     public static final String TID1600_ROOT_VALUE_TYPE_WRONG = "MADO Root Container Requirement V-ROOT-01: ValueType (0040,A040) must be 'CONTAINER'. [" +
-            "IHE MADO Suppl. Appx A (TID 1600): 'Row 1: CONTAINER... Concept Name: (111028, DCM, 'Image Library')... Presence of Content Item: Mandatory.']";
+            REF_MADO_6_X_2_9 + " (TID 1600): 'Row 1: CONTAINER... Concept Name: (111028, DCM, 'Image Library')... Presence of Content Item: Mandatory.']";
 
     public static final String TID1600_ROOT_CONCEPT_NAME_WRONG = "MADO Root Container Requirement V-ROOT-02: ConceptNameCodeSequence must be (111028, DCM, 'Image Library'). [" +
-            "IHE MADO Suppl. Appx A (TID 1600): 'Row 1: CONTAINER... Concept Name: (111028, DCM, 'Image Library')... Presence of Content Item: Mandatory.']";
+            REF_MADO_6_X_2_9 + " (TID 1600): 'Row 1: CONTAINER... Concept Name: (111028, DCM, 'Image Library')... Presence of Content Item: Mandatory.']";
 
     public static final String TID1600_ROOT_CONTINUITY_WRONG = "MADO Root Container Requirement V-ROOT-03: ContinuityOfContent (0040,A050) must be 'SEPARATE'. [" +
-            "IHE MADO Suppl. Appx A (TID 1600): 'Continuity of Content: SEPARATE (Container is not part of the same temporal or spatial context as the parent).']";
+            REF_MADO_6_X_2_9 + " (TID 1600): 'Continuity of Content: SEPARATE (Container is not part of the same temporal or spatial context as the parent).']";
 
     // ========== TID 1600 Rules ==========
     public static final String TID1600_TARGET_REGION_NO_CODE_VALUE = "Target Region code has no CodeValue. [" +
-            REF_MADO_6_X_1_2_2_5_2 + ": 'Target Region (123014, DCM)... R+... Value Set Constraint: DCID 403X High-level anatomic regions...']";
+            REF_MADO_TABLE_6_X_2_9_1 + ": 'Target Region (123014, DCM)... R+... Value Set Constraint: DCID 403X High-level anatomic regions...']";
 
     // ========== TID 1600 Study Validator ==========
-    public static final String TID1600_STUDY_UID_NO_VALUE = "Study Instance UID content item has no UID value. [" +
-            REF_MADO_6_X_1_2_2_5_2 + ": 'Study Instance UID (" + CODE_STUDY_INSTANCE_UID + ", DCM) R+... shall contain a valid UID value.']";
-
     public static final String TID1600_STUDY_MISSING_MODALITY = "TID 1600 Requirement: Modality (121139, DCM, 'Modality') missing at study level (Type R+). [" +
-            REF_MADO_6_X_1_2_2_5_2 + ": 'In the TID 1600 'Image Library' the following content Items shall be present... Modality (121139, DCM) R+']";
-
-    public static final String TID1600_STUDY_MISSING_STUDY_UID = "TID 1600 Requirement: Study Instance UID (" + CODE_STUDY_INSTANCE_UID + ", DCM, 'Study Instance UID') missing at study level (Type R+). [" +
-            REF_MADO_6_X_1_2_2_5_2 + ": 'In the TID 1600 'Image Library' the following content Items shall be present... Study Instance UID (" + CODE_STUDY_INSTANCE_UID + ", DCM) R+']";
+            REF_MADO_TABLE_6_X_2_9_1 + ": 'In the TID 1600 'Image Library' the following content Items shall be present... Modality (121139, DCM) R+... DCID 29 / DCID 32']";
 
     public static final String TID1600_STUDY_MISSING_TARGET_REGION = "TID 1600 Requirement: Target Region (123014, DCM, 'Target Region') missing at study level (Type R+). [" +
-            REF_MADO_6_X_1_2_2_5_2 + ": 'In the TID 1600 'Image Library' the following content Items shall be present... Target Region (123014, DCM) R+']";
+            REF_MADO_TABLE_6_X_2_9_1 + ": 'In the TID 1600 'Image Library' the following content Items shall be present... Target Region (123014, DCM) R+... High-level anatomic regions']";
+
+    public static final String TID1600_STUDY_MISSING_NUM_SERIES = "TID 1600 Requirement: Number of Study Related Series (" + CODE_NUM_STUDY_RELATED_SERIES + ", " + SCHEME_99IHE + ") missing at study level (Type R+). [" +
+            REF_MADO_TABLE_6_X_2_9_1 + ": 'Number of Study Related Series (" + CODE_NUM_STUDY_RELATED_SERIES + ", " + SCHEME_99IHE + ") R+... Units: {series}']";
+
+    /** @deprecated Study Instance UID is no longer a TID 1600 content item in CP-2595 */
+    @Deprecated
+    public static final String TID1600_STUDY_MISSING_STUDY_UID = "TID 1600 Requirement: Study Instance UID missing at study level (Type R+). [" +
+            REF_MADO_6_X_2_9 + ": 'Study Instance UID R+']";
+
+    public static final String TID1600_STUDY_UID_NO_VALUE = "Study Instance UID content item has no UID value. [" +
+            REF_MADO_6_X_2_9 + ": 'Study Instance UID R+... shall contain a valid UID value.']";
 
     // ========== TID 1600 Main Validator ==========
-    public static final String TID1600_APPROACH2_MISSING_IMAGE_LIBRARY = "MADO Approach 2 Requirement: Image Library container (111028, DCM, 'Image Library') missing or not found in ContentSequence. [" +
-            REF_MADO_6_X_1_2_2_5_2 + ": 'The TID 2010 'Key Object Selection' Template shall include the TID 1600 'Image Library' Template.']";
+    public static final String TID1600_APPROACH2_MISSING_IMAGE_LIBRARY = "MADO Requirement: Image Library container (111028, DCM, 'Image Library') missing or not found in ContentSequence. [" +
+            REF_MADO_6_X_2_9 + ": 'The TID 2010 'Key Object Selection' Template shall include the TID 1600 'Image Library' Template.']";
 
     public static final String TID1600_ENTRY_REFSOPMULTIPLE = "TID 1600 Image Library Entry ReferencedSOPSequence must contain exactly 1 item, found %d. [" +
             REF_DICOM_PS3_3 + " (Ref SOP Seq): 'For a specific entry pointing to a single instance, exactly one is expected.']";
@@ -740,79 +866,128 @@ public class ValidationMessages {
             REF_DICOM_PS3_3 + ": 'Referenced SOP Instance UID (0008,1155)... Type 1... Shall be present.']";
 
     public static final String TID1600_ENTRY_INSTANCE_NUMBER_WRONG_VT = "Instance Number concept item must use ValueType TEXT (or UT in dumps), found: %s. [" +
-            REF_MADO_6_X_1_2_2_5_2 + ": 'Instance Number content item shall use ValueType TEXT.']";
+            REF_MADO_TABLE_6_X_2_9_3 + ": 'Instance Number content item shall use ValueType TEXT.']";
 
     public static final String TID1600_ENTRY_MISSING_INSTANCE_NUMBER_REQUIRED = "Instance Number (" + CODE_INSTANCE_NUMBER + ", DCM) missing for Image Library Entry. Type R+ (required by MADO). [" +
-            REF_MADO_6_X_1_2_2_5_2 + ": 'Instance Number (" + CODE_INSTANCE_NUMBER + ", DCM)... RC+ Required when present in the referenced SOP Instance.']";
+            REF_MADO_TABLE_6_X_2_9_3 + ": 'Instance Number (" + CODE_INSTANCE_NUMBER + ", DCM)... RC+ Required when present in the referenced SOP Instance.']";
 
     public static final String TID1600_ENTRY_MISSING_NUMBER_OF_FRAMES_MULTIFRAME = "Number of Frames (121140, DCM) missing for multiframe SOP Class: %s. Type C+ (conditionally required by MADO). [" +
-            REF_MADO_6_X_1_2_2_5_2 + ": 'Number of Frames (121140, DCM)... RC+ Required when the SOP Class is multiframe.']";
+            REF_MADO_TABLE_6_X_2_9_3 + ": 'Number of Frames (121140, DCM)... RC+ Required when the SOP Class is multiframe.']";
 
     public static final String TID1600_ENTRY_MISSING_METADATA_CONTENT = "TID 1600 Image Library Entry missing required instance-level metadata (ContentSequence). MADO requires at least Instance Number (" + CODE_INSTANCE_NUMBER + ", DCM) and conditionally Number of Frames. [" +
-            REF_MADO_6_X_1_2_2_5_2 + ": 'The following content Items shall be present in the 'Image Library Entry'...']";
+            REF_MADO_TABLE_6_X_2_9_3 + ": 'The following content Items shall be present in the 'Image Library Entry'...']";
 
-    public static final String TID1600_KOS_MISSING_TITLE_CODE = "KOS reference missing KOS Title Code (" + CODE_KOS_TITLE + ", DCM). Type R+. [" +
-            REF_MADO_6_X_1_2_2_5_2 + ": 'KOS Title Code (" + CODE_KOS_TITLE + ", DCM) R+... when the related instance is a KOS.']";
+    public static final String TID1600_KOS_MISSING_TITLE_CODE = "TID 16XX KOS Descriptor: Document Title (" + CODE_KOS_DOCUMENT_TITLE + ", DCM, \"Document Title\") missing. Type R+. [" +
+            REF_MADO_TABLE_6_X_2_9_4 + ": 'Document Title (" + CODE_KOS_DOCUMENT_TITLE + ", DCM) R+... Extracted from the referenced KOS.']";
 
-    public static final String TID1600_KOS_MISSING_SOP_UIDS = "KOS reference missing SOP Instance UIDs (" + CODE_SOP_INSTANCE_UID + ", DCM). Type R+. [" +
-            REF_MADO_6_X_1_2_2_5_2 + ": 'SOP Instance UID (" + CODE_SOP_INSTANCE_UID + ", DCM) R+... when the related instance is a KOS.']";
+    public static final String TID1600_KOS_MISSING_SOP_UIDS = "TID 16XX KOS Descriptor: Key Object Description (" + CODE_KEY_OBJECT_DESCRIPTION + ", DCM) missing when present in referenced KOS. Type RC+. [" +
+            REF_MADO_TABLE_6_X_2_9_4 + ": 'Key Object Description (" + CODE_KEY_OBJECT_DESCRIPTION + ", DCM) RC+... Required if present in the referenced KOS.']";
 
     public static final String TID1600_KEY_DESCRIPTION_MISMATCH = "TID 16XX Requirement V-DESC-02: Key Object Description present but %s. [" +
-            REF_MADO_6_X_1_2_2_5_2 + ": 'Key Object Description (" + CODE_KEY_OBJECT_DESCRIPTION + ", DCM)... RC+ Required when present in the referenced KOS instance.']";
+            REF_MADO_TABLE_6_X_2_9_4 + ": 'Key Object Description (" + CODE_KEY_OBJECT_DESCRIPTION + ", DCM)... RC+ Required when present in the referenced KOS instance.']";
+
+    // ========== 99IHE Scheme Validation ==========
+    public static final String MADO_WRONG_SCHEME_FOR_MADOTEMP = "CodingSchemeDesignator must be '" + SCHEME_99IHE + "' for MADO trial code %s, found: '%s'. [" +
+            "DICOM CP-2595 Trial Implementation: 'Temporary codes (MADOTEMP*) must use coding scheme designator " + SCHEME_99IHE + "']";
+
+    public static final String MADO_DEPRECATED_DDD_CODE = "Deprecated provisional code '%s' with scheme '%s' detected. " +
+            "MADO CP-2595 Trial Implementation now uses MADOTEMP codes with scheme '" + SCHEME_99IHE + "'. " +
+            "Please update to the new code values.";
+
+    // ========== TID 1602 Series-Level Target Region ==========
+    public static final String TID1602_GROUP_MISSING_TARGET_REGION = "TID 1602 Image Library Group missing Target Region (123014, DCM, \"Target Region\") at series level (Type RC+). [" +
+            REF_MADO_TABLE_6_X_2_9_2 + ": 'Target Region (123014, DCM) RC+... Fine-grained series level anatomical region']";
+
+    // ========== MADO Patient Module: Other Patient IDs Sequence ==========
+    public static final String MADO_OTHER_PATIENT_IDS_MISSING = "OtherPatientIDsSequence (0010,1002) is missing. MADO requires it (R+) and it must contain the same Patient ID as (0010,0020). [" +
+            REF_MADO_TABLE_6_X_2_5_2_1_3 + ": 'Other Patient IDs Sequence (0010,1002)... Type R+... " +
+            "Must contain the same Patient ID present in (0010,0020).']";
+
+    public static final String MADO_ORDER_PLACER_IDENTIFIER_MISSING = "OrderPlacerIdentifierSequence (0040,0026) missing in ReferencedRequestSequence item %d (RC+: required when PlacerOrderNumber is not empty). [" +
+            REF_MADO_TABLE_6_X_2_8_1_1 + ": 'Order Placer Identifier Sequence (0040,0026)... RC+ Required if Placer Order Number is not empty.']";
 
     // ========== Appendix B Validation =========="
-    public static final String APPENDIX_B_EVIDENCE_MISSING = "CurrentRequestedProcedureEvidenceSequence is missing (Appendix B format). [" +
-            REF_MADO_6_X_1_2_2_3_2 + ": 'Current Requested Procedure Evidence Sequence (0040,A375) ... R']";
+    // NOTE: Appendix B has been REMOVED in IHE MADO Rev 1.0. These messages are retained for
+    // backward compatibility with legacy files but indicate the format is no longer supported.
+    /** @deprecated Appendix B format is no longer supported in IHE MADO Rev 1.0. */
+    @Deprecated
+    public static final String APPENDIX_B_EVIDENCE_MISSING = "Appendix B format is no longer supported in IHE MADO Rev 1.0. " +
+            "The manifest must use TID 1600 Image Library (Section 6.X.2.9). " +
+            "[Original check: CurrentRequestedProcedureEvidenceSequence is missing (Appendix B format).]";
 
-    public static final String APPENDIX_B_STUDY_UID_MISSING = "StudyInstanceUID missing in Evidence (Appendix B format). [" +
-            REF_MADO_APPENDIX_B + ".1: 'Study Instance UID (0020,000D) ... R ... Copy of the referenced study's Study Instance UID.']";
+    /** @deprecated Appendix B format is no longer supported in IHE MADO Rev 1.0. */
+    @Deprecated
+    public static final String APPENDIX_B_STUDY_UID_MISSING = "Appendix B format is no longer supported in IHE MADO Rev 1.0. " +
+            "The manifest must use TID 1600 Image Library (Section 6.X.2.9). " +
+            "[Original check: StudyInstanceUID missing in Evidence (Appendix B format).]";
 
-    public static final String APPENDIX_B_SERIES_MISSING = "ReferencedSeriesSequence is missing in Evidence study item. [" +
-            REF_MADO_APPENDIX_B + ".2: 'Referenced Series Sequence (0008,1115) ... R ... Contains references to Series.']";
+    /** @deprecated Appendix B format is no longer supported in IHE MADO Rev 1.0. */
+    @Deprecated
+    public static final String APPENDIX_B_SERIES_MISSING = "Appendix B format is no longer supported in IHE MADO Rev 1.0. " +
+            "The manifest must use TID 1600 Image Library (Section 6.X.2.9). " +
+            "[Original check: ReferencedSeriesSequence is missing in Evidence study item.]";
 
-    public static final String APPENDIX_B_MODALITY_MISSING = "Appendix B Requirement V-ALT-01: Modality (0008,0060) is Type 1 (Required) in Referenced Series Sequence. [" +
-            REF_MADO_TABLE_B_3_2_1 + ": 'Modality (0008,0060) ... R+']";
+    /** @deprecated Appendix B format is no longer supported in IHE MADO Rev 1.0. */
+    @Deprecated
+    public static final String APPENDIX_B_MODALITY_MISSING = "Appendix B format is no longer supported in IHE MADO Rev 1.0. " +
+            "The manifest must use TID 1600 Image Library (Section 6.X.2.9). " +
+            "[Original check: Appendix B Requirement V-ALT-01: Modality (0008,0060) is Type 1 (Required) in Referenced Series Sequence.]";
 
-    public static final String APPENDIX_B_SERIES_UID_MISSING = "Appendix B Requirement V-ALT-01: SeriesInstanceUID (0020,000E) is Type 1 (Required) in Referenced Series Sequence. [" +
-            REF_MADO_TABLE_B_3_2_1 + ": 'Series Instance UID (" + CODE_SERIES_INSTANCE_UID + ") ... R+']";
+    /** @deprecated Appendix B format is no longer supported in IHE MADO Rev 1.0. */
+    @Deprecated
+    public static final String APPENDIX_B_SERIES_UID_MISSING = "Appendix B format is no longer supported in IHE MADO Rev 1.0. " +
+            "The manifest must use TID 1600 Image Library (Section 6.X.2.9). " +
+            "[Original check: Appendix B Requirement V-ALT-01: SeriesInstanceUID (0020,000E) is Type 1 (Required) in Referenced Series Sequence.]";
 
-    public static final String APPENDIX_B_SOP_SEQUENCE_MISSING = "ReferencedSOPSequence is missing in series item. [" +
-            REF_MADO_APPENDIX_B + ".3: 'Referenced SOP Sequence (0008,1199) ... R ... Contains references to SOP Instances.']";
+    /** @deprecated Appendix B format is no longer supported in IHE MADO Rev 1.0. */
+    @Deprecated
+    public static final String APPENDIX_B_SOP_SEQUENCE_MISSING = "Appendix B format is no longer supported in IHE MADO Rev 1.0. " +
+            "The manifest must use TID 1600 Image Library (Section 6.X.2.9). " +
+            "[Original check: ReferencedSOPSequence is missing in series item.]";
 
-    public static final String APPENDIX_B_SOP_CLASS_MISSING = "Appendix B Requirement V-ALT-02: ReferencedSOPClassUID (0008,1150) is Type 1 (Required) in Referenced SOP Sequence. [" +
-            REF_MADO_TABLE_B_4_2_1 + ": 'Referenced SOP Class UID (0008,1150) ... R']";
+    /** @deprecated Appendix B format is no longer supported in IHE MADO Rev 1.0. */
+    @Deprecated
+    public static final String APPENDIX_B_SOP_CLASS_MISSING = "Appendix B format is no longer supported in IHE MADO Rev 1.0. " +
+            "The manifest must use TID 1600 Image Library (Section 6.X.2.9). " +
+            "[Original check: Appendix B Requirement V-ALT-02: ReferencedSOPClassUID (0008,1150) is Type 1 (Required) in Referenced SOP Sequence.]";
 
-    public static final String APPENDIX_B_SOP_INSTANCE_MISSING = "Appendix B Requirement V-ALT-02: ReferencedSOPInstanceUID (0008,1155) is Type 1 (Required) in Referenced SOP Sequence. [" +
-            REF_MADO_TABLE_B_4_2_1 + ": 'Referenced SOP Instance UID (0008,1155) ... R']";
+    /** @deprecated Appendix B format is no longer supported in IHE MADO Rev 1.0. */
+    @Deprecated
+    public static final String APPENDIX_B_SOP_INSTANCE_MISSING = "Appendix B format is no longer supported in IHE MADO Rev 1.0. " +
+            "The manifest must use TID 1600 Image Library (Section 6.X.2.9). " +
+            "[Original check: Appendix B Requirement V-ALT-02: ReferencedSOPInstanceUID (0008,1155) is Type 1 (Required) in Referenced SOP Sequence.]";
 
-    public static final String APPENDIX_B_NUMBER_OF_FRAMES_INVALID = "Number of Frames (0028,0008) has invalid format: %s. [" +
-            REF_MADO_TABLE_B_4_2_1 + ": 'Number of Frames (0028,0008) ... RC+ Required if the instance contains multi-frame pixel data.']";
+    /** @deprecated Appendix B format is no longer supported in IHE MADO Rev 1.0. */
+    @Deprecated
+    public static final String APPENDIX_B_NUMBER_OF_FRAMES_INVALID = "Appendix B format is no longer supported in IHE MADO Rev 1.0. " +
+            "The manifest must use TID 1600 Image Library (Section 6.X.2.9). " +
+            "[Original check: Number of Frames (0028,0008) has invalid format: %s.]";
 
     // ========== SOP Class / Header ==========
     public static final String SOP_CLASS_UID_MISSING = "SOPClassUID (0008,0016) is missing/empty. MADO manifest must be a KOS document. [" +
             REF_DICOM_PS3_3 + " A.35.3: 'SOP Class UID (0008,0016) ... M ... Uniquely identifies the SOP Class.']";
 
     public static final String SOP_CLASS_UID_WRONG = "SOPClassUID (0008,0016) must be Key Object Selection Document Storage (%s) but found: %s. [" +
-            REF_MADO_6_X_1_2_1_2 + ": 'The SOP Class UID shall be Key Object Selection Document Storage (1.2.840.10008.5.1.4.1.1.88.59).']";
+            REF_MADO_6_X_2_4 + " / " + REF_DICOM_PS3_3 + " A.35.4: 'The SOP Class UID shall be Key Object Selection Document Storage (1.2.840.10008.5.1.4.1.1.88.59).']";
 
     // ========== Study IE (enhanced) ==========
     public static final String STUDY_DATE_REQUIRED = "StudyDate (0008,0020) is missing/empty. MADO requires Study Date. [" +
-            REF_MADO_6_X_1_2_2_2_2 + ": 'Study Date (0008,0020) ... R+']";
+            REF_MADO_TABLE_6_X_2_6_1 + ": 'Study Date (0008,0020) ... R+']";
 
     public static final String STUDY_TIME_REQUIRED = "StudyTime (0008,0030) is missing/empty. MADO requires Study Time. [" +
-            REF_MADO_6_X_1_2_2_2_2 + ": 'Study Time (0008,0030) ... R+']";
+            REF_MADO_TABLE_6_X_2_6_1 + ": 'Study Time (0008,0030) ... R+']";
 
     public static final String ACCESSION_NUMBER_MISSING = "AccessionNumber (0008,0050) is missing. MADO requires Accession Number (or empty if multiple via ReferencedRequestSequence). [" +
-            REF_MADO_6_X_1_2_2_2_2 + ": 'Accession Number (0008,0050) ... R+']";
+            REF_MADO_TABLE_6_X_2_6_1 + ": 'Accession Number (0008,0050) ... R+']";
 
     public static final String ACCESSION_NUMBER_NOT_EMPTY_WITH_MULTIPLE = "AccessionNumber (0008,0050) must be empty when multiple requests/accessions are present (ReferencedRequestSequence has %d items). [" +
-            REF_MADO_6_X_1_2_2_2_2 + ": 'Shall be empty when there are multiple accession numbers for the study']";
+            REF_MADO_6_X_2_6_1 + ": 'Shall be empty when there are multiple accession numbers for the study']";
 
     public static final String ISSUER_ACCESSION_INCONSISTENT = "AccessionNumber is present but IssuerOfAccessionNumberSequence (0008,0051) is inconsistent (should match first Referenced Request issuer). [" +
-            REF_MADO_6_X_1_2_2_2_2 + ": 'Issuer of Accession Number Sequence ... RC+ Required if Accession Number is not empty.']";
+            REF_MADO_TABLE_6_X_2_6_1 + ": 'Issuer of Accession Number Sequence ... RC+ Required if Accession Number is not empty.']";
 
     public static final String ISSUER_ACCESSION_MISSING = "AccessionNumber attribute is present but IssuerOfAccessionNumberSequence (0008,0051) is missing. [" +
-            REF_MADO_6_X_1_2_2_2_2 + ": 'Issuer of Accession Number Sequence ... RC+ Required if Accession Number is not empty.']";
+            REF_MADO_TABLE_6_X_2_6_1 + ": 'Issuer of Accession Number Sequence ... RC+ Required if Accession Number is not empty.']";
 
     // ========== Private Attributes ==========
     public static final String PRIVATE_ATTRS_MSG = "Private attributes found in group %04X (%d elements). " +
@@ -832,8 +1007,8 @@ public class ValidationMessages {
 
     public static final String KOS_MISSING_REFERENCED_STUDY_SEQUENCE =
         "Referenced Study Sequence (0008,1110) is missing from Root. " +
-        "Type 2 attribute in Key Object Document Module (must be present, may be empty). [" +
-        REF_DICOM_PS3_3 + " Table C.17-2]";
+        "Type 3 (optional) attribute per DICOM PS3.3 Table C.7-3 (General Study Module). [" +
+        REF_DICOM_PS3_3 + " Table C.7-3]";
 
     public static final String KOS_MISSING_FILLER_ORDER_NUMBER =
         "Filler Order Number / Imaging Service Request (0040,2017) is missing from Root. " +
@@ -879,6 +1054,42 @@ public class ValidationMessages {
         "Illegal UID component in %s %s: '%s'. " +
         "Numeric components in a UID must not have leading zeros (e.g., '.01' is illegal, must be '.1'). [" +
         REF_DICOM_PS3_5 + " Section 6.2]";
+
+    // ========== MADO-KOS-027: Accession/Placer pair deduplication ==========
+    public static final String MADO_REFERENCED_REQUEST_DUPLICATE_PAIR =
+        "Duplicate (AccessionNumber, PlacerOrderNumber) pair found in ReferencedRequestSequence: ('%s', '%s'). " +
+        "Each unique order should have exactly one item. [" +
+        REF_MADO_6_X_2_6_1 + ": 'Number of Referenced Request items equals number of unique Accession Number + Placer Order Number pairs.']";
+
+    // ========== MADO-KOS-046: By-reference content rejection ==========
+    public static final String MADO_BY_REFERENCE_CONTENT_FORBIDDEN =
+        "By-reference content item detected (ReferencedContentItemIdentifier present at %s). " +
+        "KOS/MADO content must use by-value relationships only. [" +
+        REF_DICOM_PS3_3 + " C.17.3: 'Key Object Selection Document uses by-value relationships only.']";
+
+    // ========== MADO-REC-001: Profile version stamp ==========
+    public static final String MADO_PROFILE_VERSION =
+        "Validating against MADO Trial Implementation profile: mado-ti-2025-12-08-cp2595-vp4-2026-03-03. " +
+        "Temporary 99IHE codes accepted per CP-2595 voting packet.";
+
+    // ========== MADO-REC-003: Display URI ==========
+    public static final String MADO_DISPLAY_URI_PRIVATE_TAG_FOUND =
+        "Display URI found via temporary private tag (000D,xx01) under creator 'IHE_MADO_PRIVATE'. " +
+        "This is expected during trial implementation; will transition to standard DICOM tag when assigned.";
+    public static final String MADO_DISPLAY_URI_INVALID_SYNTAX =
+        "Display URI has invalid syntax: '%s'. Expected a valid URL (http/https scheme). [" +
+        "IHE MADO Suppl.: 'Display URI ... optional URL for launching a viewer.']";
+
+    // ========== MADO-REC-004: IssuerOfPatientID vs UniversalEntityID ==========
+    public static final String MADO_ISSUER_PATIENT_ID_MISMATCH =
+        "IssuerOfPatientID (0010,0021) value '%s' does not match UniversalEntityID '%s' in IssuerOfPatientIDQualifiersSequence. " +
+        "When both are present, they should identify the same assigning authority. [" +
+        "IHE MADO Suppl.: 'IssuerOfPatientID should label the same authority identified by the Universal Entity ID.']";
+
+    // ========== UCUM unit validation ==========
+    public static final String MADO_UCUM_UNIT_WRONG =
+        "UCUM measurement unit for %s is '%s', expected '%s'. [" +
+        REF_MADO_TABLE_6_X_2_9_2 + ": 'Units shall be UCUM coded.']";
 
     // ========== Standard Values ==========
     public static final String DCMR = "DCMR";

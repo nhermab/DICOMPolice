@@ -25,6 +25,11 @@ public class KeyObjectContentUtils {
         ALLOWED_KOS_VALUE_TYPES.add(DicomConstants.VALUE_TYPE_COMPOSITE);
         ALLOWED_KOS_VALUE_TYPES.add(DicomConstants.VALUE_TYPE_IMAGE);
         ALLOWED_KOS_VALUE_TYPES.add(DicomConstants.VALUE_TYPE_WAVEFORM);
+        // CP-2595: temporal types now permitted in KOS Content Sequence for
+        // Image Library manifest use case (TID 1600/1602 metadata items)
+        ALLOWED_KOS_VALUE_TYPES.add(DicomConstants.VALUE_TYPE_DATE);
+        ALLOWED_KOS_VALUE_TYPES.add(DicomConstants.VALUE_TYPE_TIME);
+        ALLOWED_KOS_VALUE_TYPES.add(DicomConstants.VALUE_TYPE_DATETIME);
     }
 
     /**
@@ -121,7 +126,11 @@ public class KeyObjectContentUtils {
         String valueType = item.getString(Tag.ValueType);
         if (valueType != null) {
             boolean allowedByKOS = ALLOWED_KOS_VALUE_TYPES.contains(valueType);
-            boolean allowedByMADOExtension = isMADOProfile(profile) && be.uzleuven.ihe.dicom.constants.DicomConstants.VALUE_TYPE_NUM.equals(valueType);
+            boolean allowedByMADOExtension = isMADOProfile(profile) && (
+                    DicomConstants.VALUE_TYPE_NUM.equals(valueType) ||
+                    DicomConstants.VALUE_TYPE_DATE.equals(valueType) ||
+                    DicomConstants.VALUE_TYPE_TIME.equals(valueType) ||
+                    DicomConstants.VALUE_TYPE_DATETIME.equals(valueType));
 
             if (!allowedByKOS && !allowedByMADOExtension) {
                 result.addError(String.format(ValidationMessages.KOS_DISALLOWED_VALUE_TYPE, valueType), itemPath);
@@ -171,6 +180,13 @@ public class KeyObjectContentUtils {
                     if (!isMADOProfile(profile)) {
                         result.addError(String.format(ValidationMessages.KOS_DISALLOWED_VALUE_TYPE, valueType), itemPath);
                     }
+                    break;
+                case DicomConstants.VALUE_TYPE_DATE:
+                case DicomConstants.VALUE_TYPE_TIME:
+                case DicomConstants.VALUE_TYPE_DATETIME:
+                    // CP-2595: DATE, TIME, DATETIME are now permitted in KOS Content Sequence
+                    // for the Image Library manifest use case (TID 1600/1602 metadata items).
+                    // Structural validation only; semantic checks handled by TID validators.
                     break;
                 default:
                     // structural validation only

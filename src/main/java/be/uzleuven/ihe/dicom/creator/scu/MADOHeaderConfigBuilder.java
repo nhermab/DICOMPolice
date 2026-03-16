@@ -61,10 +61,19 @@ class MADOHeaderConfigBuilder {
         config.patientName = studyAttrs.getString(Tag.PatientName, "UNKNOWN^PATIENT");
         config.patientBirthDate = studyAttrs.getString(Tag.PatientBirthDate, "");
         config.patientSex = studyAttrs.getString(Tag.PatientSex, "O");
-        config.issuerOfPatientID = studyAttrs.getString(Tag.IssuerOfPatientID,
-            defaults.patientIdIssuerLocalNamespace);
+        // IssuerOfPatientID (0010,0021) must identify the same assigning authority as
+        // UniversalEntityID in IssuerOfPatientIDQualifiersSequence. Use the OID form
+        // so both attributes carry the same globally unique identifier value.
+        // Fall back to the local namespace only when no OID is configured.
+        config.issuerOfPatientID = defaults.patientIdIssuerOid != null
+            ? defaults.patientIdIssuerOid
+            : studyAttrs.getString(Tag.IssuerOfPatientID, defaults.patientIdIssuerLocalNamespace);
         config.patientIdIssuerOid = defaults.patientIdIssuerOid;
         config.includeTypeOfPatientID = true; // MADO-specific
+        config.placerOrderNumber = defaults.placerOrderNumber; // MADO R+
+        // Order Placer Identifier OID: fall back to patientIdIssuerOid if not separately specified
+        config.orderPlacerOid = defaults.orderPlacerOid != null
+            ? defaults.orderPlacerOid : defaults.patientIdIssuerOid;
     }
 
     private void configureStudyModule(HeaderConfig config) {

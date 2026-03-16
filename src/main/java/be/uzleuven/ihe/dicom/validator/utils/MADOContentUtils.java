@@ -60,13 +60,13 @@ public final class MADOContentUtils {
         if (DicomConstants.VALUE_TYPE_UIDREF.equals(valueType)) {
             String uid = item.getString(Tag.UID);
             if (uid != null && !uid.trim().isEmpty()) {
-                // Check if this is a SOP Instance UID reference (ddd007 code)
+                // In CP-2595, SOP Instance UIDs are conveyed via ReferencedSOPSequence,
+                // not as UIDREF content items. This legacy path is kept for backward compatibility.
                 Sequence conceptSeq = item.getSequence(Tag.ConceptNameCodeSequence);
                 if (conceptSeq != null && !conceptSeq.isEmpty()) {
                     Attributes concept = conceptSeq.get(0);
                     String codeValue = concept.getString(Tag.CodeValue);
-                    if (CodeConstants.CODE_SOP_INSTANCE_UID.equals(codeValue)) { // SOP Instance UID code  EV (ddd007, DCM, “SOP Instance UID”)
-                        //TODO: this is wrong????
+                    if (CodeConstants.CODE_SOP_INSTANCE_UID.equals(codeValue)) {
                         referencedUIDs.add(uid);
                     }
                 }

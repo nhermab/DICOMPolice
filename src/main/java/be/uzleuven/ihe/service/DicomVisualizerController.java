@@ -193,12 +193,16 @@ public class DicomVisualizerController {
 
         // MADO uses:
         // (113030, DCM, "Manifest") - Standard manifest title
-        // (ddd001, DCM, "Manifest with Description") - MADO-specific title
+        // (MADOTEMP001, 99IHE, "Manifest with Description") - MADO CP-2595 title
+        // Legacy: (ddd001, DCM, "Manifest with Description") - deprecated provisional title
         boolean isManifest = CodeConstants.CODE_KOS_MANIFEST.equals(codeValue) && DicomConstants.SCHEME_DCM.equals(csd);
-        boolean isManifestWithDesc = CODE_MANIFEST_WITH_DESCRIPTION.equals(codeValue) && DicomConstants.SCHEME_DCM.equals(csd);
+        boolean isManifestWithDesc = CODE_MANIFEST_WITH_DESCRIPTION.equals(codeValue)
+                && (CodeConstants.SCHEME_99IHE.equals(csd) || DicomConstants.SCHEME_DCM.equals(csd));
+        // Also accept deprecated ddd001 code
+        boolean isLegacyManifestWithDesc = "ddd001".equals(codeValue);
 
         // If it's one of these, check for MADO-specific content (TID 1600)
-        if (isManifest || isManifestWithDesc) {
+        if (isManifest || isManifestWithDesc || isLegacyManifestWithDesc) {
             // Additional check: MADO should have TID 1600 Image Library content
             // We can detect this by looking for specific content items
             return hasImageLibraryContent(dataset) || isManifestWithDesc;
