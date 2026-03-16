@@ -263,9 +263,142 @@ public class FHIRToMADOConverter {
         return null;
     }
 
-    // ============================================================================
-    // MODULE POPULATION
-    // ============================================================================
+    /**
+     * Extracts a string value from an extension on a Reference.
+     */
+    private String getExtensionStringValue(Reference reference, String extensionUrl) {
+        if (reference == null) return null;
+        for (Extension ext : reference.getExtension()) {
+            if (extensionUrl.equals(ext.getUrl())) {
+                if (ext.getValue() instanceof StringType) {
+                    return ((StringType) ext.getValue()).getValue();
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Restores OtherPatientIDsSequence from the JSON string stored in the FHIR extension.
+     * JSON format: [{"id":"value","issuer":"oid","type":"TEXT","issuerUniversalId":"oid","issuerUniversalIdType":"ISO"},...]
+     */
+    private void restoreOtherPatientIds(Attributes mado, String json) {
+        if (json == null || json.isEmpty() || "[]".equals(json.trim())) return;
+        // Simple JSON array parser (avoids adding a JSON library dependency)
+        List<Map<String, String>> items = parseSimpleJsonArray(json);
+        if (items.isEmpty()) return;
+        Sequence seq = mado.newSequence(Tag.OtherPatientIDsSequence, items.size());
+        for (Map<String, String> item : items) {
+            Attributes a = new Attributes();
+            if (item.containsKey("id")) a.setString(Tag.PatientID, VR.LO, item.get("id"));
+            if (item.containsKey("issuer")) a.setString(Tag.IssuerOfPatientID, VR.LO, item.get("issuer"));
+            if (item.containsKey("type")) a.setString(Tag.TypeOfPatientID, VR.CS, item.get("type"));
+            String univId = item.get("issuerUniversalId");
+            String univIdType = item.getOrDefault("issuerUniversalIdType", "ISO");
+            if (univId != null && !univId.isEmpty()) {
+                Sequence qualSeq = a.newSequence(Tag.IssuerOfPatientIDQualifiersSequence, 1);
+                Attributes qual = new Attributes();
+                qual.setString(Tag.UniversalEntityID, VR.UT, univId);
+                qual.setString(Tag.UniversalEntityIDType, VR.CS, univIdType);
+                qualSeq.add(qual);
+            }
+            seq.add(a);
+        }
+    }
+
+    /**
+     * Restores a code sequence from a JSON string.
+     * JSON format: [{"value":"code","scheme":"designator","meaning":"text"},...]
+     */
+    private void restoreCodeSequence(Attributes parent, int tag, String json) {
+        if (json == null || "[]".equals(json.trim())) {
+            parent.newSequence(tag, 0);
+            return;
+        }
+        List<Map<String, String>> items = parseSimpleJsonArray(json);
+        Sequence seq = parent.newSequence(tag, items.size());
+        for (Map<String, String> item : items) {
+            Attributes a = new Attributes();
+            if (item.containsKey("value")) a.setString(Tag.CodeValue, VR.SH, item.get("value"));
+            if (item.containsKey("scheme")) a.setString(Tag.CodingSchemeDesignator, VR.SH, item.get("scheme"));
+            if (item.containsKey("meaning")) a.setString(Tag.CodeMeaning, VR.LO, item.get("meaning"));
+            seq.add(a);
+        }
+    }
+
+    /**
+     * Minimal JSON array of objects parser.
+     * Handles simple flat objects with string values only.
+     * Format: [{"key":"value",...},...]
+     */
+    private List<Map<String, String>> parseSimpleJsonArray(String json) {
+        List<Map<String, String>> result = new ArrayList<>();
+        if (json == null) return result;
+        json = json.trim();
+        if (!json.startsWith("[")) return result;
+        json = json.substring(1);
+        if (json.endsWith("]")) json = json.substring(0, json.length() - 1);
+
+        int depth = 0;
+        int start = -1;
+        for (int i = 0; i < json.length(); i++) {
+            char c = json.charAt(i);
+            if (c == '{') {
+                if (depth == 0) start = i;
+                depth++;
+            } else if (c == '}') {
+                depth--;
+                if (depth == 0 && start >= 0) {
+                    String obj = json.substring(start + 1, i);
+                    result.add(parseSimpleJsonObject(obj));
+                    start = -1;
+                }
+            }
+        }
+        return result;
+    }
+
+    private Map<String, String> parseSimpleJsonObject(String obj) {
+        Map<String, String> map = new LinkedHashMap<>();
+        // Pattern: "key":"value" pairs separated by commas (values may contain escaped chars)
+        int i = 0;
+        while (i < obj.length()) {
+            // Skip whitespace and commas
+            while (i < obj.length() && (obj.charAt(i) == ',' || obj.charAt(i) == ' ')) i++;
+            if (i >= obj.length()) break;
+            // Expect "key"
+            if (obj.charAt(i) != '"') { i++; continue; }
+            int keyStart = i + 1;
+            int keyEnd = obj.indexOf('"', keyStart);
+            if (keyEnd < 0) break;
+            String key = obj.substring(keyStart, keyEnd);
+            i = keyEnd + 1;
+            // Expect :
+            while (i < obj.length() && obj.charAt(i) != ':') i++;
+            i++; // skip ':'
+            // Skip whitespace
+            while (i < obj.length() && obj.charAt(i) == ' ') i++;
+            // Expect "value"
+            if (i >= obj.length() || obj.charAt(i) != '"') { i++; continue; }
+            i++; // skip opening '"'
+            StringBuilder val = new StringBuilder();
+            while (i < obj.length()) {
+                char c = obj.charAt(i);
+                if (c == '\\' && i + 1 < obj.length()) {
+                    char next = obj.charAt(i + 1);
+                    if (next == '"') { val.append('"'); i += 2; }
+                    else if (next == '\\') { val.append('\\'); i += 2; }
+                    else { val.append(c); i++; }
+                } else if (c == '"') {
+                    i++; break;
+                } else {
+                    val.append(c); i++;
+                }
+            }
+            map.put(key, val.toString());
+        }
+        return map;
+    }
 
     private void populateSOPCommonModule(Attributes mado, Bundle bundle, BundleResources resources) {
         mado.setString(Tag.SOPClassUID, VR.UI, KOS_SOP_CLASS_UID);
@@ -325,12 +458,34 @@ public class FHIRToMADOConverter {
         }
 
         // Patient Name
-        if (patient.hasName()) {
+        // First try raw DICOM patient name from extension (exact round-trip)
+        String rawDicomName = null;
+        for (Extension ext : patient.getExtension()) {
+            if (EXT_DICOM_PATIENT_NAME.equals(ext.getUrl()) && ext.getValue() instanceof StringType) {
+                rawDicomName = ((StringType) ext.getValue()).getValue();
+                break;
+            }
+        }
+        if (rawDicomName != null) {
+            mado.setString(Tag.PatientName, VR.PN, rawDicomName);
+        } else if (patient.hasName()) {
             HumanName name = patient.getNameFirstRep();
             String dicomName = buildDicomName(name);
             mado.setString(Tag.PatientName, VR.PN, dicomName);
         } else {
             mado.setString(Tag.PatientName, VR.PN, "UNKNOWN^PATIENT");
+        }
+
+        // Other Patient IDs sequence (round-trip)
+        String otherPatIdsJson = null;
+        for (Extension ext : patient.getExtension()) {
+            if (EXT_OTHER_PATIENT_IDS.equals(ext.getUrl()) && ext.getValue() instanceof StringType) {
+                otherPatIdsJson = ((StringType) ext.getValue()).getValue();
+                break;
+            }
+        }
+        if (otherPatIdsJson != null) {
+            restoreOtherPatientIds(mado, otherPatIdsJson);
         }
 
         // Birth Date
@@ -360,17 +515,21 @@ public class FHIRToMADOConverter {
         }
         mado.setString(Tag.StudyInstanceUID, VR.UI, studyUID);
 
-        // Study Date/Time from started - preserve original format with .0 suffix if available
+        // Study Date/Time from started - use original string values from extensions where possible
         if (study.hasStarted()) {
             Date started = study.getStarted();
             SimpleDateFormat dateFmt = new SimpleDateFormat("yyyyMMdd");
-            SimpleDateFormat timeFmt = new SimpleDateFormat("HHmmss.S");
+            SimpleDateFormat timeFmt = new SimpleDateFormat("HHmmss");
             mado.setString(Tag.StudyDate, VR.DA, dateFmt.format(started));
             mado.setString(Tag.StudyTime, VR.TM, timeFmt.format(started));
         }
 
-        // Study Description
-        if (study.hasDescription()) {
+        // Study Description – restore from extension (preserves empty tag)
+        String studyDesc = getExtensionStringValue(study, EXT_STUDY_DESCRIPTION);
+        if (studyDesc != null) {
+            // Extension present means tag existed in original (value may be empty)
+            mado.setString(Tag.StudyDescription, VR.LO, studyDesc);
+        } else if (study.hasDescription()) {
             mado.setString(Tag.StudyDescription, VR.LO, study.getDescription());
         }
 
@@ -410,11 +569,30 @@ public class FHIRToMADOConverter {
 
         // Referring Physician - first try extension (for round-trip), then practitioner
         String refPhysName = getExtensionStringValue(study, EXT_REFERRING_PHYSICIAN);
-        if (refPhysName != null && !refPhysName.isEmpty()) {
+        if (refPhysName != null) {
+            // Extension present: restore exactly (even if empty string)
             mado.setString(Tag.ReferringPhysicianName, VR.PN, refPhysName);
         } else if (study.hasReferrer() && resources.practitioner != null) {
             refPhysName = buildDicomNameFromPractitioner(resources.practitioner);
             mado.setString(Tag.ReferringPhysicianName, VR.PN, refPhysName);
+        }
+
+        // ReferencedStudySequence – restore from extension
+        String refStudyUids = getExtensionStringValue(study, EXT_REFERENCED_STUDY_SEQUENCE);
+        if (refStudyUids != null) {
+            // Extension present: restore (empty string = empty sequence)
+            Sequence refStudySeq = mado.newSequence(Tag.ReferencedStudySequence, 1);
+            if (!refStudyUids.isEmpty()) {
+                for (String uid : refStudyUids.split(",")) {
+                    uid = uid.trim();
+                    if (!uid.isEmpty()) {
+                        Attributes item = new Attributes();
+                        item.setString(Tag.ReferencedSOPClassUID, VR.UI, "1.2.840.10008.3.1.2.3.1"); // Detached Study Management
+                        item.setString(Tag.ReferencedSOPInstanceUID, VR.UI, uid);
+                        refStudySeq.add(item);
+                    }
+                }
+            }
         }
     }
 
@@ -612,6 +790,12 @@ public class FHIRToMADOConverter {
             seriesItem.setString(Tag.Modality, VR.CS, "OT");
         }
 
+        // Retrieve AE Title – restore from extension (round-trip)
+        String retrieveAeTitle = getSeriesExtensionStringValue(series, EXT_RETRIEVE_AE_TITLE);
+        if (retrieveAeTitle != null && !retrieveAeTitle.isEmpty()) {
+            seriesItem.setString(Tag.RetrieveAETitle, VR.AE, retrieveAeTitle);
+        }
+
         // Retrieve Location UID
         seriesItem.setString(Tag.RetrieveLocationUID, VR.UI, DEFAULT_RETRIEVE_LOCATION_UID);
 
@@ -734,9 +918,43 @@ public class FHIRToMADOConverter {
                     }
 
                     reqItem.setString(Tag.StudyInstanceUID, VR.UI, studyUID);
-                    reqItem.setString(Tag.RequestedProcedureID, VR.SH, "RP001");
-                    reqItem.setString(Tag.PlacerOrderNumberImagingServiceRequest, VR.LO, "PO001");
-                    reqItem.setString(Tag.FillerOrderNumberImagingServiceRequest, VR.LO, "FO001");
+
+                    // Restore RequestedProcedureID from extension (may be empty string)
+                    String reqProcId = getExtensionStringValue(basedOn, EXT_REQ_PROCEDURE_ID);
+                    reqItem.setString(Tag.RequestedProcedureID, VR.SH,
+                        reqProcId != null ? reqProcId : "");
+
+                    // Restore PlacerOrderNumber from extension
+                    String placerOrder = getExtensionStringValue(basedOn, EXT_PLACER_ORDER_NUMBER);
+                    reqItem.setString(Tag.PlacerOrderNumberImagingServiceRequest, VR.LO,
+                        placerOrder != null ? placerOrder : "");
+
+                    // Restore FillerOrderNumber from extension
+                    String fillerOrder = getExtensionStringValue(basedOn, EXT_FILLER_ORDER_NUMBER);
+                    reqItem.setString(Tag.FillerOrderNumberImagingServiceRequest, VR.LO,
+                        fillerOrder != null ? fillerOrder : "");
+
+                    // Restore RequestedProcedureDescription (0032,1060)
+                    String reqProcDesc = getExtensionStringValue(basedOn, EXT_REQ_PROCEDURE_DESCRIPTION);
+                    if (reqProcDesc != null) {
+                        reqItem.setString(Tag.RequestedProcedureDescription, VR.LO, reqProcDesc);
+                    } else {
+                        reqItem.setString(Tag.RequestedProcedureDescription, VR.LO, "");
+                    }
+
+                    // Restore RequestedProcedureCodeSequence (0032,1064)
+                    String reqProcCodeJson = getExtensionStringValue(basedOn, EXT_REQ_PROCEDURE_CODE_SEQ);
+                    restoreCodeSequence(reqItem, Tag.RequestedProcedureCodeSequence, reqProcCodeJson);
+
+                    // Restore OrderPlacerIdentifierSequence (0040,0026)
+                    String orderPlacerOid = getExtensionStringValue(basedOn, EXT_ORDER_PLACER_ID_SEQ);
+                    if (orderPlacerOid != null && !orderPlacerOid.isEmpty()) {
+                        Sequence placerSeq = reqItem.newSequence(Tag.OrderPlacerIdentifierSequence, 1);
+                        Attributes placerItem = new Attributes();
+                        placerItem.setString(Tag.UniversalEntityID, VR.UT, orderPlacerOid);
+                        placerItem.setString(Tag.UniversalEntityIDType, VR.CS, "ISO");
+                        placerSeq.add(placerItem);
+                    }
 
                     refRequestSeq.add(reqItem);
                 }

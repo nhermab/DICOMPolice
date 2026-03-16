@@ -363,19 +363,44 @@ public class MADOToFHIRConverter {
 
         // Patient Identity
         metadata.patientName = attrs.getString(Tag.PatientName);
+        metadata.rawDicomPatientName = attrs.getString(Tag.PatientName); // exact raw value for round-trip
         metadata.patientId = attrs.getString(Tag.PatientID);
         metadata.issuerOfPatientId = attrs.getString(Tag.IssuerOfPatientID);
         metadata.typeOfPatientId = attrs.getString(Tag.TypeOfPatientID);
         metadata.patientBirthDate = attrs.getString(Tag.PatientBirthDate);
         metadata.patientSex = attrs.getString(Tag.PatientSex);
 
+        // Other Patient IDs sequence – capture for round-trip
+        Sequence otherPatIds = attrs.getSequence(Tag.OtherPatientIDsSequence);
+        if (otherPatIds != null && !otherPatIds.isEmpty()) {
+            metadata.otherPatientIdsJson = serializeOtherPatientIds(otherPatIds);
+        }
+
         // Study Identity
         metadata.studyInstanceUID = attrs.getString(Tag.StudyInstanceUID);
         metadata.accessionNumber = attrs.getString(Tag.AccessionNumber);
         metadata.studyDate = attrs.getString(Tag.StudyDate);
         metadata.studyTime = attrs.getString(Tag.StudyTime);
-        metadata.studyDescription = attrs.getString(Tag.StudyDescription);
+        // StudyDescription: detect presence even when empty
+        metadata.studyDescriptionPresent = attrs.containsValue(Tag.StudyDescription);
+        metadata.studyDescription = attrs.getString(Tag.StudyDescription); // may be null or ""
         metadata.studyID = attrs.getString(Tag.StudyID);
+
+        // ReferencedStudySequence – capture UIDs for round-trip
+        Sequence refStudySeq = attrs.getSequence(Tag.ReferencedStudySequence);
+        if (refStudySeq != null || attrs.contains(Tag.ReferencedStudySequence)) {
+            StringBuilder sb = new StringBuilder();
+            if (refStudySeq != null) {
+                for (Attributes item : refStudySeq) {
+                    String uid = item.getString(Tag.ReferencedSOPInstanceUID);
+                    if (uid != null) {
+                        if (sb.length() > 0) sb.append(",");
+                        sb.append(uid);
+                    }
+                }
+            }
+            metadata.referencedStudyUids = sb.toString(); // empty string means empty sequence
+        }
 
         // Manifest Identity
         metadata.sopInstanceUID = attrs.getString(Tag.SOPInstanceUID);
@@ -424,6 +449,17 @@ public class MADOToFHIRConverter {
                 req.requestedProcedureId = refReq.getString(Tag.RequestedProcedureID);
                 req.placerOrderNumber = refReq.getString(Tag.PlacerOrderNumberImagingServiceRequest);
                 req.fillerOrderNumber = refReq.getString(Tag.FillerOrderNumberImagingServiceRequest);
+                // Extra fields for round-trip
+                req.requestedProcedureDescription = refReq.getString(Tag.RequestedProcedureDescription);
+                Sequence reqCodeSeq = refReq.getSequence(Tag.RequestedProcedureCodeSequence);
+                if (reqCodeSeq != null || refReq.contains(Tag.RequestedProcedureCodeSequence)) {
+                    req.requestedProcedureCodeSeqJson = (reqCodeSeq != null && !reqCodeSeq.isEmpty())
+                        ? serializeCodeSequence(reqCodeSeq) : "[]";
+                }
+                Sequence placerIdSeq = refReq.getSequence(Tag.OrderPlacerIdentifierSequence);
+                if (placerIdSeq != null && !placerIdSeq.isEmpty()) {
+                    req.orderPlacerIdentifierOid = placerIdSeq.get(0).getString(Tag.UniversalEntityID);
+                }
 
                 Sequence reqIssuerSeq = refReq.getSequence(Tag.IssuerOfAccessionNumberSequence);
                 if (reqIssuerSeq != null && !reqIssuerSeq.isEmpty()) {
@@ -438,6 +474,56 @@ public class MADOToFHIRConverter {
         extractTargetRegion(attrs, metadata);
 
         return metadata;
+    }
+
+    /**
+     * Serializes OtherPatientIDsSequence items to a compact JSON string for round-trip.
+     * Format: [{"id":"value","issuer":"oid","type":"TEXT","issuerUniversalId":"oid"},...]
+     */
+    private String serializeOtherPatientIds(Sequence seq) {
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < seq.size(); i++) {
+            Attributes item = seq.get(i);
+            if (i > 0) sb.append(",");
+            sb.append("{");
+            appendJsonField(sb, "id", item.getString(Tag.PatientID), false);
+            appendJsonField(sb, "issuer", item.getString(Tag.IssuerOfPatientID), true);
+            appendJsonField(sb, "type", item.getString(Tag.TypeOfPatientID), true);
+            // IssuerOfPatientIDQualifiersSequence
+            Sequence qualSeq = item.getSequence(Tag.IssuerOfPatientIDQualifiersSequence);
+            if (qualSeq != null && !qualSeq.isEmpty()) {
+                appendJsonField(sb, "issuerUniversalId", qualSeq.get(0).getString(Tag.UniversalEntityID), true);
+                appendJsonField(sb, "issuerUniversalIdType", qualSeq.get(0).getString(Tag.UniversalEntityIDType), true);
+            }
+            sb.append("}");
+        }
+        sb.append("]");
+        return sb.toString();
+    }
+
+    /**
+     * Serializes a code sequence to a compact JSON string.
+     * Format: [{"value":"code","scheme":"designator","meaning":"text"},...]
+     */
+    private String serializeCodeSequence(Sequence seq) {
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < seq.size(); i++) {
+            Attributes item = seq.get(i);
+            if (i > 0) sb.append(",");
+            sb.append("{");
+            appendJsonField(sb, "value", item.getString(Tag.CodeValue), false);
+            appendJsonField(sb, "scheme", item.getString(Tag.CodingSchemeDesignator), true);
+            appendJsonField(sb, "meaning", item.getString(Tag.CodeMeaning), true);
+            sb.append("}");
+        }
+        sb.append("]");
+        return sb.toString();
+    }
+
+    private void appendJsonField(StringBuilder sb, String key, String value, boolean comma) {
+        if (value == null) return;
+        if (comma && sb.charAt(sb.length() - 1) != '{') sb.append(",");
+        sb.append("\"").append(key).append("\":\"").append(value.replace("\\", "\\\\").replace("\"", "\\\"")).append("\"");
     }
 
     /**
@@ -578,6 +664,18 @@ public class MADOToFHIRConverter {
 
         // Add narrative
         patient.setText(createNarrative(createPatientNarrative(metadata)));
+
+        // Store raw DICOM patient name for exact round-trip restoration (even "^" or empty)
+        if (metadata.rawDicomPatientName != null) {
+            patient.addExtension(new Extension(EXT_DICOM_PATIENT_NAME,
+                new StringType(metadata.rawDicomPatientName)));
+        }
+
+        // Store OtherPatientIDsSequence for round-trip
+        if (metadata.otherPatientIdsJson != null) {
+            patient.addExtension(new Extension(EXT_OTHER_PATIENT_IDS,
+                new StringType(metadata.otherPatientIdsJson)));
+        }
 
         return patient;
     }
@@ -939,6 +1037,18 @@ public class MADOToFHIRConverter {
             study.addExtension(new Extension(EXT_REFERRING_PHYSICIAN, new StringType(metadata.referringPhysicianName)));
         }
 
+        // Study Description – preserve even if empty (tag was present in DICOM)
+        if (metadata.studyDescriptionPresent) {
+            study.addExtension(new Extension(EXT_STUDY_DESCRIPTION,
+                new StringType(metadata.studyDescription != null ? metadata.studyDescription : "")));
+        }
+
+        // ReferencedStudySequence – preserve for round-trip (null means tag absent, "" means empty sequence)
+        if (metadata.referencedStudyUids != null) {
+            study.addExtension(new Extension(EXT_REFERENCED_STUDY_SEQUENCE,
+                new StringType(metadata.referencedStudyUids)));
+        }
+
         // MADO requirement: Map ALL entries from Referenced Request Sequence to basedOn
         if (!metadata.referencedRequests.isEmpty()) {
             for (ReferencedRequest req : metadata.referencedRequests) {
@@ -963,6 +1073,33 @@ public class MADOToFHIRConverter {
                     accessionId.setType(type);
 
                     basedOn.setIdentifier(accessionId);
+
+                    // Preserve extra request fields for round-trip
+                    if (req.requestedProcedureId != null) {
+                        basedOn.addExtension(new Extension(EXT_REQ_PROCEDURE_ID,
+                            new StringType(req.requestedProcedureId)));
+                    }
+                    if (req.placerOrderNumber != null) {
+                        basedOn.addExtension(new Extension(EXT_PLACER_ORDER_NUMBER,
+                            new StringType(req.placerOrderNumber)));
+                    }
+                    if (req.fillerOrderNumber != null) {
+                        basedOn.addExtension(new Extension(EXT_FILLER_ORDER_NUMBER,
+                            new StringType(req.fillerOrderNumber)));
+                    }
+                    if (req.requestedProcedureDescription != null) {
+                        basedOn.addExtension(new Extension(EXT_REQ_PROCEDURE_DESCRIPTION,
+                            new StringType(req.requestedProcedureDescription)));
+                    }
+                    if (req.requestedProcedureCodeSeqJson != null) {
+                        basedOn.addExtension(new Extension(EXT_REQ_PROCEDURE_CODE_SEQ,
+                            new StringType(req.requestedProcedureCodeSeqJson)));
+                    }
+                    if (req.orderPlacerIdentifierOid != null) {
+                        basedOn.addExtension(new Extension(EXT_ORDER_PLACER_ID_SEQ,
+                            new StringType(req.orderPlacerIdentifierOid)));
+                    }
+
                     study.addBasedOn(basedOn);
                 }
             }
@@ -1038,6 +1175,13 @@ public class MADOToFHIRConverter {
                                     .setSystem("http://dicom.nema.org/resources/ontology/DCM")
                                     .setCode(modality));
                                 series.setModality(modalityConcept);
+                            }
+
+                            // Preserve RetrieveAETitle for round-trip
+                            String retrieveAeTitle = seriesItem.getString(Tag.RetrieveAETitle);
+                            if (retrieveAeTitle != null && !retrieveAeTitle.isEmpty()) {
+                                series.addExtension(new Extension(EXT_RETRIEVE_AE_TITLE,
+                                    new StringType(retrieveAeTitle)));
                             }
 
                             // MADO requirement: Map Target Region to bodySite
@@ -1121,23 +1265,23 @@ public class MADOToFHIRConverter {
                         }
                     }
                 }
-            }
 
-            // Enrich series with SR content tree metadata
-            enrichSeriesFromContentTree(attrs, seriesMap);
+                // Enrich series with SR content tree metadata
+                enrichSeriesFromContentTree(attrs, seriesMap);
 
-            // Count instances for narrative
-            int totalInstances = 0;
-            for (ImagingStudy.ImagingStudySeriesComponent series : seriesMap.values()) {
-                totalInstances += series.getInstance().size();
-            }
+                // Count instances for narrative
+                int totalInstances = 0;
+                for (ImagingStudy.ImagingStudySeriesComponent series : seriesMap.values()) {
+                    totalInstances += series.getInstance().size();
+                }
 
-            // Add narrative
-            study.setText(createNarrative(createImagingStudyNarrative(metadata, seriesMap.size(), totalInstances)));
+                // Add narrative
+                study.setText(createNarrative(createImagingStudyNarrative(metadata, seriesMap.size(), totalInstances)));
 
-            // Add all series to study
-            for (ImagingStudy.ImagingStudySeriesComponent series : seriesMap.values()) {
-                study.addSeries(series);
+                // Add all series to study
+                for (ImagingStudy.ImagingStudySeriesComponent series : seriesMap.values()) {
+                    study.addSeries(series);
+                }
             }
         }
 
@@ -1745,6 +1889,10 @@ public class MADOToFHIRConverter {
         String typeOfPatientId;
         String patientBirthDate;
         String patientSex;
+        /** Raw DICOM patient name string for round-trip (preserves empty/special names like "^") */
+        String rawDicomPatientName;
+        /** Other Patient IDs sequence as simple JSON for round-trip */
+        String otherPatientIdsJson;
 
         // Study
         String studyInstanceUID;
@@ -1753,8 +1901,13 @@ public class MADOToFHIRConverter {
         String issuerOfAccessionNumberType;
         String studyDate;
         String studyTime;
+        /** Study description – may be null (not present) or empty string (tag present but empty) */
         String studyDescription;
+        /** True if StudyDescription tag was present in DICOM (even if empty) */
+        boolean studyDescriptionPresent;
         String studyID;
+        /** ReferencedStudySequence UIDs as comma-separated string for round-trip */
+        String referencedStudyUids;
 
         // Manifest
         String sopInstanceUID;
@@ -1793,6 +1946,12 @@ public class MADOToFHIRConverter {
         String requestedProcedureId;
         String placerOrderNumber;
         String fillerOrderNumber;
+        /** RequestedProcedureDescription (0032,1060) - may be empty */
+        String requestedProcedureDescription;
+        /** RequestedProcedureCodeSequence (0032,1064) as JSON - may be empty array */
+        String requestedProcedureCodeSeqJson;
+        /** OrderPlacerIdentifierSequence (0040,0026) OID for round-trip */
+        String orderPlacerIdentifierOid;
     }
 
     /**

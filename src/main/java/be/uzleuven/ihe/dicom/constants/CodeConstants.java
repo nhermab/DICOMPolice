@@ -234,6 +234,29 @@ public final class CodeConstants {
     // Extensions for series-level metadata (within ImagingStudy.series)
     public static final String EXT_IMAGING_SERIES_DATE = "http://dicom.nema.org/fhir/StructureDefinition/imaging-series-date";
     public static final String EXT_IMAGING_SERIES_TIME = "http://dicom.nema.org/fhir/StructureDefinition/imaging-series-time";
+    // Additional round-trip extensions
+    /** Raw DICOM patient name string (preserves empty/special names like "^") */
+    public static final String EXT_DICOM_PATIENT_NAME = "http://dicom.nema.org/fhir/StructureDefinition/dicom-patient-name";
+    /** Empty study description flag (preserves empty StudyDescription tag) */
+    public static final String EXT_STUDY_DESCRIPTION = "http://dicom.nema.org/fhir/StructureDefinition/study-description";
+    /** ReferencedStudySequence JSON (preserves referenced study UIDs) */
+    public static final String EXT_REFERENCED_STUDY_SEQUENCE = "http://dicom.nema.org/fhir/StructureDefinition/referenced-study-sequence";
+    /** OtherPatientIDsSequence JSON (preserves additional patient identifiers) */
+    public static final String EXT_OTHER_PATIENT_IDS = "http://dicom.nema.org/fhir/StructureDefinition/other-patient-ids";
+    /** RequestedProcedureDescription per referenced request entry */
+    public static final String EXT_REQ_PROCEDURE_DESCRIPTION = "http://dicom.nema.org/fhir/StructureDefinition/requested-procedure-description";
+    /** RequestedProcedureCodeSequence JSON per referenced request entry */
+    public static final String EXT_REQ_PROCEDURE_CODE_SEQ = "http://dicom.nema.org/fhir/StructureDefinition/requested-procedure-code-sequence";
+    /** OrderPlacerIdentifierSequence OID per referenced request entry */
+    public static final String EXT_ORDER_PLACER_ID_SEQ = "http://dicom.nema.org/fhir/StructureDefinition/order-placer-identifier-sequence";
+    /** RequestedProcedureID per referenced request entry */
+    public static final String EXT_REQ_PROCEDURE_ID = "http://dicom.nema.org/fhir/StructureDefinition/requested-procedure-id";
+    /** FillerOrderNumberImagingServiceRequest per referenced request entry */
+    public static final String EXT_FILLER_ORDER_NUMBER = "http://dicom.nema.org/fhir/StructureDefinition/filler-order-number";
+    /** PlacerOrderNumberImagingServiceRequest per referenced request entry */
+    public static final String EXT_PLACER_ORDER_NUMBER = "http://dicom.nema.org/fhir/StructureDefinition/placer-order-number";
+    /** RetrieveAETitle per referenced series item in evidence sequence */
+    public static final String EXT_RETRIEVE_AE_TITLE = "http://dicom.nema.org/fhir/StructureDefinition/retrieve-ae-title";
 
     // MADO IG Profile URLs
     public static final String PROFILE_IMAGING_STUDY_MANIFEST = "http://hl7.eu/fhir/imaging-manifest-r5/StructureDefinition/ImImagingStudyManifest";

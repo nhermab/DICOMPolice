@@ -124,40 +124,43 @@ public class MHDBackedMetadataService {
         String studyInstanceUID = keys.getString(Tag.StudyInstanceUID);
         String seriesInstanceUID = keys.getString(Tag.SeriesInstanceUID);
         String modality = keys.getString(Tag.Modality);
+        String seriesDescription = keys.getString(Tag.SeriesDescription);
 
-        LOG.info("Find series from MADO (MHD): studyUID={}, seriesUID={}, modality={}",
-                studyInstanceUID, seriesInstanceUID, modality);
+        LOG.info("Find series from MADO (MHD): studyUID={}, seriesUID={}, modality={}, seriesDescription={}",
+                studyInstanceUID, seriesInstanceUID, modality, seriesDescription);
 
         if (isSpecified(studyInstanceUID)) {
-            return findSeriesInStudy(studyInstanceUID, seriesInstanceUID, modality);
+            return findSeriesInStudy(studyInstanceUID, seriesInstanceUID, modality, seriesDescription);
         }
         if (isSpecified(seriesInstanceUID)) {
-            return findSeriesAcrossCache(seriesInstanceUID);
+            return findSeriesAcrossCache(seriesInstanceUID, modality, seriesDescription);
         }
         return Collections.emptyList();
     }
 
-    /** Fetch the given study and return its series that match the optional series/modality filters. */
-    private List<SeriesMetadata> findSeriesInStudy(String studyInstanceUID, String seriesInstanceUID, String modality) throws IOException {
+    /** Fetch the given study and return its series that match the optional series/modality/description filters. */
+    private List<SeriesMetadata> findSeriesInStudy(String studyInstanceUID, String seriesInstanceUID,
+                                                   String modality, String seriesDescription) throws IOException {
         StudyMetadata studyMeta = getOrFetchStudyMetadata(studyInstanceUID);
         if (studyMeta == null) {
             return Collections.emptyList();
         }
         List<SeriesMetadata> results = new ArrayList<>();
         for (SeriesMetadata series : studyMeta.series) {
-            if (matchesSeries(series, seriesInstanceUID, modality)) {
+            if (matchesSeries(series, seriesInstanceUID, modality, seriesDescription)) {
                 results.add(series);
             }
         }
         return results;
     }
 
-    /** Search all cached studies for a series with the given series instance UID. */
-    private List<SeriesMetadata> findSeriesAcrossCache(String seriesInstanceUID) {
+    /** Search all cached studies for series that match the given filters. */
+    private List<SeriesMetadata> findSeriesAcrossCache(String seriesInstanceUID, String modality,
+                                                       String seriesDescription) {
         List<SeriesMetadata> results = new ArrayList<>();
         for (StudyMetadata study : metadataCache.values()) {
             for (SeriesMetadata series : study.series) {
-                if (seriesInstanceUID.equals(series.seriesInstanceUID)) {
+                if (matchesSeries(series, seriesInstanceUID, modality, seriesDescription)) {
                     results.add(series);
                 }
             }
@@ -451,7 +454,11 @@ public class MHDBackedMetadataService {
     private void enrichSeriesFromTID1601(Sequence groupContentSeq, SeriesMetadata series) {
         // Attributes added by MADO spec
         series.seriesDescription = SRContentTreeUtils.findValueByConceptNameAndValueTag(
-                groupContentSeq, CodeConstants.CODE_SERIES_DESCRIPTION, CodeConstants.SCHEME_DCM, Tag.TextValue);
+                groupContentSeq, CodeConstants.CODE_SERIES_DESCRIPTION, CodeConstants.SCHEME_99IHE, Tag.TextValue);
+        if (series.seriesDescription == null) {
+            series.seriesDescription = SRContentTreeUtils.findValueByConceptNameAndValueTag(
+                    groupContentSeq, CodeConstants.CODE_SERIES_DESCRIPTION, CodeConstants.SCHEME_DCM, Tag.TextValue);
+        }
         series.seriesNumber = SRContentTreeUtils.findValueByConceptNameAndValueTag(
                 groupContentSeq, CodeConstants.CODE_SERIES_NUMBER, CodeConstants.SCHEME_DCM, Tag.TextValue);
 
@@ -580,7 +587,8 @@ public class MHDBackedMetadataService {
         return "Unknown Author".equals(display) ? null : display;
     }
 
-    private boolean matchesSeries(SeriesMetadata series, String seriesInstanceUID, String modality) {
+    private boolean matchesSeries(SeriesMetadata series, String seriesInstanceUID, String modality,
+                                  String seriesDescription) {
         if (seriesInstanceUID != null && !seriesInstanceUID.isEmpty() && !seriesInstanceUID.equals("*")) {
             if (!series.seriesInstanceUID.equals(seriesInstanceUID)) {
                 return false;
@@ -588,6 +596,13 @@ public class MHDBackedMetadataService {
         }
         if (modality != null && !modality.isEmpty() && !modality.equals("*")) {
             if (!modality.equalsIgnoreCase(series.modality)) {
+                return false;
+            }
+        }
+        if (seriesDescription != null && !seriesDescription.isEmpty() && !seriesDescription.equals("*")) {
+            String actualDescription = series.seriesDescription;
+            if (actualDescription == null || !actualDescription.toLowerCase(Locale.ROOT)
+                    .contains(seriesDescription.toLowerCase(Locale.ROOT))) {
                 return false;
             }
         }

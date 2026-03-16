@@ -20,6 +20,8 @@ const DicomDownloader = (function() {
         }
     };
 
+    let currentInteractionEvent = null;
+
     // DOM Elements
     let elements = {};
 
@@ -121,15 +123,23 @@ const DicomDownloader = (function() {
         const urlParams = new URLSearchParams(window.location.search);
         const manifestUrl = urlParams.get('manifestUrl') || urlParams.get('url');
 
-        if (manifestUrl) {
-            elements.madoUrl.value = manifestUrl;
-        }
-        else if (urlParams.get('studyUid')) {
-            const studyUid = urlParams.get('studyUid').trim();
+        try {
+            if (manifestUrl) {
+                elements.madoUrl.value = manifestUrl;
+                await loadFromUrl();
+                return;
+            }
+
+            const studyUidValue = urlParams.get('studyUid');
+            if (!studyUidValue || !studyUidValue.trim()) {
+                return;
+            }
+
+            const studyUid = studyUidValue.trim();
 
             // default FHIR endpoint, TODO get from config
             const baseUrl = './fhir';
-            const url = `${baseUrl}/DocumentReference?study-instance-uid=${studyUid.toString()}`;
+            const url = `${baseUrl}/DocumentReference?study-instance-uid=${encodeURIComponent(studyUid)}`;
 
             const response = await fetch(url, {
                 headers: {
@@ -145,16 +155,20 @@ const DicomDownloader = (function() {
 
             // expects a single document reference per studyUid
             if (!bundle || !bundle.entry || bundle.entry.length !== 1) {
-                throw new Error(`MADO file fetching failed for study UID`);
+                throw new Error('MADO file fetching failed for study UID');
             }
 
             // get the first and only instance of the URL to the DICOM MADO
             // TODO manage also FHIR MADO
             const doc = bundle.entry[0].resource;
             elements.madoUrl.value = doc.content?.[0]?.attachment?.url || '';
-        }
 
-        loadFromUrl();
+            if (elements.madoUrl.value.trim()) {
+                await loadFromUrl();
+            }
+        } catch (error) {
+            showError(`Failed to resolve manifest from URL parameters: ${error.message}`);
+        }
     }
 
     // ==============================
@@ -198,60 +212,142 @@ const DicomDownloader = (function() {
         if (files.length > 0) {
             processFile(files[0]);
         }
+        e.target.value = '';
     }
 
     async function processFile(file) {
         try {
-            // Read file as text first to check its content
-            const text = await file.text();
+            const inspection = await inspectInputBlob(file);
 
-            // Try to parse as JSON to check if it's a FHIR Binary resource
-            let jsonData = null;
-            try {
-                jsonData = JSON.parse(text);
-            } catch (e) {
-                // Not JSON, might be raw DICOM
-            }
-
-            // Check if it's a FHIR Binary resource with base64 DICOM data
-            if (jsonData && jsonData.resourceType === 'Binary' && jsonData.data) {
+            if (inspection.kind === 'binary-fhir') {
                 showToast('Detected FHIR Binary resource, extracting DICOM...', 'info');
-
-                // Decode base64 data to blob
-                const blob = base64ToBlob(jsonData.data, jsonData.contentType || 'application/dicom');
-
-                // Extract filename
-                let filename = jsonData.id || file.name || 'manifest';
-                if (!filename.endsWith('.dcm')) {
-                    filename += '.dcm';
-                }
-
-                // Convert DICOM to FHIR
+                const dicomBlob = base64ToBlob(inspection.json.data, inspection.json.contentType || 'application/dicom');
+                const filename = ensureDicomExtension(inspection.json.id || file.name || 'manifest');
                 showToast(`Converting DICOM file: ${filename}`, 'info');
-                const fhirJson = await convertDicomToFhir(blob, filename);
+                const fhirJson = await convertDicomToFhir(dicomBlob, filename);
                 parseAndLoadManifest(fhirJson, file.name);
-
-            } else {
-                // Check if it's a DICOM file
-                const isDicom = file.name.toLowerCase().endsWith('.dcm') ||
-                               file.type === 'application/dicom';
-
-                if (isDicom) {
-                    // It's a raw DICOM file
-                    showToast(`Converting DICOM file: ${file.name}`, 'info');
-                    const blob = new Blob([text], { type: 'application/dicom' });
-                    const fhirJson = await convertDicomToFhir(blob, file.name);
-                    parseAndLoadManifest(fhirJson, file.name);
-                } else if (jsonData) {
-                    // It's a FHIR JSON manifest (already parsed)
-                    parseAndLoadManifest(text, file.name);
-                } else {
-                    // Assume it's plain text JSON
-                    parseAndLoadManifest(text, file.name);
-                }
+                return;
             }
+
+            if (inspection.kind === 'dicom') {
+                showToast(`Converting DICOM file: ${file.name}`, 'info');
+                const fhirJson = await convertDicomToFhir(file, ensureDicomExtension(file.name || 'manifest'));
+                parseAndLoadManifest(fhirJson, file.name);
+                return;
+            }
+
+            parseAndLoadManifest(inspection.text, file.name);
         } catch (error) {
             showError(`Failed to read file: ${error.message}`);
+        }
+    }
+
+    function isDicomBytes(bytes) {
+        return !!bytes && bytes.length >= 132 &&
+            bytes[128] === 0x44 &&
+            bytes[129] === 0x49 &&
+            bytes[130] === 0x43 &&
+            bytes[131] === 0x4D;
+    }
+
+    function ensureDicomExtension(filename) {
+        const safeName = (filename || 'manifest').trim() || 'manifest';
+        return safeName.toLowerCase().endsWith('.dcm') ? safeName : `${safeName}.dcm`;
+    }
+
+    function extractFilenameFromUrl(url) {
+        try {
+            const urlObj = new URL(url, window.location.origin);
+            const parts = urlObj.pathname.split('/').filter(Boolean);
+            return parts.length > 0 ? parts[parts.length - 1] : '';
+        } catch (_) {
+            const cleaned = String(url || '').split('?')[0].split('#')[0];
+            const parts = cleaned.split('/').filter(Boolean);
+            return parts.length > 0 ? parts[parts.length - 1] : '';
+        }
+    }
+
+    async function inspectInputBlob(blobLike) {
+        const arrayBuffer = await blobLike.arrayBuffer();
+        const bytes = new Uint8Array(arrayBuffer);
+        const name = (blobLike.name || '').toLowerCase();
+        const contentType = (blobLike.type || '').toLowerCase();
+        const looksLikeDicom = isDicomBytes(bytes) || name.endsWith('.dcm') || contentType.includes('application/dicom');
+
+        if (looksLikeDicom) {
+            return { kind: 'dicom', arrayBuffer, bytes };
+        }
+
+        const text = new TextDecoder('utf-8').decode(bytes);
+        let json = null;
+        try {
+            json = JSON.parse(text);
+        } catch (_) {
+            json = null;
+        }
+
+        if (json && json.resourceType === 'Binary' && json.data) {
+            return { kind: 'binary-fhir', arrayBuffer, bytes, text, json };
+        }
+
+        return { kind: 'json', arrayBuffer, bytes, text, json };
+    }
+
+    // ==============================
+    // Loading Functions
+    // ==============================
+
+    async function loadFromUrl() {
+        const url = elements.madoUrl.value.trim();
+        if (!url) {
+            showError('Please enter a MADO manifest URL');
+            return;
+        }
+
+        hideError();
+        showLoading();
+
+        try {
+            // Handle relative URLs
+            let fetchUrl = url;
+            if (!url.startsWith('http')) {
+                // Assume it's a relative path like Binary/xxx or fhir/Binary/xxx
+                fetchUrl = `./${url.replace(/^\.\//, '')}`;
+            }
+
+            // Fetch the file
+            const response = await fetch(fetchUrl, {
+                headers: {
+                    'Accept': 'application/dicom, application/fhir+json, application/json, */*'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const contentType = (response.headers.get('content-type') || '').toLowerCase();
+            const blob = await response.blob();
+            const inspection = await inspectInputBlob(blob);
+
+            if (inspection.kind === 'binary-fhir') {
+                showToast('Detected FHIR Binary resource, extracting DICOM...', 'info');
+                const dicomBlob = base64ToBlob(inspection.json.data, inspection.json.contentType || 'application/dicom');
+                const filename = ensureDicomExtension(inspection.json.id || extractFilenameFromUrl(url) || 'manifest');
+                const fhirJson = await convertDicomToFhir(dicomBlob, filename);
+                parseAndLoadManifest(fhirJson, url);
+            } else if (inspection.kind === 'dicom' || contentType.includes('application/dicom') || contentType.includes('application/octet-stream')) {
+                showToast('Detected DICOM file, converting to FHIR...', 'info');
+                const filename = ensureDicomExtension(extractFilenameFromUrl(url) || 'manifest');
+                const fhirJson = await convertDicomToFhir(blob, filename);
+                parseAndLoadManifest(fhirJson, url);
+            } else {
+                parseAndLoadManifest(inspection.text, url);
+            }
+
+        } catch (error) {
+            showError(`Failed to load manifest: ${error.message}`);
+            hideLoading();
         }
     }
 
@@ -320,185 +416,6 @@ const DicomDownloader = (function() {
     }
 
     // ==============================
-    // Loading Functions
-    // ==============================
-
-    async function loadFromUrl() {
-        const url = elements.madoUrl.value.trim();
-        if (!url) {
-            showError('Please enter a MADO manifest URL');
-            return;
-        }
-
-        hideError();
-        showLoading();
-
-        try {
-            // Handle relative URLs
-            let fetchUrl = url;
-            if (!url.startsWith('http')) {
-                // Assume it's a relative path like Binary/xxx or fhir/Binary/xxx
-                fetchUrl = `./${url.replace(/^\.\//, '')}`;
-            }
-
-            // Fetch the file
-            const response = await fetch(fetchUrl, {
-                headers: {
-                    'Accept': 'application/dicom, application/fhir+json, application/json, */*'
-                }
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-
-            const contentType = response.headers.get('content-type') || '';
-
-            // Try to parse as JSON first to check if it's a FHIR Binary resource
-            let jsonData = null;
-            const text = await response.text();
-            try {
-                jsonData = JSON.parse(text);
-            } catch (e) {
-                // Not JSON, might be raw DICOM
-            }
-
-            // Check if it's a FHIR Binary resource with base64 DICOM data
-            if (jsonData && jsonData.resourceType === 'Binary' && jsonData.data) {
-                showToast('Detected FHIR Binary resource, extracting DICOM...', 'info');
-
-                // Decode base64 data to blob
-                const blob = base64ToBlob(jsonData.data, jsonData.contentType || 'application/dicom');
-
-                // Extract filename
-                let filename = jsonData.id || 'manifest';
-                if (!filename.endsWith('.dcm')) {
-                    filename += '.dcm';
-                }
-
-                // Convert DICOM to FHIR
-                const fhirJson = await convertDicomToFhir(blob, filename);
-                parseAndLoadManifest(fhirJson, url);
-
-            } else if (contentType.includes('application/dicom') ||
-                       contentType.includes('application/octet-stream') ||
-                       url.endsWith('.dcm')) {
-
-                // It's a raw DICOM file - convert to FHIR using the backend converter
-                showToast('Detected DICOM file, converting to FHIR...', 'info');
-                const blob = new Blob([text], { type: 'application/dicom' });
-
-                // Extract a proper filename from the URL or use default
-                let filename = 'manifest.dcm';
-                try {
-                    const urlObj = new URL(url, window.location.origin);
-                    const pathname = urlObj.pathname;
-                    const parts = pathname.split('/');
-                    const lastPart = parts[parts.length - 1];
-                    if (lastPart && lastPart.length > 0) {
-                        filename = lastPart.endsWith('.dcm') ? lastPart : lastPart + '.dcm';
-                    }
-                } catch (e) {
-                    // If URL parsing fails, use the default filename
-                }
-
-                const fhirJson = await convertDicomToFhir(blob, filename);
-                parseAndLoadManifest(fhirJson, url);
-
-            } else {
-                // It's already FHIR JSON
-                parseAndLoadManifest(text, url);
-            }
-
-        } catch (error) {
-            showError(`Failed to load manifest: ${error.message}`);
-            hideLoading();
-        }
-    }
-
-    /**
-     * Convert base64 string to Blob
-     */
-    function base64ToBlob(base64, contentType = '') {
-        const byteCharacters = atob(base64);
-        const byteArrays = [];
-
-        const sliceSize = 512;
-        for (let offset = 0; offset < byteCharacters.length; offset += sliceSize) {
-            const slice = byteCharacters.slice(offset, offset + sliceSize);
-            const byteNumbers = new Array(slice.length);
-            for (let i = 0; i < slice.length; i++) {
-                byteNumbers[i] = slice.charCodeAt(i);
-            }
-            const byteArray = new Uint8Array(byteNumbers);
-            byteArrays.push(byteArray);
-        }
-
-        return new Blob(byteArrays, { type: contentType });
-    }
-
-    async function loadFromPaste() {
-        const text = elements.pasteArea.value.trim();
-        if (!text) {
-            showError('Please paste a MADO manifest');
-            return;
-        }
-
-        parseAndLoadManifest(text, 'pasted-manifest');
-    }
-
-    async function extractJsonFromMultipart(response) {
-        const text = await response.text();
-
-        // Find JSON content in multipart response
-        const jsonMatch = text.match(/\{[\s\S]*"resourceType"[\s\S]*}/);
-        if (jsonMatch) {
-            return jsonMatch[0];
-        }
-
-        // Try to find content after Content-Type: application/json or application/fhir+json
-        const parts = text.split(/--[^\r\n]+/);
-        for (const part of parts) {
-            if (part.includes('application/json') || part.includes('application/fhir+json')) {
-                const jsonStart = part.indexOf('{');
-                const jsonEnd = part.lastIndexOf('}');
-                if (jsonStart !== -1 && jsonEnd !== -1) {
-                    return part.substring(jsonStart, jsonEnd + 1);
-                }
-            }
-        }
-
-        throw new Error('Could not extract JSON from multipart response');
-    }
-
-    function parseAndLoadManifest(text, source) {
-        try {
-            const manifest = JSON.parse(text);
-
-            if (manifest.resourceType !== 'Bundle') {
-                throw new Error('Not a valid FHIR Bundle');
-            }
-
-            state.manifest = manifest;
-            state.studyData = extractStudyData(manifest);
-
-            displayManifestInfo();
-            buildStudyTree();
-            showSuccess(`Manifest loaded successfully from ${source}`);
-
-            // Show panels
-            elements.manifestInfoPanel.style.display = 'block';
-            elements.downloadSettingsPanel.style.display = 'block';
-            elements.downloadActions.style.display = 'flex';
-
-        } catch (error) {
-            showError(`Failed to parse manifest: ${error.message}`);
-        }
-
-        hideLoading();
-    }
-
-    // ==============================
     // Data Extraction
     // ==============================
 
@@ -543,11 +460,12 @@ const DicomDownloader = (function() {
         // Extract series and instances from ImagingStudy
         if (data.imagingStudy && data.imagingStudy.series) {
             for (const series of data.imagingStudy.series) {
+                const seriesDescription = getSeriesDescription(series);
                 const seriesData = {
                     uid: series.uid,
                     number: series.number,
                     modality: series.modality?.coding?.[0]?.code || 'OT',
-                    description: series.description || 'Unnamed Series',
+                    description: seriesDescription,
                     bodyPart: series.bodySite?.concept?.coding?.[0]?.display || '',
                     instances: []
                 };
@@ -588,6 +506,41 @@ const DicomDownloader = (function() {
         }
 
         return data;
+    }
+
+    function getSeriesDescription(series) {
+        const directDescription = series?.description?.trim();
+        if (directDescription) {
+            return directDescription;
+        }
+
+        const extensionDescription = series?.extension?.find(e =>
+            e.url?.includes('series-description') || e.url?.includes('description'))?.valueString?.trim();
+        if (extensionDescription) {
+            return extensionDescription;
+        }
+
+        const parts = [];
+        if (series?.modality?.coding?.[0]?.code) {
+            parts.push(series.modality.coding[0].code);
+        }
+        if (series?.number !== undefined && series?.number !== null && `${series.number}`.trim() !== '') {
+            parts.push(`Series ${series.number}`);
+        }
+        const bodyPart = series?.bodySite?.concept?.coding?.[0]?.display?.trim();
+        if (bodyPart) {
+            parts.push(bodyPart);
+        }
+
+        if (parts.length > 0) {
+            return parts.join(' • ');
+        }
+
+        if (series?.uid) {
+            return `Series ${series.uid.slice(-8)}`;
+        }
+
+        return 'Unnamed Series';
     }
 
     function getWadoRsEndpoint() {
@@ -825,11 +778,11 @@ const DicomDownloader = (function() {
                  data-series-uid="${escapeHtml(series.uid)}"
                  data-item-id="${escapeHtml(itemId)}">
                 <div class="tree-node-header ${instance.isKeyImage ? 'key-image' : ''}" 
-                     onclick="DicomDownloader.toggleInstanceSelection('${escapeHtml(itemId)}', '${escapeHtml(series.uid)}', '${escapeHtml(instance.uid)}')">
+                     onclick="DicomDownloader.setCurrentInteractionEvent(event); DicomDownloader.toggleInstanceSelection('${escapeHtml(itemId)}', '${escapeHtml(series.uid)}', '${escapeHtml(instance.uid)}')">
                     <button class="tree-expand-btn no-children">▶</button>
                     <input type="checkbox" class="tree-checkbox" 
                            id="cb_${escapeHtml(itemId)}"
-                           onchange="DicomDownloader.toggleInstanceSelection('${escapeHtml(itemId)}', '${escapeHtml(series.uid)}', '${escapeHtml(instance.uid)}')" 
+                           onchange="DicomDownloader.setCurrentInteractionEvent(event); DicomDownloader.toggleInstanceSelection('${escapeHtml(itemId)}', '${escapeHtml(series.uid)}', '${escapeHtml(instance.uid)}')" 
                            onclick="event.stopPropagation()">
                     <span class="tree-icon">${instance.isKeyImage ? '⭐' : '🖼️'}</span>
                     <div class="tree-label">
@@ -934,8 +887,8 @@ const DicomDownloader = (function() {
         const cb = document.getElementById(`cb_${itemId}`);
 
         if (cb) {
-            // If called from header click, toggle the checkbox
-            if (!event || event.target !== cb) {
+            const evt = currentInteractionEvent || window.event;
+            if (!evt || evt.target !== cb) {
                 cb.checked = !cb.checked;
             }
 
@@ -946,6 +899,7 @@ const DicomDownloader = (function() {
             }
         }
 
+        currentInteractionEvent = null;
         updateParentCheckboxes();
         updateSelectionInfo();
     }
@@ -1410,7 +1364,7 @@ const DicomDownloader = (function() {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        URL.revokeObjectURL(url);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
     }
 
     function generateFilename(item, index, naming) {
@@ -1561,7 +1515,10 @@ const DicomDownloader = (function() {
         toggleNode,
         toggleStudySelection,
         toggleSeriesSelection,
-        toggleInstanceSelection
+        toggleInstanceSelection,
+        setCurrentInteractionEvent(event) {
+            currentInteractionEvent = event;
+        }
     };
 })();
 

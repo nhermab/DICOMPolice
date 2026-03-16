@@ -200,9 +200,15 @@ function initializeEventListeners() {
 
 function updateEndpointBadge() {
     const badge = document.getElementById('endpointBadge');
-    const url = new URL(config.qidoEndpoint);
-    badge.textContent = url.hostname + (url.port ? ':' + url.port : '');
-    badge.title = config.qidoEndpoint;
+
+    try {
+        const url = new URL(config.qidoEndpoint, window.location.origin);
+        badge.textContent = url.hostname + (url.port ? ':' + url.port : '');
+        badge.title = config.qidoEndpoint;
+    } catch (_) {
+        badge.textContent = 'Invalid endpoint';
+        badge.title = config.qidoEndpoint || 'QIDO-RS endpoint is not configured';
+    }
 }
 
 // ============================================================================
@@ -281,7 +287,17 @@ function clearSearch() {
     document.getElementById('studyDate').value = '';
     document.getElementById('studyDescription').value = '';
     document.getElementById('studyFilter').value = '';
+    document.getElementById('seriesFilter').value = '';
+    document.getElementById('instanceFilter').value = '';
     document.getElementById('errorBanner').style.display = 'none';
+    currentStudies = [];
+    currentSeries = [];
+    currentInstances = [];
+    selectedStudyUid = null;
+    selectedSeriesUid = null;
+    displayStudies([]);
+    updateStats();
+    showStudiesView();
 }
 
 // ============================================================================
@@ -302,7 +318,7 @@ function displayStudies(studies) {
         return;
     }
 
-    studyList.innerHTML = studies.map((study, index) => {
+    studyList.innerHTML = studies.map((study) => {
         const patientName = getTagValue(study, '00100010') || 'Unknown';
         const patientId = getTagValue(study, '00100020') || 'Unknown';
         const studyDate = formatDate(getTagValue(study, '00080020'));
@@ -315,18 +331,18 @@ function displayStudies(studies) {
         const numInstances = getTagValue(study, '00201208') || '?';
 
         return `
-            <div class="study-card" data-study-uid="${studyUid}" onclick="selectStudy('${studyUid}')">
+            <div class="study-card" data-study-uid="${escapeHtml(studyUid)}">
                 <div class="card-header-row">
                     <div>
                         <div class="card-title">${escapeHtml(patientName)}</div>
                         <div class="card-subtitle">ID: ${escapeHtml(patientId)}</div>
                     </div>
-                    <div class="card-badge">${modalities}</div>
+                    <div class="card-badge">${escapeHtml(String(modalities))}</div>
                 </div>
                 <div class="card-tags">
-                    <span class="tag tag-primary">📅 ${studyDate} ${studyTime}</span>
-                    <span class="tag tag-success">📊 ${numSeries} series</span>
-                    <span class="tag tag-warning">🖼️ ${numInstances} instances</span>
+                    <span class="tag tag-primary">📅 ${escapeHtml(`${studyDate} ${studyTime}`.trim())}</span>
+                    <span class="tag tag-success">📊 ${escapeHtml(String(numSeries))} series</span>
+                    <span class="tag tag-warning">🖼️ ${escapeHtml(String(numInstances))} instances</span>
                 </div>
                 <div style="margin-bottom: 0.5rem; color: #374151; font-size: 0.875rem;">
                     <strong>Study:</strong> ${escapeHtml(studyDesc)}
@@ -342,21 +358,22 @@ function displayStudies(studies) {
                     </div>
                 </div>
                 <div class="card-actions">
-                    <button type="button" class="btn-card-action" onclick="event.stopPropagation(); viewStudyTags('${studyUid}')">
+                    <button type="button" class="btn-card-action" data-action="view-study-tags" data-study-uid="${escapeHtml(studyUid)}">
                         🏷️ View Tags
                     </button>
-                    <button type="button" class="btn-card-action" onclick="event.stopPropagation(); selectStudy('${studyUid}')">
+                    <button type="button" class="btn-card-action" data-action="select-study" data-study-uid="${escapeHtml(studyUid)}">
                         📁 View Series
                     </button>
                 </div>
             </div>
         `;
     }).join('');
+
+    attachStudyCardHandlers();
 }
 
 async function selectStudy(studyUid) {
     selectedStudyUid = studyUid;
-    const seriesSection = document.getElementById('seriesSection');
     const seriesList = document.getElementById('seriesList');
     const seriesTitle = document.getElementById('seriesSectionTitle');
 
@@ -422,16 +439,16 @@ function displaySeries(series) {
         const bodyPart = getTagValue(ser, '00180015') || 'N/A';
 
         return `
-            <div class="series-card" data-series-uid="${seriesUid}" onclick="selectSeries('${seriesUid}')">
+            <div class="series-card" data-series-uid="${escapeHtml(seriesUid)}">
                 <div class="card-header-row">
                     <div>
-                        <div class="card-title">Series ${seriesNumber}: ${escapeHtml(modality)}</div>
+                        <div class="card-title">Series ${escapeHtml(String(seriesNumber))}: ${escapeHtml(modality)}</div>
                         <div class="card-subtitle">${escapeHtml(seriesDesc)}</div>
                     </div>
-                    <div class="card-badge">${numInstances} images</div>
+                    <div class="card-badge">${escapeHtml(String(numInstances))} images</div>
                 </div>
                 <div class="card-tags">
-                    <span class="tag tag-primary">📅 ${seriesDate} ${seriesTime}</span>
+                    <span class="tag tag-primary">📅 ${escapeHtml(`${seriesDate} ${seriesTime}`.trim())}</span>
                     <span class="tag">👤 ${escapeHtml(bodyPart)}</span>
                 </div>
                 <div class="card-metadata">
@@ -441,16 +458,18 @@ function displaySeries(series) {
                     </div>
                 </div>
                 <div class="card-actions">
-                    <button type="button" class="btn-card-action" onclick="event.stopPropagation(); viewSeriesTags('${seriesUid}')">
+                    <button type="button" class="btn-card-action" data-action="view-series-tags" data-series-uid="${escapeHtml(seriesUid)}">
                         🏷️ View Tags
                     </button>
-                    <button type="button" class="btn-card-action" onclick="event.stopPropagation(); selectSeries('${seriesUid}')">
+                    <button type="button" class="btn-card-action" data-action="select-series" data-series-uid="${escapeHtml(seriesUid)}">
                         🖼️ View Instances
                     </button>
                 </div>
             </div>
         `;
     }).join('');
+
+    attachSeriesCardHandlers();
 }
 
 async function selectSeries(seriesUid) {
@@ -521,16 +540,16 @@ function displayInstances(instances) {
         const retrieveUrl = getTagValue(inst, '00081190') || '';
 
         return `
-            <div class="instance-card" data-instance-uid="${sopInstanceUid}">
+            <div class="instance-card" data-instance-uid="${escapeHtml(sopInstanceUid)}">
                 <div class="card-header-row">
                     <div>
-                        <div class="card-title">Instance ${instanceNumber}</div>
+                        <div class="card-title">Instance ${escapeHtml(String(instanceNumber))}</div>
                         <div class="card-subtitle">${escapeHtml(sopClassName)}</div>
                     </div>
-                    <div class="card-badge">${numFrames} frame(s)</div>
+                    <div class="card-badge">${escapeHtml(String(numFrames))} frame(s)</div>
                 </div>
                 <div class="card-tags">
-                    <span class="tag">📐 ${rows} × ${columns}</span>
+                    <span class="tag">📐 ${escapeHtml(String(rows))} × ${escapeHtml(String(columns))}</span>
                 </div>
                 <div class="card-metadata">
                     <div class="metadata-item">
@@ -545,11 +564,11 @@ function displayInstances(instances) {
                     ` : ''}
                 </div>
                 <div class="card-actions">
-                    <button type="button" class="btn-card-action" onclick="viewInstanceTags('${sopInstanceUid}')">
+                    <button type="button" class="btn-card-action" data-action="view-instance-tags" data-instance-uid="${escapeHtml(sopInstanceUid)}">
                         🏷️ View Tags
                     </button>
                     ${retrieveUrl ? `
-                    <button type="button" class="btn-card-action" onclick="window.open('${escapeHtml(retrieveUrl)}', '_blank')">
+                    <button type="button" class="btn-card-action" data-action="download-instance" data-retrieve-url="${encodeURIComponent(retrieveUrl)}">
                         📥 Download
                     </button>
                     ` : ''}
@@ -557,6 +576,8 @@ function displayInstances(instances) {
             </div>
         `;
     }).join('');
+
+    attachInstanceCardHandlers();
 }
 
 // ============================================================================
@@ -567,6 +588,7 @@ function showStudiesView() {
     document.getElementById('studiesSection').style.display = 'block';
     document.getElementById('seriesSection').style.display = 'none';
     document.getElementById('instancesSection').style.display = 'none';
+    selectedSeriesUid = null;
 }
 
 function showSeriesView() {
@@ -805,10 +827,68 @@ function filterCards(type, searchText) {
     });
 }
 
-// ============================================================================
-// Utility Functions
-// ============================================================================
+function attachStudyCardHandlers() {
+    document.querySelectorAll('.study-card').forEach(card => {
+        const studyUid = card.dataset.studyUid;
+        if (!studyUid) return;
 
+        card.addEventListener('click', () => selectStudy(studyUid));
+    });
+
+    document.querySelectorAll('[data-action="view-study-tags"]').forEach(button => {
+        button.addEventListener('click', (event) => {
+            event.stopPropagation();
+            viewStudyTags(button.dataset.studyUid);
+        });
+    });
+
+    document.querySelectorAll('[data-action="select-study"]').forEach(button => {
+        button.addEventListener('click', (event) => {
+            event.stopPropagation();
+            selectStudy(button.dataset.studyUid);
+        });
+    });
+}
+
+function attachSeriesCardHandlers() {
+    document.querySelectorAll('.series-card').forEach(card => {
+        const seriesUid = card.dataset.seriesUid;
+        if (!seriesUid) return;
+
+        card.addEventListener('click', () => selectSeries(seriesUid));
+    });
+
+    document.querySelectorAll('[data-action="view-series-tags"]').forEach(button => {
+        button.addEventListener('click', (event) => {
+            event.stopPropagation();
+            viewSeriesTags(button.dataset.seriesUid);
+        });
+    });
+
+    document.querySelectorAll('[data-action="select-series"]').forEach(button => {
+        button.addEventListener('click', (event) => {
+            event.stopPropagation();
+            selectSeries(button.dataset.seriesUid);
+        });
+    });
+}
+
+function attachInstanceCardHandlers() {
+    document.querySelectorAll('[data-action="view-instance-tags"]').forEach(button => {
+        button.addEventListener('click', () => viewInstanceTags(button.dataset.instanceUid));
+    });
+
+    document.querySelectorAll('[data-action="download-instance"]').forEach(button => {
+        button.addEventListener('click', () => {
+            const retrieveUrl = button.dataset.retrieveUrl ? decodeURIComponent(button.dataset.retrieveUrl) : '';
+            if (retrieveUrl) {
+                window.open(retrieveUrl, '_blank', 'noopener');
+            }
+        });
+    });
+}
+
+// ...existing code...
 function getTagValue(dicomObject, tag) {
     const tagData = dicomObject[tag];
     if (!tagData) return null;
