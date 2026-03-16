@@ -351,6 +351,25 @@ const DicomDownloader = (function() {
         }
     }
 
+    async function loadFromPaste() {
+        const pastedText = elements.pasteArea?.value?.trim() || '';
+        if (!pastedText) {
+            showError('Please paste a MADO manifest first');
+            elements.pasteArea?.focus();
+            return;
+        }
+
+        hideError();
+        showLoading();
+
+        try {
+            parseAndLoadManifest(pastedText, 'pasted manifest');
+        } catch (error) {
+            showError(`Failed to load pasted manifest: ${error.message}`);
+            hideLoading();
+        }
+    }
+
     /**
      * Convert a DICOM MADO file to FHIR using the backend converter API
      */
