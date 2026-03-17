@@ -30,11 +30,19 @@ public class MHDConfiguration {
     private String repositoryUniqueId = DicomConstants.DEMO_REPOSITORY_UNIQUE_ID;
     private String retrieveLocationUid = DicomConstants.DEMO_RETRIEVE_LOCATION_UID;
 
+    // homeCommunityId
+    private String homeCommunityId;
+    // another homeCommunityId for testing MHD with multiple communities
+    private String homeCommunityId2;
+
     // FHIR Server Base URL (used to construct absolute URLs)
     private String fhirBaseUrl = "http://localhost:8080/fhir";
 
     // WADO-RS Base URL for DICOM retrieval
     private String wadoRsBaseUrl = "https://ihebelgium.ehealthhub.be/orthanc/dicom-web/wado-rs/studies";
+
+    // XC WADO gateway
+    private String xcWadoGateway = "";
 
     // DICOM Connection Settings
     private String callingAet = "DICOMPOLICE";
@@ -134,7 +142,12 @@ public class MHDConfiguration {
     public String getWadoRsBaseUrl() {
         return wadoRsBaseUrl;
     }
-
+    public String getXcWadoGateway() {
+        return xcWadoGateway;
+    }
+    public void setXcWadoGateway(String xcWadoGateway) {
+        this.xcWadoGateway = xcWadoGateway;
+    }
     public void setWadoRsBaseUrl(String wadoRsBaseUrl) {
         this.wadoRsBaseUrl = wadoRsBaseUrl;
     }
@@ -242,6 +255,24 @@ public class MHDConfiguration {
     public void setIncludeExtendedInstanceMetadata(boolean includeExtendedInstanceMetadata) {
         this.includeExtendedInstanceMetadata = includeExtendedInstanceMetadata;
     }
+
+    public String getHomeCommunityId() {
+        return homeCommunityId;
+    }
+
+    public void setHomeCommunityId(String homeCommunityId) {
+        this.homeCommunityId = homeCommunityId;
+    }
+
+    public String getHomeCommunityId2() {
+        return homeCommunityId2;
+    }
+
+    public void setHomeCommunityId2(String homeCommunityId2) {
+        this.homeCommunityId2 = homeCommunityId2;
+    }
+
+
 
     /**
      * Converts this configuration to a DefaultMetadata object for use with existing DICOM creators.

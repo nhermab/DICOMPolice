@@ -123,6 +123,15 @@ public class DicomToFhirMapper {
             docRef.setSubject(patientRef);
         }
 
+        // new Extension (not yet approved by IHE) for homeCommunityId in MHD Responder responses
+        Extension homeCommunityUid = new Extension();
+        homeCommunityUid.setValue(new Identifier()
+                .setSystem("urn:ietf:rfc:3986")
+                // arbitrary condition based on patient ID in this MHD Responder to assign different homeCommunityId for testing purposes
+                .setValue("203".equals(patientId)?config.getHomeCommunityId():config.getHomeCommunityId2()))
+                .setUrl("https://profiles.ihe.net/ITI/MHD/StructureDefinition/ihe-homeCommunityId");;
+        docRef.addExtension(homeCommunityUid);
+
         // Date - Study Date/Time
         Date studyDate = parseDicomDateTime(study.getString(Tag.StudyDate), study.getString(Tag.StudyTime));
         if (studyDate != null) {

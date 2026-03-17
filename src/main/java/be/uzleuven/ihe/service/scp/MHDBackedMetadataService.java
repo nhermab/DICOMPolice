@@ -2,6 +2,7 @@ package be.uzleuven.ihe.service.scp;
 
 import be.uzleuven.ihe.dicom.constants.CodeConstants;
 import be.uzleuven.ihe.dicom.validator.utils.SRContentTreeUtils;
+import be.uzleuven.ihe.service.MHD.config.MHDConfiguration;
 import be.uzleuven.ihe.service.qido.WadoRsProxyRegistry;
 import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Sequence;
@@ -9,9 +10,12 @@ import org.dcm4che3.data.Tag;
 import org.dcm4che3.data.VR;
 import org.dcm4che3.io.DicomInputStream;
 import org.hl7.fhir.r4.model.DocumentReference;
+import org.hl7.fhir.r4.model.Extension;
+import org.hl7.fhir.r4.model.Identifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayInputStream;
@@ -233,7 +237,10 @@ public class MHDBackedMetadataService {
 
         // Fetch DICOM MADO from MHD
         LOG.info("Fetching MADO from MHD for study {}", studyInstanceUID);
-        byte[] madoBytes = mhdFhirClient.retrieveDocumentRawDICOM(studyInstanceUID);
+        // first search fetch the document reference
+        DocumentReference madoDocRef = mhdFhirClient.getDocumentReference(studyInstanceUID);
+        // then fetch the document itself
+        byte[] madoBytes = mhdFhirClient.retrieveDocumentRawDICOM(madoDocRef);
         if (madoBytes == null) {
             LOG.warn("No MADO found for study {}", studyInstanceUID);
             return null;
@@ -243,6 +250,14 @@ public class MHDBackedMetadataService {
         StudyMetadata metadata = parseDICOMMADO(madoBytes, studyInstanceUID);
         if (metadata != null) {
             metadata.fetchedAt = System.currentTimeMillis();
+            // get non-DICOM info homeCommunityId from the DocumentReference extension (necessary for XC-WADO retrieval)
+            Extension ext = madoDocRef.getExtensionByUrl(
+                    "https://profiles.ihe.net/ITI/MHD/StructureDefinition/ihe-homeCommunityId");
+            if (ext != null && ext.getValue() instanceof Identifier) {
+                Identifier identifier = (Identifier) ext.getValue();
+                metadata.homeCommunityId = identifier.getValue();
+            }
+
             metadataCache.put(studyInstanceUID, metadata);
         }
 
@@ -311,7 +326,7 @@ public class MHDBackedMetadataService {
         if (refSeriesSeq == null) return;
 
         for (Attributes seriesItem : refSeriesSeq) {
-            SeriesMetadata series = extractMetadataFromReferencedSeriesSeqItem(seriesItem, study.studyInstanceUID);
+            SeriesMetadata series = extractMetadataFromReferencedSeriesSeqItem(seriesItem, study);
             study.series.add(series);
             study.numberOfStudyRelatedInstances += series.instances.size();
             if (series.modality != null) {
@@ -343,29 +358,63 @@ public class MHDBackedMetadataService {
     /**
      * Extract some series and instance metadata from CurrentRequestedProcedureEvidenceSequence / ReferencedSeriesSequence item
      */
-    private SeriesMetadata extractMetadataFromReferencedSeriesSeqItem(Attributes seriesItem, String studyInstanceUID) {
+    private SeriesMetadata extractMetadataFromReferencedSeriesSeqItem(Attributes seriesItem, StudyMetadata study) {
         SeriesMetadata series = new SeriesMetadata();
-        series.studyInstanceUID = studyInstanceUID;
+        series.studyInstanceUID = study.studyInstanceUID;
         series.seriesInstanceUID = seriesItem.getString(Tag.SeriesInstanceUID);
         series.modality = seriesItem.getString(Tag.Modality);
         // the following 2 tags should not be present in ReferencedSeriesSequence items?
         series.seriesNumber = seriesItem.getString(Tag.SeriesNumber);
         series.seriesDescription = seriesItem.getString(Tag.SeriesDescription);
 
-        // IMPORTANT: Extract WADO-RS URL for C-MOVE
+        // IMPORTANT: Extract WADO-RS URL for retrieving images
         series.retrieveURL = seriesItem.getString(Tag.RetrieveURL);
         series.retrieveLocationUID = seriesItem.getString(Tag.RetrieveLocationUID);
+        // here process or build RetrieveURL if home community other than local?
+        // also support retrieveLocationUID if present and retrieveURL not present
+        //processRetrieveURLSeries(series, study, mhdFhirClient);
 
         // Extract instances
         Sequence refSopSeq = seriesItem.getSequence(Tag.ReferencedSOPSequence);
         if (refSopSeq != null) {
             for (Attributes sopItem : refSopSeq) {
-                InstanceMetadata instance = extractInstanceMetadata(sopItem, studyInstanceUID, series.seriesInstanceUID, series.retrieveURL);
+                InstanceMetadata instance = extractInstanceMetadata(sopItem, study.studyInstanceUID, series.seriesInstanceUID, series.retrieveURL);
                 series.instances.add(instance);
             }
         }
 
         return series;
+    }
+
+    /**
+     * Process available MADO info and available config to build retrieveURLs on series level
+     * The study and instance level retrieveURLs are currently based on the series level retrieveURLs, is that always so?
+     *
+     * @param series
+     * @param study
+     * @param mHDFhirClient
+     */
+    private void processRetrieveURLSeries(SeriesMetadata series, StudyMetadata study, MHDFhirClient mHDFhirClient){
+        if (mHDFhirClient.getLocalHomeCommunityID().equals(study.homeCommunityId)){
+            if (series.retrieveURL == null && series.retrieveLocationUID != null){
+                // TODO build RetrieveURL based on retrieveLocationUID for local community, not yet implemented,
+                // assuming retrieveURL is provided
+            }
+            else if (series.retrieveURL != null){
+                // do nothing, already specified, hopefully correct. retrieveLocationUID is ignored.
+            }
+        }
+        else{
+            if (series.retrieveLocationUID != null){
+                // build XC WADO URLs
+                String newRetrieveURL = mHDFhirClient.getXcWadoGateway() + "/wado/homeCommunityId/" + study.homeCommunityId
+                        + "/RetrieveLocationUID/" + series.retrieveLocationUID + "/studies/" + study.studyInstanceUID + "/series/" + series.seriesInstanceUID;
+                if (series.retrieveURL != null){
+                    newRetrieveURL += "?retrieveUrl=" + series.retrieveURL; // TODO strip https and /study/... from series.retrieveURL?
+                }
+                series.retrieveURL = newRetrieveURL;
+            }
+        }
     }
 
     /**
@@ -667,6 +716,7 @@ public class MHDBackedMetadataService {
         public int numberOfStudyRelatedSeries;
         public int numberOfStudyRelatedInstances;
         public String retrieveURL;  // Study-level WADO-RS URL (derived from series)
+        public String homeCommunityId;  // homeCommunityId necessary for XC-WADO retrieval
         public List<SeriesMetadata> series = new ArrayList<>();
         public long fetchedAt;
 

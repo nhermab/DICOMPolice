@@ -38,13 +38,27 @@ public class MHDFhirClient {
     private final FhirContext fhirContext;
     private final IParser jsonParser;
     private final String mhdBaseUrl;
+    private final String localHomeCommunityID;
+    private final String xcWadoGateway;
     private final FHIRToMADOConverter fhirToMADOConverter = new FHIRToMADOConverter();
 
-    public MHDFhirClient(@Value("${mado.scp.mhd-fhir-base-url}") String mhdBaseUrl) {
+    public MHDFhirClient(@Value("${mado.scp.mhd-fhir-base-url}") String mhdBaseUrl,
+                         @Value("${mhd.home-community-id}") String localHomeCommunityID,
+                         @Value("${mhd.xc-wado-gateway}") String xcWadoGateway) {
         this.mhdBaseUrl = mhdBaseUrl;
+        this.localHomeCommunityID = localHomeCommunityID;
+        this.xcWadoGateway = xcWadoGateway;
         this.fhirContext = FhirContext.forR4();
         this.jsonParser = fhirContext.newJsonParser();
         LOG.info("MHD FHIR Client initialized with base URL: {}", mhdBaseUrl);
+    }
+
+    public String getLocalHomeCommunityID() {
+        return localHomeCommunityID;
+    }
+
+    public String getXcWadoGateway() {
+        return xcWadoGateway;
     }
 
     /**
@@ -190,7 +204,7 @@ public class MHDFhirClient {
     }
 
     /**
-     * Retrieve a single DocumentReference by Study Instance UID.
+     * Retrieve a single (first in the list) DocumentReference by Study Instance UID.
      */
     public DocumentReference getDocumentReference(String studyInstanceUid) throws IOException {
         List<DocumentReference> results = searchDocumentReferences(null, null, studyInstanceUid, null, null, null);
@@ -198,24 +212,20 @@ public class MHDFhirClient {
     }
 
     /**
-     * Retrieve DICOM MADO manifest (Binary resource) for a study.
+     * Retrieve DICOM MADO manifest (Binary resource) from a study DocumentReference.
      * Implements ITI-68 (Retrieve Document) transaction?
      *
      * Currently the FHIR MADO is also fetched if provided by MHD, but it gets converted to DICOM MADO
-     * Only the first document reference found for the input studyUID is used.
      *
      * // TODO: add separate function retrieveDocumentFHIRMADO
      *
-     * @param studyInstanceUid Study Instance UID
+     * @param madoDocRef MADO Document Reference instance
      * @return Raw bytes of the DICOM MADO manifest, or null if not found
      */
-    public byte[] retrieveDocumentRawDICOM(String studyInstanceUid) throws IOException {
-
-        // first search fetch the document reference
-        DocumentReference dicomMadoDocRef = getDocumentReference(studyInstanceUid);
+    public byte[] retrieveDocumentRawDICOM(DocumentReference madoDocRef) throws IOException {
 
         // then fetch the URL to the content attachment raw document
-        Attachment document = dicomMadoDocRef.getContent().get(0).getAttachment();
+        Attachment document = madoDocRef.getContent().get(0).getAttachment();
         String manifestUrl = document.getUrl();
 
         if ("application/dicom".equals(document.getContentType())) {
@@ -232,11 +242,11 @@ public class MHDFhirClient {
             if (responseCode == 200) {
                 try (InputStream is = conn.getInputStream()) {
                     byte[] data = is.readAllBytes();
-                    LOG.debug("Retrieved {} bytes for study {}", data.length, studyInstanceUid);
+                    LOG.debug("Retrieved {} bytes from document reference {}", data.length, madoDocRef.getMasterIdentifier());
                     return data;
                 }
             } else if (responseCode == 404) {
-                LOG.warn("MADO manifest not found for study {}", studyInstanceUid);
+                LOG.warn("MADO manifest not found in document reference {}", madoDocRef.getMasterIdentifier());
                 return null;
             } else {
                 LOG.error("HTTP {} retrieving MADO manifest from: {}", responseCode, manifestUrl);
@@ -263,7 +273,7 @@ public class MHDFhirClient {
                     return attributesToDicomBytes(attr);
                 }
             } else if (responseCode == 404) {
-                LOG.warn("MADO manifest not found for study {}", studyInstanceUid);
+                LOG.warn("MADO manifest not found in document reference {}", madoDocRef.getMasterIdentifier());
                 return null;
             } else {
                 LOG.error("HTTP {} retrieving MADO manifest from: {}", responseCode, manifestUrl);
