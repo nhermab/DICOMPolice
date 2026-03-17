@@ -129,7 +129,7 @@ public class MADOManifestValidator extends KeyObjectSelectionValidator {
         if (qualifiers == null || qualifiers.isEmpty()) {
             result.addError(ValidationMessages.MADO_ISSUER_PATIENT_ID_QUALIFIERS_MISSING, modulePath);
         } else {
-            // Ensure Universal Entity ID (0010,0032) and type ISO (0010,0033) are present
+            // Ensure Universal Entity ID (0040,0032) and type ISO (0040,0033) are present
             Attributes first = qualifiers.get(0);
             String universalEntityId = first.getString(Tag.UniversalEntityID);
             String universalEntityIdType = first.getString(Tag.UniversalEntityIDType);
@@ -145,17 +145,16 @@ public class MADOManifestValidator extends KeyObjectSelectionValidator {
             }
 
             // MADO-REC-004: Cross-check IssuerOfPatientID (0010,0021) vs UniversalEntityID.
-            // Only compare when IssuerOfPatientID looks like an OID (contains '.').
-            // A plain local namespace label (e.g. "HOSPITAL_A") is structurally different
-            // from an OID and cannot be meaningfully compared by string equality.
+            // IssuerOfPatientID (VR=LO) is a human-readable label (e.g. "General Hospital"),
+            // while UniversalEntityID (0040,0032) is a machine-readable OID/UUID.
+            // These are structurally different and cannot be compared by string equality.
+            // Per MADO spec (Page 42), we only verify that both are present when either is.
             String issuerOfPatientID = dataset.getString(Tag.IssuerOfPatientID);
             if (issuerOfPatientID != null && !issuerOfPatientID.trim().isEmpty()
-                    && universalEntityId != null && !universalEntityId.trim().isEmpty()
-                    && issuerOfPatientID.contains(".")) {
-                if (!issuerOfPatientID.trim().equals(universalEntityId.trim())) {
-                    result.addWarning(String.format(ValidationMessages.MADO_ISSUER_PATIENT_ID_MISMATCH,
-                            issuerOfPatientID, universalEntityId), modulePath);
-                }
+                    && (universalEntityId == null || universalEntityId.trim().isEmpty())) {
+                result.addWarning("IssuerOfPatientID (0010,0021) is present but UniversalEntityID (0040,0032) " +
+                        "in IssuerOfPatientIDQualifiersSequence is missing/empty. Both should be present " +
+                        "to fully identify the patient ID assigning authority.", modulePath);
             }
         }
 
@@ -202,12 +201,15 @@ public class MADOManifestValidator extends KeyObjectSelectionValidator {
             result.addError(ValidationMessages.MADO_STUDY_TIME_MISSING, modulePath);
         }
 
-        // Accession Number SHALL be present; if multiple accession numbers exist, it SHALL be empty.
+        // Accession Number (0008,0050) - R+ in MADO, treated as Type 2:
+        // The tag SHALL be present. It may be empty when multiple accession numbers
+        // exist (conveyed via ReferencedRequestSequence items).
         String accessionNumber = dataset.getString(Tag.AccessionNumber);
-        if (accessionNumber == null) {
-            // Type 2 in DICOM, but the MADO checklist says SHALL be present
+        if (!dataset.contains(Tag.AccessionNumber)) {
+            // Tag doesn't exist at all → error
             result.addError(ValidationMessages.MADO_ACCESSION_NUMBER_MISSING, modulePath);
         }
+        // Note: if the tag exists but is empty, that's valid when multiple requests are present
 
         // If multiple ReferencedRequestSequence items exist, accession should be empty
         Sequence refRequestSeq = dataset.getSequence(Tag.ReferencedRequestSequence);
@@ -218,17 +220,13 @@ public class MADOManifestValidator extends KeyObjectSelectionValidator {
             }
         }
 
-        // If Accession Number present and non-empty, require Issuer
+        // IssuerOfAccessionNumberSequence (0008,0051) is RC+ (Required Conditional):
+        // Condition: "Required if Accession Number (0008,0050) is not empty"
+        // Must check the VALUE of AccessionNumber, not just its presence.
         if (accessionNumber != null && !accessionNumber.trim().isEmpty()) {
             if (!dataset.contains(Tag.IssuerOfAccessionNumberSequence)) {
-                result.addError(ValidationMessages.MADO_ISSUER_ACCESSION_INCONSISTENT, modulePath);
+                result.addError(ValidationMessages.MADO_ISSUER_ACCESSION_MISSING, modulePath);
             }
-        }
-
-        // If AccessionNumber attribute is present (even blank), issuer is conditionally required (RC+).
-        // Note: ReferencedRequestSequence has its own stricter issuer checks per item.
-        if (dataset.contains(Tag.AccessionNumber) && !dataset.contains(Tag.IssuerOfAccessionNumberSequence)) {
-            result.addError(ValidationMessages.MADO_ISSUER_ACCESSION_MISSING, modulePath);
         }
     }
 
