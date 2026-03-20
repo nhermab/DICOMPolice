@@ -57,12 +57,12 @@ public class WadoURIProxyController {
         instanceAttrs.setString(Tag.SeriesInstanceUID, VR.UI, seriesUID);
         instanceAttrs.setString(Tag.SOPInstanceUID, VR.UI, instanceUID);
         List<MHDBackedMetadataService.InstanceMetadata> instanceMetadataList = metadataService.findInstances(instanceAttrs);
-        if (instanceMetadataList.isEmpty() || instanceMetadataList.size() > 1 || instanceMetadataList.get(0).retrieveURL == null || instanceMetadataList.get(0).retrieveURL.isEmpty()) {
+        if (instanceMetadataList.isEmpty() || instanceMetadataList.size() > 1 || instanceMetadataList.get(0).effectiveRetrieveURL == null || instanceMetadataList.get(0).effectiveRetrieveURL.isEmpty()) {
             LOGGER.warn("Instance not found in metadata service: {}/{}/{}", studyUID, seriesUID, instanceUID);
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(("Instance not found: " + studyUID + "/" + seriesUID + "/" + instanceUID).getBytes());
         }
-        String remoteUrl = instanceMetadataList.get(0).retrieveURL;
+        String remoteUrl = instanceMetadataList.get(0).effectiveRetrieveURL;
 
         // Additional WADO-URI and WADO-RS URL parameters are not identical
         // must convert if possible, not supported yet

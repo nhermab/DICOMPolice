@@ -2,7 +2,6 @@ package be.uzleuven.ihe.service.scp;
 
 import be.uzleuven.ihe.dicom.constants.CodeConstants;
 import be.uzleuven.ihe.dicom.validator.utils.SRContentTreeUtils;
-import be.uzleuven.ihe.service.MHD.config.MHDConfiguration;
 import be.uzleuven.ihe.service.qido.WadoRsProxyRegistry;
 import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Sequence;
@@ -15,11 +14,12 @@ import org.hl7.fhir.r4.model.Identifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
@@ -248,8 +248,11 @@ public class MHDBackedMetadataService {
 
         // Parse DICOM MADO
         StudyMetadata metadata = parseDICOMMADO(madoBytes, studyInstanceUID);
+
+        // add some additional non-DICOM metadata to the study
         if (metadata != null) {
             metadata.fetchedAt = System.currentTimeMillis();
+
             // get non-DICOM info homeCommunityId from the DocumentReference extension (necessary for XC-WADO retrieval)
             Extension ext = madoDocRef.getExtensionByUrl(
                     "https://profiles.ihe.net/ITI/MHD/StructureDefinition/ihe-homeCommunityId");
@@ -257,6 +260,12 @@ public class MHDBackedMetadataService {
                 Identifier identifier = (Identifier) ext.getValue();
                 metadata.homeCommunityId = identifier.getValue();
             }
+
+            // handle various scenarios for specifying URLs for (XC-)WADO-RS image retrieval:
+            // process and build final effective URLs and store them into study/series/instanceMetadata
+            // must happen after the MADO is processed and after the home community ID is extracted
+            // this should be the only place where these URLs are modified
+            buildEffectiveRetrieveURLs(metadata, mhdFhirClient);
 
             metadataCache.put(studyInstanceUID, metadata);
         }
@@ -300,7 +309,6 @@ public class MHDBackedMetadataService {
         addMetadataFromTID1600(attrs, study);
 
         study.numberOfStudyRelatedSeries = study.series.size();
-        deriveStudyRetrieveURL(study);
 
         return study;
     }
@@ -370,9 +378,6 @@ public class MHDBackedMetadataService {
         // IMPORTANT: Extract WADO-RS URL for retrieving images
         series.retrieveURL = seriesItem.getString(Tag.RetrieveURL);
         series.retrieveLocationUID = seriesItem.getString(Tag.RetrieveLocationUID);
-        // here process or build RetrieveURL if home community other than local?
-        // also support retrieveLocationUID if present and retrieveURL not present
-        //processRetrieveURLSeries(series, study, mhdFhirClient);
 
         // Extract instances
         Sequence refSopSeq = seriesItem.getSequence(Tag.ReferencedSOPSequence);
@@ -387,34 +392,71 @@ public class MHDBackedMetadataService {
     }
 
     /**
-     * Process available MADO info and available config to build retrieveURLs on series level
-     * The study and instance level retrieveURLs are currently based on the series level retrieveURLs, is that always so?
+     * Process available MADO and MHD info and available config to build the final URLs for image retrieval on series level
+     * and store them into seriesMetadata objects as effectiveRetrieveURLs
+     * The URLs for Study/InstanceMetadata objects are currently based on the SeriesMetadata URLs
      *
      * @param series
      * @param study
      * @param mHDFhirClient
      */
-    private void processRetrieveURLSeries(SeriesMetadata series, StudyMetadata study, MHDFhirClient mHDFhirClient){
-        if (mHDFhirClient.getLocalHomeCommunityID().equals(study.homeCommunityId)){
-            if (series.retrieveURL == null && series.retrieveLocationUID != null){
-                // TODO build RetrieveURL based on retrieveLocationUID for local community, not yet implemented,
-                // assuming retrieveURL is provided
-            }
-            else if (series.retrieveURL != null){
-                // do nothing, already specified, hopefully correct. retrieveLocationUID is ignored.
-            }
-        }
-        else{
-            if (series.retrieveLocationUID != null){
-                // build XC WADO URLs
-                String newRetrieveURL = mHDFhirClient.getXcWadoGateway() + "/wado/homeCommunityId/" + study.homeCommunityId
-                        + "/RetrieveLocationUID/" + series.retrieveLocationUID + "/studies/" + study.studyInstanceUID + "/series/" + series.seriesInstanceUID;
-                if (series.retrieveURL != null){
-                    newRetrieveURL += "?retrieveUrl=" + series.retrieveURL; // TODO strip https and /study/... from series.retrieveURL?
+    private StudyMetadata buildEffectiveRetrieveURLs(StudyMetadata study, MHDFhirClient mHDFhirClient){
+        // first process the series, because the retrieveURLs are currently (in this implementation)
+        // filled in in MADO only for the series
+        // TODO RetrieveURL is not compulsory at any level, so handle also the cases where it is specified only at study level
+        //    or only at instance level
+        for (SeriesMetadata series : study.series) {
+            if (mHDFhirClient.getLocalHomeCommunityID().equals(study.homeCommunityId) || study.homeCommunityId == null) {
+                if (series.retrieveURL == null && series.retrieveLocationUID != null) {
+                    // TODO build RetrieveURL based on retrieveLocationUID for local community, not yet implemented,
+                    // assuming RetrieveURL is provided in local community
+                } else if (series.retrieveURL != null) {
+                    // sometimes RetrieveURL contains the /studies/.../series/... part, sometimes not, depends on whom you ask
+                    // DICOM includes that part, IHE/MADO/XC-WADO don't...
+                    String baseURL = series.retrieveURL.split("/studies")[0];
+                    series.effectiveRetrieveURL = baseURL + "/studies/" + study.studyInstanceUID + "/series/" + series.seriesInstanceUID;
                 }
-                series.retrieveURL = newRetrieveURL;
+            } else {
+                // XC-WADO
+                // RetrieveLocationUID required
+                // RetrieveURL should be only the base URL to WADO-RS service, without /studies/.../series/...,
+                // but may not always be the case
+                if (series.retrieveLocationUID != null) {
+                    try {
+                        // build XC WADO URLs
+                        String effectiveRetrieveURL = mHDFhirClient.getXcWadoGateway() + "/wado/homeCommunityId/" + URLEncoder.encode(study.homeCommunityId, StandardCharsets.UTF_8.toString())
+                                + "/RetrieveLocationUID/" + series.retrieveLocationUID + "/studies/" + study.studyInstanceUID + "/series/" + series.seriesInstanceUID;
+                        if (series.retrieveURL != null) {
+                            // sometimes RetrieveURL contains the /studies/.../series/... part, sometimes not, depends on whom you ask
+                            // DICOM includes, IHE/MADO/XC-WADO don't...
+                            String baseURL = series.retrieveURL.split("/studies")[0];
+                            effectiveRetrieveURL += "?retrieveUrl=" + URLEncoder.encode(baseURL, StandardCharsets.UTF_8.toString());
+                        }
+                        series.effectiveRetrieveURL = effectiveRetrieveURL;
+                    }
+                    catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+
+                }
             }
+            // apply to instances
+            for (InstanceMetadata instance : series.instances) {
+                // Construct instance-level Retrieve URL from series-level URL
+                // MADO stores Retrieve URL at series level, so we build instance URL by appending /instances/{sopUID}
+                //instance.effectiveRetrieveURL = sopItem.getString(Tag.RetrieveURL);  // Check if explicitly present first
+                if (instance.effectiveRetrieveURL == null && series.effectiveRetrieveURL != null && instance.sopInstanceUID != null) {
+                    // Construct: {seriesURL}/instances/{sopInstanceUID}
+                    //instance.effectiveRetrieveURL = series.effectiveRetrieveURL + "/instances/" + instance.sopInstanceUID;
+                    instance.effectiveRetrieveURL = series.effectiveRetrieveURL.replace(series.seriesInstanceUID,series.seriesInstanceUID + "/instances/" + instance.sopInstanceUID);
+                }
+            }
+
+            // should be the same for all series?
+            study.effectiveRetrieveURL = series.effectiveRetrieveURL.split("/series")[0];
+
         }
+        return study;
     }
 
     /**
@@ -436,14 +478,6 @@ public class MHDBackedMetadataService {
         instance.numberOfFrames = sopItem.getString(Tag.NumberOfFrames);
         instance.rows = sopItem.getString(Tag.Rows);
         instance.columns = sopItem.getString(Tag.Columns);
-
-        // Construct instance-level Retrieve URL from series-level URL
-        // MADO stores Retrieve URL at series level, so we build instance URL by appending /instances/{sopUID}
-        instance.retrieveURL = sopItem.getString(Tag.RetrieveURL);  // Check if explicitly present first
-        if (instance.retrieveURL == null && seriesRetrieveURL != null && instance.sopInstanceUID != null) {
-            // Construct: {seriesURL}/instances/{sopInstanceUID}
-            instance.retrieveURL = seriesRetrieveURL + "/instances/" + instance.sopInstanceUID;
-        }
 
         return instance;
     }
@@ -716,8 +750,12 @@ public class MHDBackedMetadataService {
         public int numberOfStudyRelatedSeries;
         public int numberOfStudyRelatedInstances;
         public String retrieveURL;  // Study-level WADO-RS URL (derived from series)
-        public String homeCommunityId;  // homeCommunityId necessary for XC-WADO retrieval
         public List<SeriesMetadata> series = new ArrayList<>();
+        // The final effective URL that can be used for fetching the images,
+        // after processing various DICOM and non-DICOM
+        // info about the WADO-RS endpoints
+        public String effectiveRetrieveURL;
+        public String homeCommunityId;  // homeCommunityId necessary for XC-WADO retrieval
         public long fetchedAt;
 
         public Attributes toAttributes() {
@@ -767,6 +805,10 @@ public class MHDBackedMetadataService {
         public String seriesNumber;
         public String seriesDescription;
         public String retrieveURL;  // WADO-RS URL from MADO
+        // The final effective URL that can be used for fetching the images,
+        // after processing various DICOM and non-DICOM
+        // info about the WADO-RS endpoints
+        public String effectiveRetrieveURL;
         public String retrieveLocationUID;
         public List<InstanceMetadata> instances = new ArrayList<>();
 
@@ -812,6 +854,10 @@ public class MHDBackedMetadataService {
         public String rows;
         public String columns;
         public String retrieveURL;  // Instance-level WADO-RS URL if present
+        // The final effective URL that can be used for fetching the images,
+        // after processing various DICOM and non-DICOM
+        // info about the WADO-RS endpoints
+        public String effectiveRetrieveURL;
 
         public Attributes toAttributes() {
             Attributes attrs = new Attributes();

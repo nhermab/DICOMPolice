@@ -255,7 +255,7 @@ public class MHDBackedCMoveExecutor {
                 // Find specific instance
                 for (MHDBackedMetadataService.InstanceMetadata inst : series.instances) {
                     if (inst.sopInstanceUID.equals(instanceFilter)) {
-                        String url = buildInstanceUrl(study.studyInstanceUID, series, inst);
+                        String url = inst.effectiveRetrieveURL;
                         RetrievalTask task = new RetrievalTask(url, 1, inst.sopInstanceUID,
                                 inst.sopClassUID, series.seriesInstanceUID);
 
@@ -267,7 +267,7 @@ public class MHDBackedCMoveExecutor {
             } else {
                 // Retrieve all instances in series, grouped by SOP Class
                 for (MHDBackedMetadataService.InstanceMetadata inst : series.instances) {
-                    String url = buildInstanceUrl(study.studyInstanceUID, series, inst);
+                    String url = inst.effectiveRetrieveURL;
                     RetrievalTask task = new RetrievalTask(url, 1, inst.sopInstanceUID,
                             inst.sopClassUID, series.seriesInstanceUID);
 
@@ -306,6 +306,7 @@ public class MHDBackedCMoveExecutor {
         AtomicInteger downloadedCount = new AtomicInteger(0);
 
         for (RetrievalTask task : tasks) {
+            LOG.info("Effectively used (XC-)WADO-RS URL {}", task.wadoRsUrl);
             downloadPool.submit(() -> {
                 try {
                     DicomInstance instance = downloadInstance(task, cached);
@@ -601,25 +602,30 @@ public class MHDBackedCMoveExecutor {
     /**
      * Build WADO-RS URL for a specific instance.
      */
+    /*
     private String buildInstanceUrl(String studyUID,
                                      MHDBackedMetadataService.SeriesMetadata series,
                                      MHDBackedMetadataService.InstanceMetadata instance) {
         // Use instance-level URL if present
-        if (instance.retrieveURL != null && !instance.retrieveURL.isEmpty()) {
-            return instance.retrieveURL;
+        if (instance.effectiveRetrieveURL != null && !instance.effectiveRetrieveURL.isEmpty()) {
+            return instance.effectiveRetrieveURL;
         }
 
         // Use series URL as base and append instance
-        String baseUrl = series.retrieveURL;
+        String baseUrl = series.effectiveRetrieveURL;
         if (baseUrl != null && !baseUrl.isEmpty()) {
             return baseUrl + "/instances/" + instance.sopInstanceUID;
         }
 
         // Fall back to configured base URL
+
         return config.getWadoRsBaseUrl() + "/" + studyUID +
                 "/series/" + series.seriesInstanceUID +
                 "/instances/" + instance.sopInstanceUID;
+
     }
+
+     */
 
 
     private int countTotalInstances(List<RetrievalTask> tasks) {
