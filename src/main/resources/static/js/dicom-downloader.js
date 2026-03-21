@@ -242,6 +242,21 @@ const DicomDownloader = (function() {
         }
     }
 
+    function base64ToBlob(base64, mimeType) {
+        const byteChars = atob(base64);
+        const byteArrays = [];
+        const sliceSize = 512;
+        for (let offset = 0; offset < byteChars.length; offset += sliceSize) {
+            const slice = byteChars.slice(offset, offset + sliceSize);
+            const byteNumbers = new Array(slice.length);
+            for (let i = 0; i < slice.length; i++) {
+                byteNumbers[i] = slice.charCodeAt(i);
+            }
+            byteArrays.push(new Uint8Array(byteNumbers));
+        }
+        return new Blob(byteArrays, { type: mimeType || 'application/octet-stream' });
+    }
+
     function isDicomBytes(bytes) {
         return !!bytes && bytes.length >= 132 &&
             bytes[128] === 0x44 &&
@@ -366,6 +381,67 @@ const DicomDownloader = (function() {
             parseAndLoadManifest(pastedText, 'pasted manifest');
         } catch (error) {
             showError(`Failed to load pasted manifest: ${error.message}`);
+            hideLoading();
+        }
+    }
+
+    /**
+     * Parse a FHIR manifest (JSON string or object) and load it into the UI.
+     * Called from all three load paths: URL, file drop, and paste.
+     *
+     * @param {string|object} manifestData - Raw JSON text or already-parsed object
+     * @param {string} sourceName - Human-readable source label for error messages
+     */
+    function parseAndLoadManifest(manifestData, sourceName) {
+        try {
+            // Allow callers to pass either a raw JSON string or an already-parsed object
+            let bundle;
+            if (typeof manifestData === 'string') {
+                try {
+                    bundle = JSON.parse(manifestData);
+                } catch (parseError) {
+                    throw new Error(`Invalid JSON in manifest: ${parseError.message}`);
+                }
+            } else if (manifestData && typeof manifestData === 'object') {
+                bundle = manifestData;
+            } else {
+                throw new Error('Manifest data is empty or unreadable');
+            }
+
+            // Basic FHIR Bundle validation
+            if (!bundle.resourceType) {
+                throw new Error('Not a FHIR resource (missing resourceType)');
+            }
+            if (bundle.resourceType !== 'Bundle') {
+                throw new Error(`Expected a FHIR Bundle, got: ${bundle.resourceType}`);
+            }
+            if (!bundle.entry || bundle.entry.length === 0) {
+                throw new Error('FHIR Bundle contains no entries');
+            }
+
+            // Store manifest and extract structured study data
+            state.manifest = bundle;
+            state.studyData = extractStudyData(bundle);
+
+            if (!state.studyData.imagingStudy) {
+                throw new Error('No ImagingStudy resource found in manifest');
+            }
+
+            // Reveal UI panels
+            elements.manifestInfoPanel.style.display = 'block';
+            elements.downloadSettingsPanel.style.display = 'block';
+            elements.studyTreePanel.style.display = 'block';
+            elements.downloadActions.style.display = 'flex';
+            elements.progressPanel.style.display = 'none';
+
+            hideError();
+            displayManifestInfo();
+            buildStudyTree();
+            selectAll();
+
+            showToast(`✓ Manifest loaded from ${sourceName}`, 'success');
+        } catch (error) {
+            showError(`Failed to load manifest: ${error.message}`);
             hideLoading();
         }
     }
