@@ -2,9 +2,7 @@ package be.uzleuven.ihe.service.scp;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
-import org.hl7.fhir.r4.model.Attachment;
-import org.hl7.fhir.r4.model.Bundle;
-import org.hl7.fhir.r4.model.DocumentReference;
+import org.hl7.fhir.r4.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -106,7 +104,7 @@ public class MHDFhirClient {
 
         if (studyInstanceUid != null && !studyInstanceUid.isEmpty()) {
             // not specified in the trial standard, tentative example
-            params.add("study-instance-uid=" + urlEncode(studyInstanceUid));
+            params.add("identifier=" + urlEncode(studyInstanceUid));
         }
 
         if (modality != null && !modality.isEmpty()) {
@@ -187,6 +185,50 @@ public class MHDFhirClient {
         LOG.info("Retrieved {} DocumentReferences from MHD endpoint", results.size());
         return results;
     }
+
+    /**
+     * Fetch a Patient resource from a known URL.
+     *
+     * @param patientId The patient ID (e.g., "12345")
+     * @return Patient resource, or null if not found
+     * @throws IOException if the HTTP request fails
+     */
+    public Patient fetchPatientResource(String patientResourceUrl) throws IOException {
+        // Build the full URL
+        StringBuilder urlBuilder = new StringBuilder(mhdBaseUrl);
+        if (!mhdBaseUrl.endsWith("/")) {
+            urlBuilder.append("/");
+        }
+        urlBuilder.append(patientResourceUrl);
+        String url = urlBuilder.toString();
+
+        LOG.info("Fetching Patient from: {}", url);
+
+        // Make HTTP request
+        HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
+        conn.setRequestMethod("GET");
+        conn.setRequestProperty("Accept", "application/fhir+json");
+        conn.setConnectTimeout(10000);
+        conn.setReadTimeout(30000);
+
+        int responseCode = conn.getResponseCode();
+        if (responseCode == 200) {
+            try (InputStream is = conn.getInputStream()) {
+                // Parse as Patient resource (NOT a Bundle)
+                Patient patient = jsonParser.parseResource(Patient.class, is);
+                LOG.info("Retrieved Patient with ID: {}", patient.getId());
+                return patient;
+            }
+        } else if (responseCode == 404) {
+            LOG.warn("Patient not found from url: {}", patientResourceUrl);
+            return null;
+        } else {
+            String errorMsg = "HTTP " + responseCode + " from FHIR endpoint: " + url;
+            LOG.error(errorMsg);
+            throw new IOException(errorMsg);
+        }
+    }
+
 
     /**
      * Fetch next page of results using pagination link.

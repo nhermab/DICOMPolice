@@ -11,6 +11,7 @@ import org.dcm4che3.io.DicomInputStream;
 import org.hl7.fhir.r4.model.DocumentReference;
 import org.hl7.fhir.r4.model.Extension;
 import org.hl7.fhir.r4.model.Identifier;
+import org.hl7.fhir.r4.model.Patient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -681,11 +682,29 @@ public class MHDBackedMetadataService {
         org.hl7.fhir.r4.model.Reference subject = docRef.getSubject();
         if (subject == null) return;
 
-        if (subject.getIdentifier() != null) {
-            study.patientId = subject.getIdentifier().getValue();
-        }
-        if (subject.getDisplay() != null && !subject.getDisplay().isEmpty()) {
-            study.patientName = subject.getDisplay();
+        if (subject.getIdentifier() != null && subject.getIdentifier().getValue() != null ) {
+                study.patientId = subject.getIdentifier().getValue();
+                if (subject.getDisplay() != null && !subject.getDisplay().isEmpty()) {
+                    study.patientName = subject.getDisplay();
+                }
+
+       }
+        else if (subject.getReference() != null) {
+            // rather do a new request instead of include,
+            // the included part is an additional entry in the bundle, so no access to it here
+            try {
+                Patient patient = mhdFhirClient.fetchPatientResource(subject.getReference());
+                if (patient != null) {
+                    if (patient.hasIdentifier()) {
+                        study.patientId = patient.getIdentifierFirstRep().getValue();
+                    }
+                    if (patient.hasName() && !patient.getName().isEmpty()) {
+                        study.patientName = patient.getNameFirstRep().getNameAsSingleString();
+                    }
+                }
+            } catch (Exception e) {
+                LOG.error(e.getMessage());
+            }
         }
     }
 
