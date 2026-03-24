@@ -314,13 +314,113 @@ public class MHDBackedMetadataService {
      * Parse a MADO manifest into structured metadata.
      */
     private StudyMetadata parseDICOMMADO(byte[] madoBytes, String studyInstanceUID) {
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Parsing MADO for study {} ({} bytes), first bytes:\n{}",
+                    studyInstanceUID, madoBytes.length, hexDump(madoBytes, 256));
+        }
         try (DicomInputStream dis = new DicomInputStream(new ByteArrayInputStream(madoBytes))) {
             Attributes attrs = dis.readDataset();
             return extractStudyMetadata(attrs);
-        } catch (IOException e) {
-            LOG.error("Failed to parse MADO for study {}: {}", studyInstanceUID, e.getMessage());
+        } catch (IOException firstError) {
+            LOG.error("Failed to parse MADO for study {} ({} bytes). First 256 bytes:\n{}",
+                    studyInstanceUID, madoBytes.length, hexDump(madoBytes, 256));
+            LOG.error("Parse error: {}", firstError.getMessage());
+
+            // Dump the raw bytes to disk for offline analysis
+            dumpToDisk(madoBytes, studyInstanceUID);
+
+            // Recovery: the server may prepend garbage bytes before the 128-byte preamble + "DICM" magic.
+            // Scan for the "DICM" marker at offset 132 (preamble[128] + "DICM"[4]) within
+            // a reasonable window and retry from the start of that preamble block.
+            int dicmOffset = findDICMMarker(madoBytes);
+            if (dicmOffset > 0) {
+                int preambleStart = dicmOffset - 128;
+                if (preambleStart >= 0) {
+                    LOG.warn("Found DICM marker at offset {} (preamble starts at {}), retrying parse after stripping {} leading bytes",
+                            dicmOffset, preambleStart, preambleStart);
+                    byte[] trimmed = java.util.Arrays.copyOfRange(madoBytes, preambleStart, madoBytes.length);
+                    try (DicomInputStream dis2 = new DicomInputStream(new ByteArrayInputStream(trimmed))) {
+                        Attributes attrs = dis2.readDataset();
+                        LOG.info("Successfully parsed MADO after stripping {} leading garbage bytes for study {}",
+                                preambleStart, studyInstanceUID);
+                        return extractStudyMetadata(attrs);
+                    } catch (IOException retryError) {
+                        LOG.error("Retry parse also failed for study {}: {}", studyInstanceUID, retryError.getMessage());
+                    }
+                }
+            }
             return null;
         }
+    }
+
+    /**
+     * Scan {@code data} for the ASCII sequence "DICM" which must appear at byte 128 of
+     * a valid DICOM Part-10 file preamble.  We search up to the first 512 bytes so that
+     * we don't iterate over very large payloads.
+     *
+     * @return the byte offset of the 'D' in "DICM", or -1 if not found
+     */
+    private static int findDICMMarker(byte[] data) {
+        int limit = Math.min(data.length - 4, 512);
+        for (int i = 0; i <= limit; i++) {
+            if (data[i] == 'D' && data[i+1] == 'I' && data[i+2] == 'C' && data[i+3] == 'M') {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * Write raw MADO bytes to a temp file for offline analysis.
+     * File is written to the system temp directory as {@code mado_<studyUID>.dcm}.
+     */
+    private static void dumpToDisk(byte[] data, String studyInstanceUID) {
+        try {
+            java.nio.file.Path dir = java.nio.file.Paths.get(System.getProperty("java.io.tmpdir"));
+            // Sanitise the UID so it is safe as a filename
+            String safeName = "mado_" + studyInstanceUID.replaceAll("[^a-zA-Z0-9._-]", "_") + ".dcm";
+            java.nio.file.Path out = dir.resolve(safeName);
+            java.nio.file.Files.write(out, data);
+            LOG.info("Raw MADO bytes ({}) dumped to: {}", data.length, out.toAbsolutePath());
+        } catch (IOException e) {
+            LOG.warn("Could not dump MADO bytes to disk: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Produce a hex + ASCII dump of up to {@code maxBytes} bytes, formatted like:
+     * <pre>
+     * 0000  44 49 43 4d 00 00 00 00  ...  DICM....
+     * </pre>
+     */
+    private static String hexDump(byte[] data, int maxBytes) {
+        if (data == null || data.length == 0) return "<empty>";
+        int len = Math.min(data.length, maxBytes);
+        StringBuilder sb = new StringBuilder((len / 16 + 1) * 80);
+        for (int offset = 0; offset < len; offset += 16) {
+            sb.append(String.format("%04x  ", offset));
+            int rowEnd = Math.min(offset + 16, len);
+            // hex part
+            for (int i = offset; i < rowEnd; i++) {
+                sb.append(String.format("%02x ", data[i] & 0xFF));
+                if (i == offset + 7) sb.append(' ');
+            }
+            // pad short last row
+            int missing = 16 - (rowEnd - offset);
+            for (int i = 0; i < missing; i++) sb.append("   ");
+            if (missing > 8) sb.append(' ');
+            // ASCII part
+            sb.append(' ');
+            for (int i = offset; i < rowEnd; i++) {
+                char c = (char) (data[i] & 0xFF);
+                sb.append(c >= 0x20 && c < 0x7f ? c : '.');
+            }
+            sb.append('\n');
+        }
+        if (data.length > maxBytes) {
+            sb.append(String.format("... (%d bytes total, %d shown)\n", data.length, maxBytes));
+        }
+        return sb.toString();
     }
 
     /**

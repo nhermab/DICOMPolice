@@ -93,8 +93,14 @@ public class MHDFhirClient {
         List<String> params = new ArrayList<>();
 
         if (patientId != null && !patientId.isEmpty()) {
-            //for sure
-            params.add("patient.identifier=" + urlEncode(patientId));
+            // DICOM C-FIND allows wildcard matching (*/?), but FHIR token search does not.
+            // Strip all wildcard characters and only forward a clean, non-empty value.
+            String cleanPatientId = patientId.replace("*", "").replace("?", "").trim();
+            if (!cleanPatientId.isEmpty()) {
+                params.add("patient.identifier=" + urlEncode(cleanPatientId));
+            } else {
+                LOG.info("Patient ID '{}' is wildcard-only – omitting patient.identifier filter from MHD query", patientId);
+            }
         }
 
         if (accessionNumber != null && !accessionNumber.isEmpty()) {
@@ -317,7 +323,7 @@ public class MHDFhirClient {
 
         // then fetch the URL to the content attachment raw document
         Attachment document = madoDocRef.getContent().get(0).getAttachment();
-        String manifestUrl = document.getUrl();
+        String manifestUrl = resolveManifestUrl(document.getUrl());
 
         if ("application/dicom".equals(document.getContentType())) {
             LOG.debug("Retrieving DICOM MADO manifest from: {}", manifestUrl);
@@ -403,6 +409,25 @@ public class MHDFhirClient {
     }
 
      */
+
+    /**
+     * Resolve a document attachment URL that may be relative (e.g. "Binary/6909") against
+     * the configured FHIR base URL, so that it becomes an absolute HTTP(S) URL.
+     *
+     * @param rawUrl The URL as it appears in the DocumentReference content attachment
+     * @return An absolute URL suitable for use with {@link java.net.URL}
+     */
+    private String resolveManifestUrl(String rawUrl) {
+        if (rawUrl == null) return null;
+        if (rawUrl.startsWith("http://") || rawUrl.startsWith("https://")) {
+            return rawUrl;
+        }
+        // Relative path – resolve against the FHIR base URL
+        String base = mhdBaseUrl.endsWith("/") ? mhdBaseUrl : mhdBaseUrl + "/";
+        String resolved = base + rawUrl;
+        LOG.debug("Resolved relative manifest URL '{}' to '{}'", rawUrl, resolved);
+        return resolved;
+    }
 
     /**
      * Detect if the response bytes are a FHIR Binary JSON wrapper instead of raw DICOM,
