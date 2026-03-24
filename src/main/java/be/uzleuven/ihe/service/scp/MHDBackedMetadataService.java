@@ -72,6 +72,32 @@ public class MHDBackedMetadataService {
         LOG.info("Find studies from MADO (MHD): patientId={}, accession={}, studyUID={}, modality={}, date={}-{}",
                 patientId, accessionNumber, studyInstanceUID, modality, studyDateRange[0], studyDateRange[1]);
 
+        // If studyInstanceUID is specified, try cached metadata or cached DocumentReference first
+        // (the MHD backend may not support search by studyInstanceUID)
+        if (isSpecified(studyInstanceUID)) {
+            StudyMetadata cached = metadataCache.get(studyInstanceUID);
+            if (cached != null && !isCacheExpired(cached)) {
+                LOG.info("Using cached metadata for study {} (studyInstanceUID lookup)", studyInstanceUID);
+                List<StudyMetadata> results = new ArrayList<>();
+                if (matchesModalityFilter(cached.modalitiesInStudy, modality)) {
+                    results.add(cached);
+                }
+                return results;
+            }
+            DocumentReference cachedDocRef = mhdFhirClient.getCachedDocumentReference(studyInstanceUID);
+            if (cachedDocRef != null) {
+                LOG.info("Using cached DocumentReference to fetch MADO for study {}", studyInstanceUID);
+                StudyMetadata metadata = getOrFetchStudyMetadata(studyInstanceUID);
+                if (metadata != null) {
+                    List<StudyMetadata> results = new ArrayList<>();
+                    if (matchesModalityFilter(metadata.modalitiesInStudy, modality)) {
+                        results.add(metadata);
+                    }
+                    return results;
+                }
+            }
+        }
+
         List<DocumentReference> docRefs = mhdFhirClient.searchDocumentReferences(
                 patientId, accessionNumber, studyInstanceUID, modality, studyDateRange[0], studyDateRange[1]);
 
@@ -82,6 +108,9 @@ public class MHDBackedMetadataService {
 
         List<StudyMetadata> results = new ArrayList<>();
         for (DocumentReference docRef : docRefs) {
+            // Cache this DocumentReference for future studyInstanceUID lookups
+            mhdFhirClient.cacheDocumentReference(docRef);
+
             StudyMetadata metadata = convertDocRefToStudyMetadata(docRef);
             if (metadata != null && matchesModalityFilter(metadata.modalitiesInStudy, modality)) {
                 results.add(metadata);
@@ -237,8 +266,15 @@ public class MHDBackedMetadataService {
 
         // Fetch DICOM MADO from MHD
         LOG.info("Fetching MADO from MHD for study {}", studyInstanceUID);
-        // first search fetch the document reference
-        DocumentReference madoDocRef = mhdFhirClient.getDocumentReference(studyInstanceUID);
+        // Try cached DocumentReference first, fall back to MHD search
+        DocumentReference madoDocRef = mhdFhirClient.getCachedDocumentReference(studyInstanceUID);
+        if (madoDocRef == null) {
+            madoDocRef = mhdFhirClient.getDocumentReference(studyInstanceUID);
+        }
+        if (madoDocRef == null) {
+            LOG.warn("No DocumentReference found for study {}", studyInstanceUID);
+            return null;
+        }
         // then fetch the document itself
         byte[] madoBytes = mhdFhirClient.retrieveDocumentRawDICOM(madoDocRef);
         if (madoBytes == null) {
@@ -595,22 +631,45 @@ public class MHDBackedMetadataService {
     }
 
     private String extractStudyInstanceUID(DocumentReference docRef) {
-        return docRef.getMasterIdentifier() != null ? docRef.getMasterIdentifier().getValue() : null;
+        return MHDFhirClient.extractStudyInstanceUIDFromDocRef(docRef);
     }
 
-    /** Extracts accession number from identifiers or from context.related ServiceRequest. */
+    /** Extracts accession number from context.related (code 121022), identifiers, or ServiceRequest. */
     private String extractAccessionNumber(DocumentReference docRef) {
-        // Check direct identifiers first
+        // Primary: context.related identifier with type coding code "121022" (Accession Number)
+        String accession = extractContextRelatedIdentifier(docRef, "121022");
+        if (accession != null) return accession;
+        // Fallback: Check direct identifiers
         for (org.hl7.fhir.r4.model.Identifier id : docRef.getIdentifier()) {
             if (id.getSystem() != null && id.getSystem().contains("accession")) {
                 return id.getValue();
             }
         }
-        // Fall back to context.related ServiceRequest
+        // Fallback: context.related ServiceRequest
         if (docRef.hasContext() && docRef.getContext().hasRelated()) {
             for (org.hl7.fhir.r4.model.Reference related : docRef.getContext().getRelated()) {
                 if ("ServiceRequest".equals(related.getType()) && related.hasIdentifier()) {
                     return related.getIdentifier().getValue();
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Extract an identifier value from context.related by its type coding code.
+     */
+    private String extractContextRelatedIdentifier(DocumentReference docRef, String typeCode) {
+        if (!docRef.hasContext() || !docRef.getContext().hasRelated()) return null;
+        for (org.hl7.fhir.r4.model.Reference related : docRef.getContext().getRelated()) {
+            if (related.hasIdentifier()) {
+                org.hl7.fhir.r4.model.Identifier id = related.getIdentifier();
+                if (id.hasType() && id.getType().hasCoding()) {
+                    for (org.hl7.fhir.r4.model.Coding coding : id.getType().getCoding()) {
+                        if (typeCode.equals(coding.getCode())) {
+                            return id.getValue();
+                        }
+                    }
                 }
             }
         }

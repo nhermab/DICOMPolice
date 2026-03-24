@@ -18,6 +18,8 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.dcm4che3.data.Attributes;
 import be.uzleuven.ihe.dicom.convertor.dicom.FHIRToMADOConverter;
@@ -41,6 +43,9 @@ public class MHDFhirClient {
     private final String localHomeCommunityID;
     private final String xcWadoGateway;
     private final FHIRToMADOConverter fhirToMADOConverter = new FHIRToMADOConverter();
+
+    // Cache: studyInstanceUID -> DocumentReference (populated from broader searches like patient-based)
+    private final Map<String, DocumentReference> docRefCache = new ConcurrentHashMap<>();
 
     public MHDFhirClient(@Value("${mado.scp.mhd-fhir-base-url}") String mhdBaseUrl,
                          @Value("${mhd.home-community-id}") String localHomeCommunityID,
@@ -209,6 +214,50 @@ public class MHDFhirClient {
     public DocumentReference getDocumentReference(String studyInstanceUid) throws IOException {
         List<DocumentReference> results = searchDocumentReferences(null, null, studyInstanceUid, null, null, null);
         return results.isEmpty() ? null : results.get(0);
+    }
+
+    /**
+     * Cache a DocumentReference by its Study Instance UID (from context.related, code 110180).
+     * Call this when DocumentReferences are retrieved from broader searches (e.g., by patient ID)
+     * so that subsequent lookups by studyInstanceUID can bypass the MHD search.
+     */
+    public void cacheDocumentReference(DocumentReference docRef) {
+        if (docRef == null) return;
+        String studyUid = extractStudyInstanceUIDFromDocRef(docRef);
+        if (studyUid != null && !studyUid.isEmpty()) {
+            docRefCache.put(studyUid, docRef);
+            LOG.debug("Cached DocumentReference for study {}", studyUid);
+        }
+    }
+
+    /**
+     * Get a cached DocumentReference by Study Instance UID, or null if not cached.
+     */
+    public DocumentReference getCachedDocumentReference(String studyInstanceUid) {
+        return docRefCache.get(studyInstanceUid);
+    }
+
+    /**
+     * Extract Study Instance UID from a DocumentReference.
+     * Looks in context.related for identifier with type coding code "110180" (Study Instance UID),
+     * falls back to masterIdentifier.
+     */
+    public static String extractStudyInstanceUIDFromDocRef(DocumentReference docRef) {
+        if (docRef.hasContext() && docRef.getContext().hasRelated()) {
+            for (org.hl7.fhir.r4.model.Reference related : docRef.getContext().getRelated()) {
+                if (related.hasIdentifier()) {
+                    org.hl7.fhir.r4.model.Identifier id = related.getIdentifier();
+                    if (id.hasType() && id.getType().hasCoding()) {
+                        for (org.hl7.fhir.r4.model.Coding coding : id.getType().getCoding()) {
+                            if ("110180".equals(coding.getCode())) {
+                                return id.getValue();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return docRef.getMasterIdentifier() != null ? docRef.getMasterIdentifier().getValue() : null;
     }
 
     /**
