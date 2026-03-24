@@ -334,6 +334,8 @@ public class MHDFhirClient {
                 try (InputStream is = conn.getInputStream()) {
                     byte[] data = is.readAllBytes();
                     LOG.debug("Retrieved {} bytes from document reference {}", data.length, madoDocRef.getMasterIdentifier());
+                    // Probe: server may return a FHIR Binary JSON wrapper instead of raw DICOM
+                    data = unwrapFhirBinaryIfNeeded(data);
                     return data;
                 }
             } else if (responseCode == 404) {
@@ -401,6 +403,31 @@ public class MHDFhirClient {
     }
 
      */
+
+    /**
+     * Detect if the response bytes are a FHIR Binary JSON wrapper instead of raw DICOM,
+     * and if so extract and base64-decode the "data" field.
+     * Some FHIR servers return: {"resourceType":"Binary","contentType":"application/dicom","data":"...base64..."}
+     */
+    private byte[] unwrapFhirBinaryIfNeeded(byte[] data) {
+        if (data == null || data.length == 0) return data;
+        // Quick probe: raw DICOM never starts with '{', JSON does
+        if (data[0] != '{') return data;
+
+        try {
+            String json = new String(data, StandardCharsets.UTF_8).trim();
+            if (json.contains("\"resourceType\"") && json.contains("\"Binary\"") && json.contains("\"data\"")) {
+                LOG.info("Response is a FHIR Binary JSON wrapper, extracting base64 data");
+                Binary binary = jsonParser.parseResource(Binary.class, json);
+                if (binary.hasData()) {
+                    return binary.getData();
+                }
+            }
+        } catch (Exception e) {
+            LOG.debug("Response is not a FHIR Binary JSON, treating as raw DICOM: {}", e.getMessage());
+        }
+        return data;
+    }
 
     /**
      * URL encode a parameter value.
