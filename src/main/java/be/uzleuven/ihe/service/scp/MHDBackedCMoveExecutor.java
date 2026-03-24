@@ -632,22 +632,56 @@ public class MHDBackedCMoveExecutor {
         return tasks.stream().mapToInt(t -> t.expectedInstanceCount).sum();
     }
 
+    private static final int MAX_REDIRECTS = 5;
+
     /**
      * Download DICOM files from WADO-RS endpoint.
+     * Follows HTTP 301/302 redirects (including cross-protocol e.g. HTTP→HTTPS).
      */
     private List<byte[]> downloadFromWadoRs(String wadoUrl) throws IOException {
         List<byte[]> dicomFiles = new ArrayList<>();
 
-        URL url = new URL(wadoUrl);
-        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-        conn.setRequestMethod("GET");
-        conn.setRequestProperty("Accept", "multipart/related; type=application/dicom");
-        conn.setConnectTimeout(30000);
-        conn.setReadTimeout(120000);
+        String currentUrl = wadoUrl;
+        int redirectCount = 0;
 
-        int responseCode = conn.getResponseCode();
-        if (responseCode != 200) {
-            throw new IOException("WADO-RS request failed with status " + responseCode + " for URL: " + wadoUrl);
+        HttpURLConnection conn = null;
+        while (redirectCount <= MAX_REDIRECTS) {
+            URL url = new URL(currentUrl);
+            conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+            conn.setRequestProperty("Accept", "multipart/related; type=application/dicom");
+            conn.setConnectTimeout(30000);
+            conn.setReadTimeout(120000);
+            // Disable automatic redirects so we can handle cross-protocol redirects ourselves
+            conn.setInstanceFollowRedirects(false);
+
+            int responseCode = conn.getResponseCode();
+
+            if (responseCode == HttpURLConnection.HTTP_MOVED_PERM || responseCode == HttpURLConnection.HTTP_MOVED_TEMP
+                    || responseCode == 307 || responseCode == 308) {
+                String location = conn.getHeaderField("Location");
+                if (location == null || location.isEmpty()) {
+                    throw new IOException("WADO-RS redirect (" + responseCode + ") with no Location header for URL: " + currentUrl);
+                }
+                // Resolve relative redirect URLs against the current URL
+                URL base = new URL(currentUrl);
+                URL resolved = new URL(base, location);
+                String redirectUrl = resolved.toString();
+                LOG.info("WADO-RS redirect ({}) from {} to {}", responseCode, currentUrl, redirectUrl);
+                conn.disconnect();
+                currentUrl = redirectUrl;
+                redirectCount++;
+                continue;
+            }
+
+            if (responseCode != 200) {
+                throw new IOException("WADO-RS request failed with status " + responseCode + " for URL: " + currentUrl);
+            }
+            break;
+        }
+
+        if (redirectCount > MAX_REDIRECTS) {
+            throw new IOException("WADO-RS too many redirects (>" + MAX_REDIRECTS + ") starting from URL: " + wadoUrl);
         }
 
         String contentType = conn.getContentType();

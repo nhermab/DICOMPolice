@@ -9,10 +9,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.*;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.client.RestTemplate;
 
 import java.io.*;
-import java.net.URI;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.List;
 import java.util.Map;
 
@@ -22,12 +22,11 @@ public class WadoURIProxyController {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(WadoURIProxyController.class);
     private final MHDBackedMetadataService metadataService;
-    private final RestTemplate restTemplate;
 
+    private static final int MAX_REDIRECTS = 5;
 
     public WadoURIProxyController(MHDBackedMetadataService metadataService) {
         this.metadataService = metadataService;
-        this.restTemplate = new RestTemplate();
     }
 
     /**
@@ -101,14 +100,9 @@ public class WadoURIProxyController {
         ));
 
         try {
-            // Make the proxied request
-            HttpEntity<Void> entity = new HttpEntity<>(headers);
-            ResponseEntity<byte[]> wadoRSResponse = restTemplate.exchange(
-                    URI.create(remoteUrl),
-                    HttpMethod.GET,
-                    entity,
-                    byte[].class
-            );
+            // Make the proxied request, following redirects (301/302/307/308) manually
+            // to support cross-protocol redirects (e.g. HTTP→HTTPS)
+            ResponseEntity<byte[]> wadoRSResponse = executeWithRedirects(remoteUrl, headers);
 
             return convertWadoRSToWadoURIResponse(wadoRSResponse);
 
@@ -116,6 +110,80 @@ public class WadoURIProxyController {
             LOGGER.error("Error proxying WADO-URI request to WADO-RS: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(("Error proxying: " + e.getMessage()).getBytes());
         }
+    }
+
+    /**
+     * Execute an HTTP GET request following 301/302/307/308 redirects (including cross-protocol).
+     */
+    private ResponseEntity<byte[]> executeWithRedirects(String targetUrl, HttpHeaders requestHeaders) throws IOException {
+        String currentUrl = targetUrl;
+        int redirectCount = 0;
+
+        while (redirectCount <= MAX_REDIRECTS) {
+            URL url = new URL(currentUrl);
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+            conn.setInstanceFollowRedirects(false);
+            conn.setConnectTimeout(30000);
+            conn.setReadTimeout(120000);
+
+            // Forward relevant headers
+            if (requestHeaders.getAccept() != null && !requestHeaders.getAccept().isEmpty()) {
+                conn.setRequestProperty("Accept",
+                        requestHeaders.getAccept().stream()
+                                .map(MediaType::toString)
+                                .reduce((a, b) -> a + ", " + b)
+                                .orElse("multipart/related;type=\"application/dicom\""));
+            }
+
+            int responseCode = conn.getResponseCode();
+
+            if (responseCode == HttpURLConnection.HTTP_MOVED_PERM || responseCode == HttpURLConnection.HTTP_MOVED_TEMP
+                    || responseCode == 307 || responseCode == 308) {
+                String location = conn.getHeaderField("Location");
+                if (location == null || location.isEmpty()) {
+                    throw new IOException("WADO-RS redirect (" + responseCode + ") with no Location header for URL: " + currentUrl);
+                }
+                URL base = new URL(currentUrl);
+                URL resolved = new URL(base, location);
+                String redirectUrl = resolved.toString();
+                LOGGER.info("WADO-RS redirect ({}) from {} to {}", responseCode, currentUrl, redirectUrl);
+                conn.disconnect();
+                currentUrl = redirectUrl;
+                redirectCount++;
+                continue;
+            }
+
+            // Read the response body
+            HttpHeaders responseHeaders = new HttpHeaders();
+            conn.getHeaderFields().forEach((key, values) -> {
+                if (key != null && values != null) {
+                    values.forEach(v -> responseHeaders.add(key, v));
+                }
+            });
+
+            byte[] body;
+            try (InputStream is = (responseCode >= 200 && responseCode < 300)
+                    ? conn.getInputStream() : conn.getErrorStream()) {
+                body = (is != null) ? readAllBytesFromStream(is) : new byte[0];
+            }
+
+            return ResponseEntity.status(responseCode)
+                    .headers(responseHeaders)
+                    .body(body);
+        }
+
+        throw new IOException("WADO-RS too many redirects (>" + MAX_REDIRECTS + ") starting from URL: " + targetUrl);
+    }
+
+    private byte[] readAllBytesFromStream(InputStream is) throws IOException {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        byte[] buffer = new byte[8192];
+        int len;
+        while ((len = is.read(buffer)) > 0) {
+            baos.write(buffer, 0, len);
+        }
+        return baos.toByteArray();
     }
 
     ResponseEntity<byte[]> convertWadoRSToWadoURIResponse(ResponseEntity<byte[]> wadoRSResponse) throws IOException {
