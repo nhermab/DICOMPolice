@@ -76,6 +76,10 @@ public class MHDFhirClient {
      * @param dateTo Study date to (YYYYMMDD)
      * @return List of DocumentReference resources
      */
+    /** DICOM UID for Key Object Selection Document – the only format we care about for MADO. */
+    private static final String KOS_FORMAT_CODE = "1.2.840.10008.5.1.4.1.1.88.59";
+    private static final String KOS_FORMAT_SYSTEM = "http://dicom.nema.org/resources/ontology/DCMUID";
+
     public List<DocumentReference> searchDocumentReferences(
             String patientId,
             String accessionNumber,
@@ -117,6 +121,9 @@ public class MHDFhirClient {
             //not specified in the trial standard, likely not correct
             params.add("modality=" + urlEncode(modality));
         }
+
+        // KOS-only filtering is done client-side in fetchDocumentReferences()
+        // (the formatcode search param is not supported by all MHD servers)
 
         // Date range - convert DICOM format (YYYYMMDD) to FHIR format (YYYY-MM-DD)
         if (dateFrom != null || dateTo != null) {
@@ -189,6 +196,15 @@ public class MHDFhirClient {
         }
 
         LOG.info("Retrieved {} DocumentReferences from MHD endpoint", results.size());
+
+        // Client-side safety filter: only keep KOS (Key Object Selection) documents.
+        // The server may not support the formatcode search parameter, so we filter here as well.
+        int beforeFilter = results.size();
+        results.removeIf(docRef -> !isKosDocumentReference(docRef));
+        if (results.size() < beforeFilter) {
+            LOG.info("Filtered out {} non-KOS DocumentReferences (kept {})", beforeFilter - results.size(), results.size());
+        }
+
         return results;
     }
 
@@ -385,6 +401,29 @@ public class MHDFhirClient {
         }
 
 
+    }
+
+    /**
+     * Check whether a DocumentReference represents a KOS (Key Object Selection) document.
+     * Matches on the format coding ({@value KOS_FORMAT_CODE}) or, as a fallback,
+     * on {@code application/dicom} content type with a KOS SOP Class UID.
+     */
+    private static boolean isKosDocumentReference(DocumentReference docRef) {
+        if (docRef == null || !docRef.hasContent()) return false;
+        for (DocumentReference.DocumentReferenceContentComponent content : docRef.getContent()) {
+            // Primary check: format coding
+            if (content.hasFormat()) {
+                Coding format = content.getFormat();
+                if (KOS_FORMAT_CODE.equals(format.getCode())) {
+                    return true;
+                }
+            }
+            // Fallback: application/dicom content type (may include non-KOS, but better than nothing)
+            if (content.hasAttachment() && "application/dicom".equals(content.getAttachment().getContentType())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
