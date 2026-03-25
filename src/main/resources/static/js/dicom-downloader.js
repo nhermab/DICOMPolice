@@ -17,7 +17,8 @@ const DicomDownloader = (function() {
             failed: 0,
             totalBytes: 0,
             startTime: null
-        }
+        },
+        fhirBaseUrl: "https://ehds.gazelle-platform.net/hapi/fhir"
     };
 
     let currentInteractionEvent = null;
@@ -138,8 +139,8 @@ const DicomDownloader = (function() {
             const studyUid = studyUidValue.trim();
 
             // default FHIR endpoint, TODO get from config
-            const baseUrl = './fhir';
-            const url = `${baseUrl}/DocumentReference?study-instance-uid=${encodeURIComponent(studyUid)}`;
+            const baseUrl = state.fhirBaseUrl;
+            const url = `${baseUrl}/DocumentReference?identifier=${encodeURIComponent(studyUid)}`;
 
             const response = await fetch(url, {
                 headers: {
@@ -327,7 +328,7 @@ const DicomDownloader = (function() {
             let fetchUrl = url;
             if (!url.startsWith('http')) {
                 // Assume it's a relative path like Binary/xxx or fhir/Binary/xxx
-                fetchUrl = `./${url.replace(/^\.\//, '')}`;
+                fetchUrl = state.fhirBaseUrl + `/${url.replace(/^\.\//, '')}`;
             }
 
             // Fetch the file

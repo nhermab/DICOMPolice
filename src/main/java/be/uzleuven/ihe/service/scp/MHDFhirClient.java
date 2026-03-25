@@ -342,7 +342,7 @@ public class MHDFhirClient {
         String manifestUrl = resolveManifestUrl(document.getUrl());
 
         if ("application/dicom".equals(document.getContentType())) {
-            LOG.debug("Retrieving DICOM MADO manifest from: {}", manifestUrl);
+            LOG.info("Retrieving DICOM MADO manifest from: {}", manifestUrl);
 
             // Download the Binary resource
             HttpURLConnection conn = (HttpURLConnection) new URL(manifestUrl).openConnection();
@@ -355,7 +355,7 @@ public class MHDFhirClient {
             if (responseCode == 200) {
                 try (InputStream is = conn.getInputStream()) {
                     byte[] data = is.readAllBytes();
-                    LOG.debug("Retrieved {} bytes from document reference {}", data.length, madoDocRef.getMasterIdentifier());
+                    LOG.info("Retrieved {} bytes from document reference {}", data.length, madoDocRef.getMasterIdentifier());
                     // Probe: server may return a FHIR Binary JSON wrapper instead of raw DICOM
                     data = unwrapFhirBinaryIfNeeded(data);
                     return data;
@@ -371,7 +371,7 @@ public class MHDFhirClient {
         // not yet fully tested because currently no MHD with FHIR MADO available but should work
         // TODO: implement direct parsing of the FHIR MADO JSON, without converting to DICOM MADO
         else if ("application/fhir+json".equals(document.getContentType())) {
-            LOG.debug("Retrieving FHIR MADO manifest from: {}", manifestUrl);
+            LOG.info("Retrieving FHIR MADO manifest from: {}", manifestUrl);
 
             // Download the FHIR JSON resource
             HttpURLConnection conn = (HttpURLConnection) new URL(manifestUrl).openConnection();

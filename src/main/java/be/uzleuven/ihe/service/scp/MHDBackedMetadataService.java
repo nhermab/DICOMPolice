@@ -551,6 +551,9 @@ public class MHDBackedMetadataService {
                     // sometimes RetrieveURL contains the /studies/.../series/... part, sometimes not, depends on whom you ask
                     // DICOM includes that part, IHE/MADO/XC-WADO don't...
                     String baseURL = series.retrieveURL.split("/studies")[0];
+                    if (baseURL.endsWith("/")){
+                        baseURL = baseURL.substring(0, baseURL.length()-1);
+                    }
                     series.effectiveRetrieveURL = baseURL + "/studies/" + study.studyInstanceUID + "/series/" + series.seriesInstanceUID;
                 }
             } else {
