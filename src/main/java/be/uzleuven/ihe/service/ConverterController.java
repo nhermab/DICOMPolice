@@ -2,13 +2,13 @@ package be.uzleuven.ihe.service;
 
 import be.uzleuven.ihe.dicom.convertor.dicom.FHIRToMADOConverter;
 import be.uzleuven.ihe.dicom.convertor.fhir.MADOToFHIRConverter;
-import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
 import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Tag;
 import org.dcm4che3.data.UID;
 import org.dcm4che3.io.DicomInputStream;
 import org.dcm4che3.io.DicomOutputStream;
+import org.dcm4che3.util.TagUtils;
 import org.hl7.fhir.r5.model.Bundle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,6 +41,53 @@ public class ConverterController {
 
     private final MADOToFHIRConverter matoToFhirConverter = new MADOToFHIRConverter();
     private final FHIRToMADOConverter fhirToMadoConverter = new FHIRToMADOConverter();
+
+    /**
+     * Extracts a requested tag from a dicom file stream, and returns the result in a JSON Value
+     * @param file The file that needs to be parsed
+     * @param dicomTag the dicom tag that should be extracted
+     * @return A JSON with a 'tag' attribute, containing the value of the tag.
+     *  - If the file stream is a dicom stream that does not contain the tag, an empty string will be returned
+     *  - If the requested dicom tag is not a correct tag, a 400 Bad Request will be returned with an error message
+     *  - If the file or dicom tag is empty, a 400 Bad Request will be returned with an error message
+     *  - If the filestream is not a dicom stream, a 500 Internal Server error will be returned with an error message
+     */
+    @PostMapping(value = "/extract", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> extract(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam("dicomTag") String dicomTag) {
+        try {
+            if (file.isEmpty()) {
+                return badRequest("No file provided");
+            }
+            if (dicomTag.isEmpty()) {
+                return badRequest("No DICOM key provided");
+            }
+
+            final Map<String, Object> resp = new HashMap<>();
+            final File tempFile = createTempFile(file);
+            final Attributes attrs;
+            try (DicomInputStream dis = new DicomInputStream(tempFile)) {
+                attrs = dis.readDataset();
+            }
+
+            try {
+                LOG.info("Starting extraction for tag {}", dicomTag);
+                final String strippedDicomTag = dicomTag.replaceAll("[^0-9A-Fa-f]", ""); //Remove all non-hex characters
+                int tag = TagUtils.intFromHexString(strippedDicomTag);// Validate the tag format
+                String found = attrs.getString(tag, ""); // Fallback to an empty string
+                LOG.info("Extracted value for tag {}: {}", dicomTag, found);
+                resp.put("tag", found);
+                return ResponseEntity.ok(resp);
+            } catch (NumberFormatException e) {
+                return badRequest("Invalid DICOM tag format. Must be a hexadecimal string like '00100010' for Patient Name (0010,0010)");
+            }
+
+        } catch (Exception e){
+            LOG.error("Extraction of dicom grouping failed: {}", e.getMessage(), e);
+            return serverError("Conversion failed: " + e.getMessage());
+        }
+    }
 
     /**
      * Convert a file from one format to another.

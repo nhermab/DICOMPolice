@@ -4,22 +4,26 @@
  */
 
 const DicomDownloader = (function() {
+
+    function initialState() {
+        return {
+            manifest: null,
+            studyData: null,
+            imageDisplayUrl: null,
+            selectedItems: new Set(),
+            isDownloading: false,
+            downloadController: null,
+            downloadStats: {
+                total: 0,
+                completed: 0,
+                failed: 0,
+                totalBytes: 0,
+                startTime: null
+            }
+        }
+    }
     // State
-    const state = {
-        manifest: null,
-        studyData: null,
-        selectedItems: new Set(),
-        isDownloading: false,
-        downloadController: null,
-        downloadStats: {
-            total: 0,
-            completed: 0,
-            failed: 0,
-            totalBytes: 0,
-            startTime: null
-        },
-        fhirBaseUrl: "https://ehds.gazelle-platform.net/hapi/fhir"
-    };
+    let state = initialState();
 
     let currentInteractionEvent = null;
 
@@ -139,8 +143,8 @@ const DicomDownloader = (function() {
             const studyUid = studyUidValue.trim();
 
             // default FHIR endpoint, TODO get from config
-            const baseUrl = state.fhirBaseUrl;
-            const url = `${baseUrl}/DocumentReference?identifier=${encodeURIComponent(studyUid)}`;
+            const baseUrl = './fhir';
+            const url = `${baseUrl}/DocumentReference?study-instance-uid=${encodeURIComponent(studyUid)}`;
 
             const response = await fetch(url, {
                 headers: {
@@ -328,7 +332,7 @@ const DicomDownloader = (function() {
             let fetchUrl = url;
             if (!url.startsWith('http')) {
                 // Assume it's a relative path like Binary/xxx or fhir/Binary/xxx
-                fetchUrl = state.fhirBaseUrl + `/${url.replace(/^\.\//, '')}`;
+                fetchUrl = `./${url.replace(/^\.\//, '')}`;
             }
 
             // Fetch the file
@@ -452,14 +456,34 @@ const DicomDownloader = (function() {
      */
     async function convertDicomToFhir(fileOrBlob, filename) {
         try {
+            state = initialState();
+            // Determine the API endpoint with proper context path handling
+            const contextPath = getContextPath();
+
+            const extractData = new FormData();
+            extractData.append('file', fileOrBlob, filename);
+            extractData.append('dicomTag', '000D-1001');
+
+            const extractUrl = `${window.location.origin}${contextPath}/api/converter/extract`;
+            const extractResp = await fetch(extractUrl, {
+                method: 'POST',
+                body: extractData
+            });
+            if (extractResp.ok){
+                //lets only do shit if we extract this, and lets throw failures under the rug
+                const respJson = await extractResp.json();
+                const url = respJson.tag;
+                if (url){
+                    state.imageDisplayUrl = url;
+                }
+            }
+
             const formData = new FormData();
             formData.append('file', fileOrBlob, filename);
             formData.append('sourceType', 'dicom');
 
             showToast('Converting DICOM to FHIR...', 'info');
 
-            // Determine the API endpoint with proper context path handling
-            const contextPath = getContextPath();
             const apiUrl = `${window.location.origin}${contextPath}/api/converter/convert`;
 
             const response = await fetch(apiUrl, {
@@ -758,6 +782,18 @@ const DicomDownloader = (function() {
                     <span class="info-label">WADO-RS Endpoint</span>
                     <span class="info-value" style="font-size: 10px;">${escapeHtml(wadoEndpoint)}</span>
                 </div>
+            `;
+        }
+
+        // GE special URL tag
+        if (state.imageDisplayUrl) {
+            infoHtml += `
+            <div class="info-item">
+                <span class="info-label">Image Display URL</span>
+                <span class="info-value" style="font-size: 10px;">
+                    <a href="${escapeHtml(state.imageDisplayUrl)}" target="_blank" rel="noopener">${escapeHtml(state.imageDisplayUrl)}</a>
+                </span>
+            </div>
             `;
         }
 
