@@ -200,6 +200,7 @@ public class MHDFhirClient {
         // Client-side safety filter: only keep KOS (Key Object Selection) documents.
         // The server may not support the formatcode search parameter, so we filter here as well.
         int beforeFilter = results.size();
+        // TODO detect and keep also FHIR MADO Manifest Document References
         results.removeIf(docRef -> !isKosDocumentReference(docRef));
         if (results.size() < beforeFilter) {
             LOG.info("Filtered out {} non-KOS DocumentReferences (kept {})", beforeFilter - results.size(), results.size());

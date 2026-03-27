@@ -292,7 +292,8 @@ public class MHDBackedMetadataService {
 
             // get non-DICOM info homeCommunityId from the DocumentReference extension (necessary for XC-WADO retrieval)
             Extension ext = madoDocRef.getExtensionByUrl(
-                    "https://profiles.ihe.net/ITI/MHD/StructureDefinition/ihe-homeCommunityId");
+                    // TODO case: Home or home?
+                    "https://profiles.ihe.net/ITI/MHD/StructureDefinition/ihe-HomeCommunityId");
             if (ext != null && ext.getValue() instanceof Identifier) {
                 Identifier identifier = (Identifier) ext.getValue();
                 metadata.homeCommunityId = identifier.getValue();
@@ -564,13 +565,13 @@ public class MHDBackedMetadataService {
                 if (series.retrieveLocationUID != null) {
                     try {
                         // build XC WADO URLs
-                        String effectiveRetrieveURL = mHDFhirClient.getXcWadoGateway() + "/wado/homeCommunityId/" + URLEncoder.encode(study.homeCommunityId, StandardCharsets.UTF_8.toString())
+                        String effectiveRetrieveURL = mHDFhirClient.getXcWadoGateway() + "/homeCommunityId/" + URLEncoder.encode(study.homeCommunityId.split("urn:oid:")[1], StandardCharsets.UTF_8.toString())
                                 + "/RetrieveLocationUID/" + series.retrieveLocationUID + "/studies/" + study.studyInstanceUID + "/series/" + series.seriesInstanceUID;
                         if (series.retrieveURL != null) {
                             // sometimes RetrieveURL contains the /studies/.../series/... part, sometimes not, depends on whom you ask
                             // DICOM includes, IHE/MADO/XC-WADO don't...
                             String baseURL = series.retrieveURL.split("/studies")[0];
-                            effectiveRetrieveURL += "?retrieveUrl=" + URLEncoder.encode(baseURL, StandardCharsets.UTF_8.toString());
+                            effectiveRetrieveURL += "?RetrieveURL=" + URLEncoder.encode(baseURL, StandardCharsets.UTF_8.toString());
                         }
                         series.effectiveRetrieveURL = effectiveRetrieveURL;
                     }
