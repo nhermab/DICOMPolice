@@ -96,6 +96,9 @@ public class GazelleValidatorAPIController {
             report.getInputs().add(generatedInput);
         } else {
             Input input = request.getInputs().get(0);
+            if (input.getContent() == null || input.getContent().isEmpty()) {
+                throw new IllegalArgumentException("Input content is required (base64-encoded DICOM file)");
+            }
             byte[] dicomBytes = Base64.getDecoder().decode(input.getContent());
 
             File tempFile = File.createTempFile("kos_validate_", ".dcm");
@@ -143,6 +146,9 @@ public class GazelleValidatorAPIController {
             report.getInputs().add(generatedInput);
         } else {
             Input input = request.getInputs().get(0);
+            if (input.getContent() == null || input.getContent().isEmpty()) {
+                throw new IllegalArgumentException("Input content is required (base64-encoded DICOM file)");
+            }
             byte[] dicomBytes = Base64.getDecoder().decode(input.getContent());
 
             File tempFile = File.createTempFile("mado_validate_", ".dcm");

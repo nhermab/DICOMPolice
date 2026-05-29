@@ -7,7 +7,6 @@ import ca.uhn.fhir.rest.annotation.*;
 import ca.uhn.fhir.rest.api.server.IBundleProvider;
 import ca.uhn.fhir.rest.param.DateRangeParam;
 import ca.uhn.fhir.rest.param.ReferenceParam;
-import ca.uhn.fhir.rest.param.StringParam;
 import ca.uhn.fhir.rest.param.TokenParam;
 import ca.uhn.fhir.rest.server.IResourceProvider;
 import ca.uhn.fhir.rest.server.SimpleBundleProvider;
@@ -81,15 +80,20 @@ public class DocumentReferenceProvider implements IResourceProvider {
 
     /**
      * Search for DocumentReferences.
-     * Implements ITI-67 (Find Document References) search parameters.
+     * Supports both GET (/fhir/DocumentReference?params) and
+     * POST (/fhir/DocumentReference/_search with application/x-www-form-urlencoded body).
+     * Implements ITI-67 (Find Document References) search parameters with MADO IG R4 extensions.
      *
      * @param patient Patient reference or identifier
-     * @param patientIdentifier Patient identifier token
+     * @param patientIdentifier Patient identifier token (system|value or plain value; system is ignored)
      * @param status Document status
      * @param date Creation date range
-     * @param studyInstanceUid MADO-specific: Study Instance UID
-     * @param accessionNumber MADO-specific: Accession Number
-     * @param modality MADO-specific: Modality filter
+     * @param studyInstanceUid MADO-specific: Study Instance UID (custom search parameter, token type)
+     * @param accessionNumber MADO-specific: Accession Number (custom search parameter)
+     * @param modality MADO-specific: Modality filter (custom search parameter)
+     * @param bodysite MADO-specific: Anatomical region filter (custom search parameter)
+     * @param format Format code filter (e.g. urn:ihe:rad:MADO:fhir-manifest:2026)
+     * @param relatedIdentifier Standard search: related:identifier for Study Instance UID or Accession Number
      * @return Bundle of matching DocumentReferences
      */
     @Search
@@ -98,19 +102,33 @@ public class DocumentReferenceProvider implements IResourceProvider {
             @OptionalParam(name = "patient.identifier") TokenParam patientIdentifier,
             @OptionalParam(name = DocumentReference.SP_STATUS) TokenParam status,
             @OptionalParam(name = DocumentReference.SP_DATE) DateRangeParam date,
-            @OptionalParam(name = "study-instance-uid") StringParam studyInstanceUid,
-            @OptionalParam(name = "accession") TokenParam accessionNumber,
-            @OptionalParam(name = "modality") TokenParam modality) {
+            @OptionalParam(name = "study-instance-uid") TokenParam studyInstanceUid,
+            @OptionalParam(name = "accession-number") TokenParam accessionNumber,
+            @OptionalParam(name = "modality") TokenParam modality,
+            @OptionalParam(name = "bodysite") TokenParam bodysite,
+            @OptionalParam(name = "format") TokenParam format,
+            @OptionalParam(name = "related:identifier") TokenParam relatedIdentifier) {
 
-        LOG.info("Searching DocumentReferences - patient: {}, studyUid: {}, accession: {}",
-            patientIdentifier, studyInstanceUid, accessionNumber);
+        LOG.info("Searching DocumentReferences - patient: {}, studyUid: {}, accession: {}, format: {}",
+            patientIdentifier, studyInstanceUid, accessionNumber, format);
 
         try {
             // Extract search parameters
             String patientId = extractPatientId(patient, patientIdentifier);
-            String studyUid = studyInstanceUid != null ? studyInstanceUid.getValue() : null;
+            String studyUid = studyInstanceUid != null ? stripUrnOidPrefix(studyInstanceUid.getValue()) : null;
             String accession = accessionNumber != null ? accessionNumber.getValue() : null;
             String modalityValue = modality != null ? modality.getValue() : null;
+
+            // Handle related:identifier as a fallback for study-instance-uid or accession-number
+            if (relatedIdentifier != null && relatedIdentifier.getValue() != null) {
+                String relatedValue = relatedIdentifier.getValue();
+                // If the value looks like a DICOM UID (contains dots, starts with urn:oid: or is numeric dotted)
+                if (studyUid == null && (relatedValue.startsWith("urn:oid:") || relatedValue.matches("[0-9]+\\.[0-9.]+"))) {
+                    studyUid = relatedValue.replace("urn:oid:", "");
+                } else if (accession == null) {
+                    accession = relatedValue;
+                }
+            }
 
             // Extract date range
             String dateFrom = null;
@@ -129,21 +147,27 @@ public class DocumentReferenceProvider implements IResourceProvider {
             List<Attributes> studies = dicomService.searchStudies(
                 patientId, accession, studyUid, modalityValue, dateFrom, dateTo);
 
-            // Map to DocumentReferences
+            // Map to DocumentReferences - per MADO IG, return BOTH FHIR and KOS DocumentReferences
             List<IBaseResource> results = new ArrayList<>();
             for (Attributes study : studies) {
                 try {
                     // For search, we don't generate the full manifest (expensive)
-                    // Instead, we provide the DocumentReference without size/hash
-                    DocumentReference docRef = DicomToFhirMapper.mapStudyToDocumentReference(study, config, null);
-                    results.add(docRef);
+                    // Instead, we provide the DocumentReferences without size/hash
+
+                    // FHIR Imaging Manifest DocumentReference (application/fhir+json)
+                    DocumentReference fhirDocRef = DicomToFhirMapper.mapStudyToDocumentReference(study, config, null);
+                    results.add(fhirDocRef);
+
+                    // DICOM KOS DocumentReference (application/dicom) - paired with the FHIR one
+                    DocumentReference kosDocRef = DicomToFhirMapper.mapStudyToKosDocumentReference(study, config, null, null);
+                    results.add(kosDocRef);
                 } catch (Exception e) {
                     LOG.warn("Error mapping study to DocumentReference: {}",
                         study.getString(Tag.StudyInstanceUID), e);
                 }
             }
 
-            LOG.info("Found {} DocumentReferences", results.size());
+            LOG.info("Found {} DocumentReferences ({} studies, both FHIR+KOS formats)", results.size(), studies.size());
             return new SimpleBundleProvider(results);
 
         } catch (IOException e) {
@@ -154,10 +178,17 @@ public class DocumentReferenceProvider implements IResourceProvider {
 
     /**
      * Extract patient ID from various FHIR reference/identifier formats.
+     * The identifier system (e.g. https://www.ehealth.fgov.be/standards/fhir/core/NamingSystem/ssin)
+     * is intentionally ignored; only the value part is used for DICOM QIDO-RS queries.
+     * Supports both plain values and system|value token format.
      */
     private String extractPatientId(ReferenceParam patient, TokenParam patientIdentifier) {
         if (patientIdentifier != null) {
-            return patientIdentifier.getValue();
+            // getValue() returns only the value portion of a system|value token, ignoring the system
+            String value = patientIdentifier.getValue();
+            if (value != null && !value.isEmpty()) {
+                return value;
+            }
         }
 
         if (patient != null) {
@@ -172,6 +203,18 @@ public class DocumentReferenceProvider implements IResourceProvider {
         }
 
         return null;
+    }
+
+    /**
+     * Strip "urn:oid:" prefix from a UID value if present.
+     * MADO token searches may include this prefix per convention.
+     */
+    private String stripUrnOidPrefix(String value) {
+        if (value == null) return null;
+        if (value.startsWith("urn:oid:")) {
+            return value.substring(8);
+        }
+        return value;
     }
 }
 

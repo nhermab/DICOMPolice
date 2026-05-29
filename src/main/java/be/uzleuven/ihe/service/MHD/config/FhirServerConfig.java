@@ -2,6 +2,7 @@ package be.uzleuven.ihe.service.MHD.config;
 
 import be.uzleuven.ihe.service.MHD.fhir.MHDFhirRestfulServer;
 import be.uzleuven.ihe.service.MHD.fhir.provider.BinaryProvider;
+import be.uzleuven.ihe.service.MHD.fhir.provider.BundleProvider;
 import be.uzleuven.ihe.service.MHD.fhir.provider.CapabilityStatementProvider;
 import be.uzleuven.ihe.service.MHD.fhir.provider.DocumentReferenceProvider;
 import be.uzleuven.ihe.service.MHD.fhir.provider.ListProvider;
@@ -22,6 +23,7 @@ public class FhirServerConfig {
             DocumentReferenceProvider documentReferenceProvider,
             ListProvider listProvider,
             BinaryProvider binaryProvider,
+            BundleProvider bundleProvider,
             CapabilityStatementProvider capabilityStatementProvider,
             MHDConfiguration config) {
 
@@ -29,6 +31,7 @@ public class FhirServerConfig {
             documentReferenceProvider,
             listProvider,
             binaryProvider,
+            bundleProvider,
             capabilityStatementProvider,
             config
         );

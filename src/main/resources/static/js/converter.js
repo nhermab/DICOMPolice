@@ -115,35 +115,88 @@
 
     async function loadFileFromUrl(url) {
         try {
-            showUrlLoadingState('Loading DICOM file from URL...');
+            showUrlLoadingState('Loading file from URL...');
 
-            const response = await fetch(url, {
+            let response = await fetch(url, {
                 headers: {
-                    'Accept': 'application/dicom, application/octet-stream, */*'
+                    'Accept': 'application/dicom, application/fhir+json, application/json, application/octet-stream, */*'
                 }
             });
 
+            // If the URL returns 404, try fallback: Bundle/ID → DocumentReference/ID
             if (!response.ok) {
-                throw new Error(`Failed to fetch file: HTTP ${response.status}`);
+                const fallbackResp = await tryFallbackFetchConverter(url);
+                if (fallbackResp) {
+                    response = fallbackResp;
+                } else {
+                    throw new Error(`Failed to fetch file: HTTP ${response.status}`);
+                }
             }
 
+            const contentType = (response.headers.get('content-type') || '').toLowerCase();
             const blob = await response.blob();
 
+            // Check if the response is a DocumentReference — if so, follow its content URL
+            if (contentType.includes('application/fhir+json') || contentType.includes('application/json')) {
+                try {
+                    const text = await blob.text();
+                    const json = JSON.parse(text);
+                    if (json && json.resourceType === 'DocumentReference' && json.content?.length > 0) {
+                        const contentUrl = json.content[0]?.attachment?.url;
+                        if (contentUrl && contentUrl !== url) {
+                            showSuccess('Following DocumentReference to manifest...');
+                            hideUrlLoadingState();
+                            return await loadFileFromUrl(contentUrl);
+                        }
+                    }
+                } catch (_) {
+                    // Not JSON or not a DocumentReference, continue normally
+                }
+            }
+
+            // Detect if the response is FHIR JSON based on content type
+            let isFhirContent = contentType.includes('application/fhir+json') ||
+                                contentType.includes('application/json');
+
+            // If content type is ambiguous, peek at the content
+            if (!isFhirContent) {
+                try {
+                    const peekBytes = new Uint8Array(await blob.slice(0, 132).arrayBuffer());
+                    const isDicomMagic = peekBytes.length >= 132 &&
+                        peekBytes[128] === 0x44 && peekBytes[129] === 0x49 &&
+                        peekBytes[130] === 0x43 && peekBytes[131] === 0x4D;
+                    if (!isDicomMagic) {
+                        const text = await blob.text();
+                        try {
+                            const json = JSON.parse(text);
+                            if (json && json.resourceType) {
+                                isFhirContent = true;
+                            }
+                        } catch (_) {}
+                    }
+                } catch (_) {}
+            }
+
             // Extract filename from URL or use default
-            let filename = 'mado-manifest.dcm';
+            let filename = isFhirContent ? 'mado-manifest.json' : 'mado-manifest.dcm';
             try {
                 const urlObj = new URL(url);
                 const pathParts = urlObj.pathname.split('/');
                 const lastPart = pathParts[pathParts.length - 1];
                 if (lastPart && lastPart.length > 0) {
-                    filename = lastPart.includes('.') ? lastPart : lastPart + '.dcm';
+                    if (lastPart.includes('.')) {
+                        filename = lastPart;
+                    } else {
+                        filename = isFhirContent ? lastPart + '.json' : lastPart + '.dcm';
+                    }
                 }
             } catch (e) {
                 // Keep default filename
             }
 
             // Create a File object from the blob
-            const file = new File([blob], filename, { type: 'application/dicom' });
+            const fileType = isFhirContent ? 'application/fhir+json' : 'application/dicom';
+            const file = new File([blob], filename, { type: fileType });
 
             // Handle the file
             hideUrlLoadingState();
@@ -162,6 +215,59 @@
             hideUrlLoadingState();
             showError('Failed to load file: ' + error.message);
         }
+    }
+
+    /**
+     * When the primary fetch fails (e.g. 404), try fallback strategies:
+     * 1. If URL is fhir/Bundle/ID, try fhir/DocumentReference/ID
+     * 2. If URL is fhir/DocumentReference/ID, try searching by identifier
+     */
+    async function tryFallbackFetchConverter(fetchUrl) {
+        // Strategy 1: Bundle/ID → DocumentReference/ID
+        const bundlePattern = /\/Bundle\/([^/?#]+)/;
+        const bundleMatch = fetchUrl.match(bundlePattern);
+        if (bundleMatch) {
+            const resourceId = bundleMatch[1];
+            const docRefUrl = fetchUrl.replace(bundlePattern, `/DocumentReference/${resourceId}`);
+            try {
+                const resp = await fetch(docRefUrl, {
+                    headers: { 'Accept': 'application/fhir+json, application/json, */*' }
+                });
+                if (resp.ok) return resp;
+            } catch (_) {}
+        }
+
+        // Strategy 2: DocumentReference/ID → search by identifier
+        const docRefPattern = /\/DocumentReference\/([^/?#]+)/;
+        const docRefMatch = fetchUrl.match(docRefPattern);
+        if (docRefMatch) {
+            const resourceId = docRefMatch[1];
+            const cleanId = resourceId.replace(/^kos-/, '');
+            const fhirBaseIdx = fetchUrl.indexOf('/DocumentReference/');
+            const fhirBase = fhirBaseIdx > 0 ? fetchUrl.substring(0, fhirBaseIdx) : '/fhir';
+            const searchUrl = `${fhirBase}/DocumentReference?identifier=${encodeURIComponent(cleanId)}`;
+            try {
+                const resp = await fetch(searchUrl, {
+                    headers: { 'Accept': 'application/fhir+json' }
+                });
+                if (resp.ok) {
+                    const bundle = await resp.json();
+                    if (bundle?.entry?.length > 0) {
+                        const doc = bundle.entry[0].resource;
+                        if (doc) {
+                            const docJson = JSON.stringify(doc);
+                            const blob = new Blob([docJson], { type: 'application/fhir+json' });
+                            return new Response(blob, {
+                                status: 200,
+                                headers: { 'Content-Type': 'application/fhir+json' }
+                            });
+                        }
+                    }
+                }
+            } catch (_) {}
+        }
+
+        return null;
     }
 
     function showUrlLoadingState(message) {
@@ -283,13 +389,14 @@
 
     function handleFile(file) {
         const extension = file.name.split('.').pop().toLowerCase();
+        const contentType = (file.type || '').toLowerCase();
 
-        if (['dcm', 'dicom'].includes(extension)) {
+        if (['dcm', 'dicom'].includes(extension) || contentType.includes('application/dicom')) {
             state.fileType = 'dicom';
-        } else if (extension === 'json') {
+        } else if (extension === 'json' || contentType.includes('application/fhir+json') || contentType.includes('application/json')) {
             state.fileType = 'fhir';
         } else {
-            showError('Unsupported file type. Please upload a .dcm, .dicom, or .json file.');
+            showError('Unsupported file type. Please upload a DICOM (.dcm, .dicom) or FHIR (.json) file.');
             return;
         }
 

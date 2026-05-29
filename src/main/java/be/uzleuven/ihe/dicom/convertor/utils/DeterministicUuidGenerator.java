@@ -179,5 +179,38 @@ public class DeterministicUuidGenerator {
     public static String generateImagingSelectionUuid(String studyInstanceUID, String seriesInstanceUID, String sopInstanceUID) {
         return generateUuidV5("imagingselection:" + studyInstanceUID + ":" + seriesInstanceUID + ":" + sopInstanceUID).toString();
     }
+
+    /**
+     * Generates a deterministic UUID for a FHIR Organization resource.
+     *
+     * @param institutionName The institution name from DICOM
+     * @return A deterministic UUID
+     */
+    public static String generateOrganizationUuid(String institutionName) {
+        String name = (institutionName != null) ? institutionName : "";
+        return generateUuidV5("organization:" + name).toString();
+    }
+
+    /**
+     * Generates a deterministic UUID for a FHIR ServiceRequest resource.
+     *
+     * @param accessionNumber The accession number from DICOM
+     * @return A deterministic UUID
+     */
+    public static String generateServiceRequestUuid(String accessionNumber) {
+        String acc = (accessionNumber != null) ? accessionNumber : "";
+        return generateUuidV5("servicerequest:" + acc).toString();
+    }
+
+    /**
+     * Generates a deterministic UUID for a FHIR Provenance resource.
+     *
+     * @param sopInstanceUID The SOP Instance UID from the manifest
+     * @return A deterministic UUID
+     */
+    public static String generateProvenanceUuid(String sopInstanceUID) {
+        String uid = (sopInstanceUID != null) ? sopInstanceUID : "";
+        return generateUuidV5("provenance:" + uid).toString();
+    }
 }
 

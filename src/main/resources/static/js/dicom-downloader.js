@@ -20,7 +20,7 @@ const DicomDownloader = (function() {
                 totalBytes: 0,
                 startTime: null
             },
-            fhirBaseUrl: "https://ehds.gazelle-platform.net/hapi/fhir"
+            fhirBaseUrl: "/fhir"
         }
     }
     // State
@@ -159,15 +159,50 @@ const DicomDownloader = (function() {
 
             const bundle = await response.json();
 
-            // expects a single document reference per studyUid
-            if (!bundle || !bundle.entry || bundle.entry.length !== 1) {
+            // MHD may return multiple DocumentReferences per study (DICOM & FHIR types)
+            if (!bundle || !bundle.entry || bundle.entry.length === 0) {
                 throw new Error('MADO file fetching failed for study UID');
             }
 
-            // get the first and only instance of the URL to the DICOM MADO
-            // TODO manage also FHIR MADO
-            const doc = bundle.entry[0].resource;
-            elements.madoUrl.value = doc.content?.[0]?.attachment?.url || '';
+            // Try to find a DICOM MADO DocumentReference first, then fall back to FHIR
+            let selectedDoc = null;
+            let selectedUrl = '';
+
+            for (const entry of bundle.entry) {
+                const doc = entry.resource;
+                if (!doc || !doc.content || doc.content.length === 0) continue;
+
+                for (const content of doc.content) {
+                    const contentType = (content.attachment?.contentType || '').toLowerCase();
+                    const url = content.attachment?.url || '';
+
+                    if (contentType.includes('application/dicom') || url.endsWith('.dcm')) {
+                        // Prefer DICOM MADO
+                        selectedDoc = doc;
+                        selectedUrl = url;
+                        break;
+                    }
+
+                    if (!selectedDoc && (contentType.includes('application/fhir+json') ||
+                        contentType.includes('application/json') || url.endsWith('.json'))) {
+                        // Fall back to FHIR MADO
+                        selectedDoc = doc;
+                        selectedUrl = url;
+                    }
+                }
+
+                if (selectedUrl && (selectedDoc?.content?.[0]?.attachment?.contentType || '').toLowerCase().includes('application/dicom')) {
+                    break; // Found DICOM, stop looking
+                }
+            }
+
+            if (!selectedUrl) {
+                // Legacy fallback: use first document's first content URL
+                const doc = bundle.entry[0].resource;
+                selectedUrl = doc?.content?.[0]?.attachment?.url || '';
+            }
+
+            elements.madoUrl.value = selectedUrl;
 
             if (elements.madoUrl.value.trim()) {
                 await loadFromUrl();
@@ -232,6 +267,19 @@ const DicomDownloader = (function() {
                 showToast(`Converting DICOM file: ${filename}`, 'info');
                 const fhirJson = await convertDicomToFhir(dicomBlob, filename);
                 parseAndLoadManifest(fhirJson, file.name);
+                return;
+            }
+
+            if (inspection.kind === 'fhir-bundle') {
+                showToast('Detected FHIR Bundle, loading manifest directly...', 'info');
+                parseAndLoadManifest(inspection.json, file.name);
+                return;
+            }
+
+            if (inspection.kind === 'document-reference') {
+                showToast('Detected DocumentReference, resolving manifest...', 'info');
+                const resolved = await resolveDocumentReference(inspection.json, '');
+                parseAndLoadManifest(resolved.manifest, resolved.sourceName || file.name);
                 return;
             }
 
@@ -311,7 +359,205 @@ const DicomDownloader = (function() {
             return { kind: 'binary-fhir', arrayBuffer, bytes, text, json };
         }
 
+        if (json && json.resourceType === 'Bundle') {
+            return { kind: 'fhir-bundle', arrayBuffer, bytes, text, json };
+        }
+
+        if (json && json.resourceType === 'DocumentReference') {
+            return { kind: 'document-reference', arrayBuffer, bytes, text, json };
+        }
+
         return { kind: 'json', arrayBuffer, bytes, text, json };
+    }
+
+    /**
+     * Resolve a DocumentReference to its actual manifest content.
+     * Follows the content attachment URL(s), preferring DICOM over FHIR.
+     * If the primary content URL fails, falls back to related DocumentReferences
+     * (e.g. the DICOM KOS variant linked via relatesTo).
+     *
+     * @param {object} docRef - A parsed FHIR DocumentReference resource
+     * @param {string} originalUrl - The original URL that was requested (to avoid loops)
+     * @returns {Promise<{manifest: object|string, sourceName: string}>}
+     */
+    async function resolveDocumentReference(docRef, originalUrl) {
+        const contents = docRef.content || [];
+
+        // Classify content entries as DICOM or FHIR
+        let dicomContentUrl = null;
+        let fhirContentUrl = null;
+
+        for (const content of contents) {
+            const ct = (content.attachment?.contentType || '').toLowerCase();
+            const url = content.attachment?.url || '';
+            if (!url) continue;
+
+            if (ct.includes('application/dicom') || url.endsWith('.dcm')) {
+                dicomContentUrl = url;
+            } else if (ct.includes('application/fhir+json') || ct.includes('application/json') || url.endsWith('.json')) {
+                fhirContentUrl = url;
+            } else if (!dicomContentUrl) {
+                // Unknown type, treat as potential DICOM
+                dicomContentUrl = url;
+            }
+        }
+
+        // Try DICOM content first (more reliable for the downloader), then FHIR
+        const urlsToTry = [];
+        if (dicomContentUrl) urlsToTry.push(dicomContentUrl);
+        if (fhirContentUrl) urlsToTry.push(fhirContentUrl);
+
+        for (const contentUrl of urlsToTry) {
+            // Skip if it's the same URL we already tried (avoid infinite loop)
+            if (contentUrl === originalUrl) continue;
+
+            try {
+                const resp = await fetch(contentUrl, {
+                    headers: { 'Accept': 'application/dicom, application/fhir+json, application/json, */*' }
+                });
+                if (!resp.ok) continue;
+
+                const blob = await resp.blob();
+                const inspection = await inspectInputBlob(blob);
+                const respContentType = (resp.headers.get('content-type') || '').toLowerCase();
+
+                if (inspection.kind === 'binary-fhir') {
+                    showToast('Resolved DocumentReference → FHIR Binary, extracting DICOM...', 'info');
+                    const dicomBlob = base64ToBlob(inspection.json.data, inspection.json.contentType || 'application/dicom');
+                    const filename = ensureDicomExtension(inspection.json.id || extractFilenameFromUrl(contentUrl) || 'manifest');
+                    const fhirJson = await convertDicomToFhir(dicomBlob, filename);
+                    return { manifest: fhirJson, sourceName: contentUrl };
+                }
+
+                if (inspection.kind === 'fhir-bundle') {
+                    showToast('Resolved DocumentReference → FHIR Bundle manifest', 'info');
+                    return { manifest: inspection.json, sourceName: contentUrl };
+                }
+
+                if (inspection.kind === 'dicom' || respContentType.includes('application/dicom') || respContentType.includes('application/octet-stream')) {
+                    showToast('Resolved DocumentReference → DICOM file, converting to FHIR...', 'info');
+                    const filename = ensureDicomExtension(extractFilenameFromUrl(contentUrl) || 'manifest');
+                    const fhirJson = await convertDicomToFhir(blob, filename);
+                    return { manifest: fhirJson, sourceName: contentUrl };
+                }
+
+                // If it parsed as some other JSON, try loading as manifest
+                if (inspection.text) {
+                    return { manifest: inspection.text, sourceName: contentUrl };
+                }
+            } catch (err) {
+                console.warn(`Failed to fetch content from ${contentUrl}:`, err.message);
+            }
+        }
+
+        // Fallback: try related DocumentReferences (e.g. DICOM KOS linked via relatesTo)
+        const relatesTo = docRef.relatesTo || [];
+        for (const relation of relatesTo) {
+            const ref = relation.target?.reference;
+            if (!ref) continue;
+
+            try {
+                // Resolve relative reference against FHIR base
+                let relatedUrl = ref;
+                if (!ref.startsWith('http')) {
+                    relatedUrl = `${state.fhirBaseUrl}/${ref}`;
+                }
+
+                const resp = await fetch(relatedUrl, {
+                    headers: { 'Accept': 'application/fhir+json, application/json' }
+                });
+                if (!resp.ok) continue;
+
+                const relatedDoc = await resp.json();
+                if (relatedDoc.resourceType === 'DocumentReference') {
+                    showToast(`Following related DocumentReference (${relation.code || 'related'})...`, 'info');
+                    return await resolveDocumentReference(relatedDoc, originalUrl);
+                }
+            } catch (err) {
+                console.warn(`Failed to follow relatesTo reference ${ref}:`, err.message);
+            }
+        }
+
+        // Final fallback: extract study UID from context.related and search via MHD
+        const studyUid = extractStudyUidFromDocRef(docRef);
+        if (studyUid) {
+            showToast('Searching for DICOM manifest by Study UID...', 'info');
+            const searchUrl = `${state.fhirBaseUrl}/DocumentReference?identifier=${encodeURIComponent(studyUid)}`;
+            try {
+                const resp = await fetch(searchUrl, {
+                    headers: { 'Accept': 'application/fhir+json' }
+                });
+                if (resp.ok) {
+                    const bundle = await resp.json();
+                    if (bundle?.entry?.length > 0) {
+                        // Find the DICOM KOS DocumentReference
+                        for (const entry of bundle.entry) {
+                            const doc = entry.resource;
+                            if (!doc || !doc.content) continue;
+                            const ct = (doc.content[0]?.attachment?.contentType || '').toLowerCase();
+                            const profiles = doc.meta?.profile || [];
+                            if (ct.includes('application/dicom') || profiles.some(p => p.includes('MadoDicomKos'))) {
+                                // Found the DICOM KOS variant — follow its content URL
+                                const dicomUrl = doc.content[0]?.attachment?.url;
+                                if (dicomUrl) {
+                                    showToast('Found DICOM KOS manifest via search, fetching...', 'info');
+                                    const dicomResp = await fetch(dicomUrl, {
+                                        headers: { 'Accept': 'application/dicom, application/fhir+json, */*' }
+                                    });
+                                    if (dicomResp.ok) {
+                                        const dicomBlob = await dicomResp.blob();
+                                        const inspection = await inspectInputBlob(dicomBlob);
+                                        const respCt = (dicomResp.headers.get('content-type') || '').toLowerCase();
+
+                                        if (inspection.kind === 'binary-fhir') {
+                                            const extractedBlob = base64ToBlob(inspection.json.data, inspection.json.contentType || 'application/dicom');
+                                            const filename = ensureDicomExtension(inspection.json.id || 'manifest');
+                                            const fhirJson = await convertDicomToFhir(extractedBlob, filename);
+                                            return { manifest: fhirJson, sourceName: dicomUrl };
+                                        }
+                                        if (inspection.kind === 'fhir-bundle') {
+                                            return { manifest: inspection.json, sourceName: dicomUrl };
+                                        }
+                                        if (inspection.kind === 'dicom' || respCt.includes('application/dicom') || respCt.includes('application/octet-stream')) {
+                                            const filename = ensureDicomExtension(extractFilenameFromUrl(dicomUrl) || 'manifest');
+                                            const fhirJson = await convertDicomToFhir(dicomBlob, filename);
+                                            return { manifest: fhirJson, sourceName: dicomUrl };
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (err) {
+                console.warn('Failed to search by study UID:', err.message);
+            }
+        }
+
+        throw new Error('Could not resolve DocumentReference to a usable manifest. None of the content URLs returned valid data.');
+    }
+
+    /**
+     * Extract Study Instance UID from a DocumentReference's context.related
+     */
+    function extractStudyUidFromDocRef(docRef) {
+        const related = docRef.context?.related || [];
+        for (const ref of related) {
+            const codings = ref.identifier?.type?.coding || [];
+            for (const coding of codings) {
+                if (coding.code === '110180' || coding.display?.includes('Study Instance UID')) {
+                    // The value is typically urn:oid:1.2.3.4... — extract the OID
+                    const val = ref.identifier?.value || '';
+                    return val.replace(/^urn:oid:/, '');
+                }
+            }
+        }
+        // Also try masterIdentifier or identifier
+        const masterVal = docRef.masterIdentifier?.value || '';
+        if (masterVal) {
+            return masterVal.replace(/^urn:oid:/, '');
+        }
+        return null;
     }
 
     // ==============================
@@ -337,14 +583,20 @@ const DicomDownloader = (function() {
             }
 
             // Fetch the file
-            const response = await fetch(fetchUrl, {
+            let response = await fetch(fetchUrl, {
                 headers: {
                     'Accept': 'application/dicom, application/fhir+json, application/json, */*'
                 }
             });
 
+            // If the URL returns 404, try fallback strategies
             if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                const fallbackResult = await tryFallbackFetch(fetchUrl, response);
+                if (fallbackResult) {
+                    response = fallbackResult;
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
             }
 
             const contentType = (response.headers.get('content-type') || '').toLowerCase();
@@ -357,6 +609,13 @@ const DicomDownloader = (function() {
                 const filename = ensureDicomExtension(inspection.json.id || extractFilenameFromUrl(url) || 'manifest');
                 const fhirJson = await convertDicomToFhir(dicomBlob, filename);
                 parseAndLoadManifest(fhirJson, url);
+            } else if (inspection.kind === 'fhir-bundle') {
+                showToast('Detected FHIR Bundle, loading manifest directly...', 'info');
+                parseAndLoadManifest(inspection.json, url);
+            } else if (inspection.kind === 'document-reference') {
+                showToast('Received DocumentReference, resolving manifest...', 'info');
+                const resolved = await resolveDocumentReference(inspection.json, fetchUrl);
+                parseAndLoadManifest(resolved.manifest, resolved.sourceName);
             } else if (inspection.kind === 'dicom' || contentType.includes('application/dicom') || contentType.includes('application/octet-stream')) {
                 showToast('Detected DICOM file, converting to FHIR...', 'info');
                 const filename = ensureDicomExtension(extractFilenameFromUrl(url) || 'manifest');
@@ -370,6 +629,94 @@ const DicomDownloader = (function() {
             showError(`Failed to load manifest: ${error.message}`);
             hideLoading();
         }
+    }
+
+    /**
+     * When the primary fetch fails (e.g. 404), try fallback strategies:
+     * 1. If URL is a Bundle/ URL, try DocumentReference/ with the same ID
+     * 2. Try reading the error response body for a usable FHIR resource
+     * 3. Try searching for the DocumentReference by identifier (MHD search)
+     */
+    async function tryFallbackFetch(fetchUrl, failedResponse) {
+        // Strategy 1: If URL is fhir/Bundle/ID, try fhir/DocumentReference/ID
+        const bundlePattern = /\/Bundle\/([^/?#]+)/;
+        const bundleMatch = fetchUrl.match(bundlePattern);
+        if (bundleMatch) {
+            const resourceId = bundleMatch[1];
+            const docRefUrl = fetchUrl.replace(bundlePattern, `/DocumentReference/${resourceId}`);
+            showToast('Bundle not found, trying as DocumentReference...', 'info');
+
+            try {
+                const resp = await fetch(docRefUrl, {
+                    headers: { 'Accept': 'application/fhir+json, application/json, */*' }
+                });
+                if (resp.ok) {
+                    return resp;
+                }
+            } catch (_) {}
+        }
+
+        // Strategy 2: Try to read the error response body - some servers return
+        // useful JSON even on error (e.g. an OperationOutcome or a DocumentReference)
+        try {
+            const errorBody = await failedResponse.clone().text();
+            const errorJson = JSON.parse(errorBody);
+            if (errorJson.resourceType === 'DocumentReference') {
+                // Server returned a DocumentReference in the error body
+                const blob = new Blob([errorBody], { type: 'application/fhir+json' });
+                return new Response(blob, {
+                    status: 200,
+                    headers: { 'Content-Type': 'application/fhir+json' }
+                });
+            }
+        } catch (_) {}
+
+        // Strategy 3: If URL contains a DocumentReference ID, try searching by
+        // identifier instead. MHD responders generate DocumentReferences on-the-fly
+        // during search but may not support direct GET by ID.
+        const docRefPattern = /\/DocumentReference\/([^/?#]+)/;
+        const docRefMatch = fetchUrl.match(docRefPattern);
+        if (docRefMatch) {
+            const resourceId = docRefMatch[1];
+            // Strip common prefixes like 'kos-' to get a potential study UID
+            const cleanId = resourceId.replace(/^kos-/, '');
+            const searchUrl = `${state.fhirBaseUrl}/DocumentReference?identifier=${encodeURIComponent(cleanId)}`;
+            showToast('Direct fetch failed, searching by identifier...', 'info');
+
+            try {
+                const resp = await fetch(searchUrl, {
+                    headers: { 'Accept': 'application/fhir+json' }
+                });
+                if (resp.ok) {
+                    const bundle = await resp.json();
+                    if (bundle?.entry?.length > 0) {
+                        // Find a DICOM KOS DocumentReference preferentially
+                        let selectedDoc = null;
+                        for (const entry of bundle.entry) {
+                            const doc = entry.resource;
+                            if (!doc || !doc.content) continue;
+                            const ct = (doc.content[0]?.attachment?.contentType || '').toLowerCase();
+                            const profiles = doc.meta?.profile || [];
+                            if (ct.includes('application/dicom') || profiles.some(p => p.includes('MadoDicomKos'))) {
+                                selectedDoc = doc;
+                                break;
+                            }
+                            if (!selectedDoc) selectedDoc = doc;
+                        }
+                        if (selectedDoc) {
+                            const docJson = JSON.stringify(selectedDoc);
+                            const blob = new Blob([docJson], { type: 'application/fhir+json' });
+                            return new Response(blob, {
+                                status: 200,
+                                headers: { 'Content-Type': 'application/fhir+json' }
+                            });
+                        }
+                    }
+                }
+            } catch (_) {}
+        }
+
+        return null;
     }
 
     async function loadFromPaste() {

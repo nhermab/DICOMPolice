@@ -442,10 +442,8 @@ public class MHDBackedMetadataService {
         study.studyID = attrs.getString(Tag.StudyID);
         study.accessionNumber = attrs.getString(Tag.AccessionNumber);
         study.referringPhysicianName = attrs.getString(Tag.ReferringPhysicianName);
-
-        extractSeriesFromEvidenceSequence(attrs, study);
-        addMetadataFromTID1600(attrs, study);
-
+        study.institutionName = attrs.getString(Tag.InstitutionName);
+        study.modalitiesInStudy = extractModalitiesInStudy(attrs);
         study.numberOfStudyRelatedSeries = study.series.size();
 
         return study;
@@ -730,6 +728,7 @@ public class MHDBackedMetadataService {
         study.studyDescription = docRef.getDescription();
         study.modalitiesInStudy = extractModalitiesInStudy(docRef);
         study.referringPhysicianName = extractReferringPhysicianName(docRef);
+        study.institutionName = extractInstitutionName(docRef);
         extractPatientInfo(docRef, study);
         extractStudyDateTime(docRef, study);
         return study;
@@ -821,6 +820,13 @@ public class MHDBackedMetadataService {
     }
 
     /**
+     * Extracts ModalitiesInStudy directly from DICOM Attributes (Tag.ModalitiesInStudy).
+     */
+    private String extractModalitiesInStudy(Attributes attrs) {
+        return attrs.getString(Tag.ModalitiesInStudy);
+    }
+
+    /**
      * Extracts all modalities from context.event codings and joins them with backslash
      * as per the DICOM standard for multi-valued CS fields.
      */
@@ -850,6 +856,20 @@ public class MHDBackedMetadataService {
 
         String display = author.getDisplay();
         return "Unknown Author".equals(display) ? null : display;
+    }
+
+    /**
+     * Extracts the institution name from the Organization author of the DocumentReference.
+     * In MADO, author[1] (type=Organization) represents the creating institution.
+     */
+    private String extractInstitutionName(DocumentReference docRef) {
+        if (!docRef.hasAuthor()) return null;
+        for (org.hl7.fhir.r4.model.Reference author : docRef.getAuthor()) {
+            if ("Organization".equals(author.getType()) && author.hasDisplay()) {
+                return author.getDisplay();
+            }
+        }
+        return null;
     }
 
     private boolean matchesSeries(SeriesMetadata series, String seriesInstanceUID, String modality,
@@ -928,6 +948,7 @@ public class MHDBackedMetadataService {
         public String studyID;
         public String accessionNumber;
         public String referringPhysicianName;
+        public String institutionName;
         public String modalitiesInStudy;
         public int numberOfStudyRelatedSeries;
         public int numberOfStudyRelatedInstances;
@@ -953,6 +974,7 @@ public class MHDBackedMetadataService {
             setIfNotNull(attrs, Tag.StudyID, VR.SH, studyID);
             setIfNotNull(attrs, Tag.AccessionNumber, VR.SH, accessionNumber);
             setIfNotNull(attrs, Tag.ReferringPhysicianName, VR.PN, referringPhysicianName);
+            setIfNotNull(attrs, Tag.InstitutionName, VR.LO, institutionName);
             setIfNotNull(attrs, Tag.ModalitiesInStudy, VR.CS, modalitiesInStudy);
             attrs.setInt(Tag.NumberOfStudyRelatedSeries, VR.IS, numberOfStudyRelatedSeries);
             attrs.setInt(Tag.NumberOfStudyRelatedInstances, VR.IS, numberOfStudyRelatedInstances);
@@ -1074,4 +1096,3 @@ public class MHDBackedMetadataService {
         }
     }
 }
-

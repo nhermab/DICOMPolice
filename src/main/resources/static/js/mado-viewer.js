@@ -257,7 +257,9 @@ const MadoViewer = (function() {
 
             // Show success toast
             if (state.allDocuments.length > 0) {
-                showToast(`Found ${state.allDocuments.length} document(s)`, 'success');
+                const fhirCount = state.allDocuments.filter(d => d.manifestFormat === 'FHIR').length;
+                const kosCount = state.allDocuments.filter(d => d.manifestFormat === 'DICOM KOS').length;
+                showToast(`Found ${state.allDocuments.length} document(s): ${fhirCount} FHIR + ${kosCount} DICOM KOS`, 'success');
             }
 
         } catch (error) {
@@ -286,23 +288,73 @@ const MadoViewer = (function() {
             // Extract date
             const date = doc.date ? new Date(doc.date) : null;
 
-            // Extract modalities from context
-            const modalities = doc.context?.event?.map(e => e.coding?.[0]?.code).filter(Boolean) || ['OT'];
+            // Extract modalities from the R5 cross-version modality extension
+            let modalities = [];
+            const modalityExt = doc.extension?.find(e =>
+                e.url === 'http://hl7.org/fhir/5.0/StructureDefinition/extension-DocumentReference.modality');
+            if (modalityExt?.valueCodeableConcept?.coding) {
+                modalities = modalityExt.valueCodeableConcept.coding.map(c => c.code).filter(Boolean);
+            }
+            if (modalities.length === 0) {
+                modalities = ['OT'];
+            }
 
             // Extract study description
             const description = doc.description || doc.content?.[0]?.attachment?.title || 'No Description';
 
-            // Extract accession number
-            const accessionNumber = doc.context?.related?.find(r => r.type === 'ServiceRequest')?.identifier?.value || '-';
+            // Extract accession number from context.related
+            let accessionNumber = '-';
+            if (doc.context?.related) {
+                const accRelated = doc.context.related.find(r =>
+                    r.identifier?.type?.coding?.some(c => c.code === '121022' || c.code === 'ACSN'));
+                if (accRelated?.identifier?.value) {
+                    accessionNumber = accRelated.identifier.value;
+                }
+            }
 
-            // Extract study UID from master identifier
-            const studyUid = doc.masterIdentifier?.value || doc.id;
+            // Extract study UID from context.related
+            let studyUid = doc.masterIdentifier?.value || doc.id;
+            if (doc.context?.related) {
+                const studyUidRelated = doc.context.related.find(r =>
+                    r.identifier?.type?.coding?.some(c => c.code === '110180'));
+                if (studyUidRelated?.identifier?.value) {
+                    studyUid = studyUidRelated.identifier.value;
+                }
+            }
+
+            // Determine manifest format from content.format and meta.profile
+            const formatCode = doc.content?.[0]?.format?.code || '';
+            const contentType = doc.content?.[0]?.attachment?.contentType || '';
+            const profiles = doc.meta?.profile || [];
+            let manifestFormat = 'FHIR';
+            if (formatCode === '1.2.840.10008.5.1.4.1.1.88.59' ||
+                contentType === 'application/dicom' ||
+                profiles.some(p => p.includes('MadoDicomKosDocumentReference'))) {
+                manifestFormat = 'DICOM KOS';
+            } else if (formatCode.includes('fhir-manifest') ||
+                       contentType === 'application/fhir+json' ||
+                       profiles.some(p => p.includes('MadoFhirDocumentReference'))) {
+                manifestFormat = 'FHIR';
+            }
 
             // Extract Binary URL for MADO manifest
             const binaryUrl = doc.content?.[0]?.attachment?.url || '';
 
-            // Extract author
-            const author = doc.author?.[0]?.display || 'Unknown';
+            // Extract author info (both device and organization)
+            let author = 'Unknown';
+            if (doc.author && doc.author.length > 0) {
+                const authorParts = doc.author.map(a => a.display).filter(Boolean);
+                author = authorParts.join(', ') || 'Unknown';
+            }
+
+            // Extract relatesTo reference (KOS ↔ FHIR link)
+            let relatesToRef = null;
+            if (doc.relatesTo && doc.relatesTo.length > 0) {
+                const kosRelation = doc.relatesTo.find(r => r.code === 'transforms');
+                if (kosRelation?.target?.reference) {
+                    relatesToRef = kosRelation.target.reference;
+                }
+            }
 
             return {
                 id: doc.id,
@@ -316,6 +368,8 @@ const MadoViewer = (function() {
                 accessionNumber,
                 author,
                 binaryUrl,
+                manifestFormat,
+                relatesToRef,
                 size: doc.content?.[0]?.attachment?.size || 0,
                 rawResource: doc  // Store raw resource for inspection
             };
@@ -332,8 +386,10 @@ const MadoViewer = (function() {
 
         elements.statsGrid.style.display = 'grid';
 
-        // Total count
-        document.getElementById('totalCount').textContent = docs.length;
+        // Total count (group by study - count unique studies, not individual doc refs)
+        const fhirCount = docs.filter(d => d.manifestFormat === 'FHIR').length;
+        const kosCount = docs.filter(d => d.manifestFormat === 'DICOM KOS').length;
+        document.getElementById('totalCount').textContent = `${fhirCount}+${kosCount}`;
 
         // Unique patients
         const uniquePatients = new Set(docs.map(d => d.patientId));
@@ -366,6 +422,7 @@ const MadoViewer = (function() {
                        doc.description.toLowerCase().includes(query) ||
                        doc.accessionNumber.toLowerCase().includes(query) ||
                        doc.modalities.some(m => m.toLowerCase().includes(query)) ||
+                       doc.manifestFormat.toLowerCase().includes(query) ||
                        doc.author.toLowerCase().includes(query);
             });
         }
@@ -439,6 +496,10 @@ const MadoViewer = (function() {
                                 Modality
                                 <span class="sort-indicator"></span>
                             </th>
+                            <th data-sort="manifestFormat">
+                                Format
+                                <span class="sort-indicator"></span>
+                            </th>
                             <th data-sort="description">
                                 Description
                                 <span class="sort-indicator"></span>
@@ -452,12 +513,18 @@ const MadoViewer = (function() {
                     </thead>
                     <tbody>
                         ${pageDocuments.map((doc, idx) => `
-                            <tr data-doc-index="${startIdx + idx}">
+                            <tr data-doc-index="${startIdx + idx}" class="${doc.manifestFormat === 'DICOM KOS' ? 'kos-row' : 'fhir-row'}">
                                 <td class="date-cell">${doc.dateString}</td>
                                 <td class="patient-cell">${escapeHtml(doc.patientId)}</td>
                                 <td class="patient-cell">${escapeHtml(doc.patientName)}</td>
                                 <td class="modality-cell">
                                     ${doc.modalities.map(m => `<span class="modality-badge">${m}</span>`).join('')}
+                                </td>
+                                <td class="format-cell">
+                                    <span class="format-badge ${doc.manifestFormat === 'FHIR' ? 'format-fhir' : 'format-kos'}">
+                                        ${doc.manifestFormat === 'FHIR' ? '🔥 FHIR' : '🩻 DICOM KOS'}
+                                    </span>
+                                    ${doc.relatesToRef ? '<span class="linked-badge" title="Linked to ' + escapeHtml(doc.relatesToRef) + '">🔗</span>' : ''}
                                 </td>
                                 <td class="description-cell" title="${escapeHtml(doc.description)}">
                                     ${escapeHtml(doc.description)}
@@ -691,6 +758,8 @@ const MadoViewer = (function() {
                     <span><strong>Date:</strong> ${doc.dateString}</span>
                     <span><strong>Modality:</strong> ${doc.modalities.join(', ')}</span>
                     <span><strong>Accession:</strong> ${escapeHtml(doc.accessionNumber)}</span>
+                    <span><strong>Format:</strong> <span class="format-badge ${doc.manifestFormat === 'FHIR' ? 'format-fhir' : 'format-kos'}">${doc.manifestFormat === 'FHIR' ? '🔥 FHIR JSON' : '🩻 DICOM KOS'}</span></span>
+                    ${doc.relatesToRef ? '<span><strong>Linked to:</strong> ' + escapeHtml(doc.relatesToRef) + '</span>' : ''}
                 </div>
             `;
         }
@@ -990,12 +1059,13 @@ const MadoViewer = (function() {
             return;
         }
 
-        const headers = ['Study Date', 'Patient ID', 'Patient Name', 'Modality', 'Description', 'Accession', 'Author', 'Study UID'];
+        const headers = ['Study Date', 'Patient ID', 'Patient Name', 'Modality', 'Format', 'Description', 'Accession', 'Author', 'Study UID'];
         const rows = state.filteredDocuments.map(doc => [
             doc.dateString,
             doc.patientId,
             doc.patientName,
             doc.modalities.join('; '),
+            doc.manifestFormat,
             doc.description,
             doc.accessionNumber,
             doc.author,

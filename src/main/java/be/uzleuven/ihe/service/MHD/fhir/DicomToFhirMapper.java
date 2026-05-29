@@ -16,12 +16,33 @@ import java.util.UUID;
 
 /**
  * Utility class to map DICOM study metadata to FHIR resources.
- * Implements IHE MHD Document Responder mappings for MADO manifests.
+ * Implements IHE MHD Document Responder mappings for MADO IG R4 manifests.
+ *
+ * Produces DocumentReferences conforming to:
+ * - MadoFhirDocumentReference (for FHIR Imaging Study Manifests)
+ * - MadoDicomKosDocumentReference (for DICOM KOS Manifests)
+ *
+ * Per MADO IG, the MHD response SHALL include both FHIR and DICOM KOS
+ * DocumentReferences linked via relatesTo with code "transforms".
  */
 public class DicomToFhirMapper {
 
     private static final String STUDY_UID_SYSTEM = "urn:dicom:uid";
-    private static final String ACCESSION_NUMBER_SYSTEM = "urn:oid:1.2.840.10008.2.16.4"; // DICOM Accession Number
+
+    // MADO IG R4 Extension URLs
+    private static final String EXT_DOCREF_MODALITY = "http://hl7.org/fhir/5.0/StructureDefinition/extension-DocumentReference.modality";
+    private static final String EXT_DOCREF_BODY_SITE = "http://hl7.org/fhir/5.0/StructureDefinition/extension-DocumentReference.bodySite";
+    private static final String EXT_DOCREF_CONTENT_PROFILE = "http://hl7.org/fhir/5.0/StructureDefinition/extension-DocumentReference.content.profile";
+
+    // MADO IG Profile URLs
+    private static final String PROFILE_FHIR_DOCREF = "https://profiles.ihe.net/RAD/MADO/StructureDefinition/MadoFhirDocumentReference";
+    private static final String PROFILE_KOS_DOCREF = "https://profiles.ihe.net/RAD/MADO/StructureDefinition/MadoDicomKosDocumentReference";
+    private static final String PROFILE_MADO_BUNDLE = "https://profiles.ihe.net/RAD/MADO/StructureDefinition/MadoFhirBundle";
+    private static final String PROFILE_MADO_CREATOR = "https://profiles.ihe.net/RAD/MADO/StructureDefinition/MadoCreator";
+    private static final String PROFILE_MADO_CREATOR_ORG = "https://profiles.ihe.net/RAD/MADO/StructureDefinition/MadoCreatorOrganization";
+
+    // MADO Device Type Code System
+    private static final String MADO_DEVICE_TYPE_SYSTEM = "https://profiles.ihe.net/RAD/MADO/CodeSystem/MadoDeviceType";
 
     /**
      * Create a stable FHIR ID from a Study Instance UID.
@@ -31,14 +52,9 @@ public class DicomToFhirMapper {
         if (studyInstanceUid == null) {
             return UUID.randomUUID().toString();
         }
-        // Create a URL-safe base64 encoding of the UID
         String base64 = Base64.getUrlEncoder()
                 .withoutPadding()
                 .encodeToString(studyInstanceUid.getBytes(StandardCharsets.UTF_8));
-
-        // FHIR IDs allow [A-Za-z0-9\-\.]
-        // Base64 URL uses '-' and '_'
-        // Replace '_' with '.' to be FHIR compliant
         return base64.replace('_', '.');
     }
 
@@ -47,26 +63,24 @@ public class DicomToFhirMapper {
      */
     public static String decodeStudyUidFromFhirId(String fhirId) {
         if (fhirId == null) return null;
-
-        // Tolerate a trailing .dcm extension on IDs
         if (fhirId.toLowerCase().endsWith(".dcm")) {
             fhirId = fhirId.substring(0, fhirId.length() - 4);
         }
-
         try {
-            // Revert the replacement
             String base64 = fhirId.replace('.', '_');
             byte[] decoded = Base64.getUrlDecoder().decode(base64);
             return new String(decoded, StandardCharsets.UTF_8);
         } catch (IllegalArgumentException e) {
-            // Not a valid base64, might be the raw UID
             return fhirId;
         }
     }
 
     /**
-     * Map DICOM study attributes to a FHIR DocumentReference.
-     * Implements ITI-67 (Find Document References) response mapping.
+     * Map DICOM study attributes to a FHIR DocumentReference for a FHIR MADO manifest.
+     * Implements MADO IG R4 MadoFhirDocumentReference profile.
+     *
+     * Per MADO IG, the FHIR DocumentReference SHALL have a relatesTo:kosReference
+     * linking to the corresponding DICOM KOS DocumentReference with code "transforms".
      */
     public static DocumentReference mapStudyToDocumentReference(Attributes study, MHDConfiguration config,
                                                                   byte[] manifestBytes) {
@@ -78,60 +92,89 @@ public class DicomToFhirMapper {
         // Set resource ID
         docRef.setId(fhirId);
 
-        // Meta profile - MHD Minimal DocumentReference (Facade mode)
+        // Meta profile - MADO FHIR DocumentReference
         Meta meta = new Meta();
-        meta.addProfile("https://profiles.ihe.net/ITI/MHD/StructureDefinition/IHE.MHD.Minimal.DocumentReference");
+        meta.addProfile(PROFILE_FHIR_DOCREF);
         docRef.setMeta(meta);
 
-        // Master Identifier - Study Instance UID (required for MADO)
+        // Modality extension (R5 cross-version extension) - MADO IG mandates exactly 1 extension with CodeableConcept
+        String[] modalities = study.getStrings(Tag.ModalitiesInStudy);
+        if (modalities != null && modalities.length > 0) {
+            Extension modalityExt = new Extension(EXT_DOCREF_MODALITY);
+            CodeableConcept modalityConcept = new CodeableConcept();
+            for (String modality : modalities) {
+                modalityConcept.addCoding()
+                    .setSystem("http://dicom.nema.org/resources/ontology/DCM")
+                    .setCode(modality);
+            }
+            modalityExt.setValue(modalityConcept);
+            docRef.addExtension(modalityExt);
+        }
+
+        // BodySite extension (R5 cross-version extension) - MADO IG 0..1, MustSupport
+        String bodyPartExamined = study.getString(Tag.BodyPartExamined);
+        if (bodyPartExamined != null && !bodyPartExamined.isEmpty()) {
+            Extension bodySiteExt = new Extension(EXT_DOCREF_BODY_SITE);
+            Extension conceptExt = new Extension("concept");
+            CodeableConcept bodySiteConcept = new CodeableConcept();
+            bodySiteConcept.setText(bodyPartExamined);
+            conceptExt.setValue(bodySiteConcept);
+            bodySiteExt.addExtension(conceptExt);
+            docRef.addExtension(bodySiteExt);
+        }
+
+        // Master Identifier - the Bundle identifier (MADO IG R4 requirement: UniqueIdIdentifier)
+        String bundleIdentifierValue = "urn:oid:" + studyUid + ".1";
         Identifier masterIdentifier = new Identifier();
-        masterIdentifier.setSystem(STUDY_UID_SYSTEM);
-        masterIdentifier.setValue(studyUid);
+        masterIdentifier.setSystem("urn:ietf:rfc:3986");
+        masterIdentifier.setValue(bundleIdentifierValue);
         docRef.setMasterIdentifier(masterIdentifier);
+
+        // Identifier - must include masterIdentifier per mado-docref-1 constraint
+        docRef.addIdentifier(masterIdentifier.copy());
 
         // Document status - current
         docRef.setStatus(Enumerations.DocumentReferenceStatus.CURRENT);
 
-        // Document type - imaging procedure
+        // Document type - LOINC 18748-4 "Diagnostic imaging Study"
         CodeableConcept type = new CodeableConcept();
         type.addCoding()
-            .setSystem(config.getTypeCodeSystem())
-            .setCode(config.getTypeCode())
-            .setDisplay("Imaging study manifest");
+            .setSystem("http://loinc.org")
+            .setCode("18748-4")
+            .setDisplay("Diagnostic imaging Study");
         docRef.setType(type);
 
-        // Category/Class
+        // Category - Medical-Imaging
         CodeableConcept category = new CodeableConcept();
         category.addCoding()
-            .setSystem(config.getClassCodeSystem())
-            .setCode(config.getClassCode())
-            .setDisplay("Imaging");
+            .setSystem("http://hl7.eu/fhir/eu-health-data-api/CodeSystem/eehrxf-document-priority-category-cs")
+            .setCode("Medical-Imaging")
+            .setDisplay("Medical-Imaging");
         docRef.addCategory(category);
 
         // Subject - Patient reference
         String patientId = study.getString(Tag.PatientID);
-        String issuer = study.getString(Tag.IssuerOfPatientID, config.getPatientIdIssuerLocalNamespace());
         if (patientId != null) {
             Reference patientRef = new Reference();
             patientRef.setType("Patient");
-            // Use logical identifier for patient
             Identifier patientIdentifier = new Identifier();
             patientIdentifier.setSystem("urn:oid:" + config.getPatientIdIssuerOid());
             patientIdentifier.setValue(patientId);
             patientRef.setIdentifier(patientIdentifier);
-            patientRef.setDisplay(study.getString(Tag.PatientName, ""));
+            String patientName = study.getString(Tag.PatientName, "");
+            patientRef.setDisplay(patientName.replace("^", " ").trim());
             docRef.setSubject(patientRef);
         }
 
-        // new Extension (not yet approved by IHE) for homeCommunityId in MHD Responder document references
-        Extension homeCommunityUid = new Extension();
-        homeCommunityUid.setValue(new Identifier()
-                .setSystem("urn:ietf:rfc:3986")
-                // arbitrary condition based on patient ID in this MHD Responder to assign different homeCommunityId for testing purposes
-                //.setValue("203".equals(patientId)?config.getHomeCommunityId2():config.getHomeCommunityId()))
-                .setValue(config.getHomeCommunityId()))
-                .setUrl("https://profiles.ihe.net/ITI/MHD/StructureDefinition/ihe-homeCommunityId");
-        docRef.addExtension(homeCommunityUid);
+        // new Extension for homeCommunityId in MHD Responder document references
+        if (config.getHomeCommunityId() != null && !config.getHomeCommunityId().isEmpty()) {
+            Extension homeCommunityUid = new Extension();
+            homeCommunityUid.setValue(new Identifier()
+                    .setSystem("urn:ietf:rfc:3986")
+                    .setValue(config.getHomeCommunityId()))
+                    .setUrl("https://profiles.ihe.net/ITI/MHD/StructureDefinition/ihe-homeCommunityId");
+            docRef.addExtension(homeCommunityUid);
+        }
 
         // Date - Study Date/Time
         Date studyDate = parseDicomDateTime(study.getString(Tag.StudyDate), study.getString(Tag.StudyTime));
@@ -139,51 +182,57 @@ public class DicomToFhirMapper {
             docRef.setDate(studyDate);
         }
 
-        // Author (if available)
-        String authorName = study.getString(Tag.ReferringPhysicianName);
-        if (authorName == null || authorName.isEmpty()) {
-            authorName = study.getString(Tag.PerformingPhysicianName);
-        }
+        // Author - source-device (MADO Creator device)
+        Reference deviceRef = createMadoCreatorDeviceReference(config);
+        docRef.addAuthor(deviceRef);
 
-        if (authorName == null || authorName.isEmpty()) {
-            // Placeholder if no author found
-            authorName = "Unknown Author";
-        }
+        // Author - source-organization (MADO Creator Organization)
+        Reference orgRef = createMadoCreatorOrganizationReference(config);
+        docRef.addAuthor(orgRef);
 
-        Reference authorRef = new Reference();
-        authorRef.setType("Practitioner");
-        authorRef.setDisplay(authorName.replace("^", " "));
-        docRef.addAuthor(authorRef);
-
-        // Description
+        // Description - prefer StudyDescription, fallback to generic
         String studyDescription = study.getString(Tag.StudyDescription);
-        if (studyDescription != null && !studyDescription.isEmpty()) {
+        if (studyDescription != null && !studyDescription.trim().isEmpty()) {
             docRef.setDescription(studyDescription);
+        } else {
+            docRef.setDescription("Imaging Manifest for Imaging Study urn:oid:" + studyUid);
         }
 
-        // Security label (basic confidentiality)
-        docRef.addSecurityLabel()
-            .addCoding()
-            .setSystem("http://terminology.hl7.org/CodeSystem/v3-Confidentiality")
-            .setCode("N")
-            .setDisplay("Normal");
+        // relatesTo:kosReference - link to corresponding KOS DocumentReference (code = "transforms")
+        String kosDocRefId = "kos-" + fhirId;
+        DocumentReference.DocumentReferenceRelatesToComponent kosRelatesTo =
+            new DocumentReference.DocumentReferenceRelatesToComponent();
+        kosRelatesTo.setCode(DocumentReference.DocumentRelationshipType.TRANSFORMS);
+        kosRelatesTo.setTarget(new Reference("DocumentReference/" + kosDocRefId));
+        docRef.addRelatesTo(kosRelatesTo);
 
         // Content - attachment with retrieval URL
         DocumentReference.DocumentReferenceContentComponent content = new DocumentReference.DocumentReferenceContentComponent();
 
+        // Content profile extension (R5 cross-version) - valueCanonical with MadoFhirBundle profile
+        Extension contentProfileExt = new Extension(EXT_DOCREF_CONTENT_PROFILE);
+        Extension valueExt = new Extension("value[x]");
+        valueExt.setValue(new CanonicalType(PROFILE_MADO_BUNDLE + "|0.1.0"));
+        contentProfileExt.addExtension(valueExt);
+        content.addExtension(contentProfileExt);
+
         Attachment attachment = new Attachment();
-        attachment.setContentType("application/dicom");
+        attachment.setContentType("application/fhir+json");
         attachment.setLanguage("en");
 
-        // URL to retrieve the MADO manifest (ITI-68)
-        // Append .dcm to the Binary resource id so clients can infer filename from URL without extra headers
-        String retrieveUrl = config.getFhirBaseUrl() + "/Binary/" + fhirId + ".dcm";
+        // URL to retrieve the MADO FHIR manifest Bundle
+        String retrieveUrl = config.getFhirBaseUrl() + "/Bundle/" + fhirId;
         attachment.setUrl(retrieveUrl);
 
-        // Title
-        attachment.setTitle("MADO Manifest - " + (studyDescription != null ? studyDescription : studyUid));
+        // Title - prefer StudyDescription, fallback to generic
+        String fhirStudyDesc = study.getString(Tag.StudyDescription);
+        if (fhirStudyDesc != null && !fhirStudyDesc.trim().isEmpty()) {
+            attachment.setTitle(fhirStudyDesc);
+        } else {
+            attachment.setTitle("FHIR Imaging Manifest for Imaging Study");
+        }
 
-        // Creation time
+        // Creation time (required by MADO IG min:1)
         attachment.setCreation(new Date());
 
         // If manifest bytes are provided, calculate size and hash
@@ -200,56 +249,74 @@ public class DicomToFhirMapper {
 
         content.setAttachment(attachment);
 
-        // Format code for MADO
+        // Format code for MADO FHIR manifest (patternCoding from IG)
         Coding formatCoding = new Coding();
-        formatCoding.setSystem(config.getFormatCodeSystem());
-        formatCoding.setCode(config.getFormatCode());
-        formatCoding.setDisplay("Manifest for Access to DICOM Objects");
+        formatCoding.setSystem("http://ihe.net/fhir/ihe.formatcode.fhir/CodeSystem/formatcode");
+        formatCoding.setVersion("1.5.0");
+        formatCoding.setCode("urn:ihe:rad:MADO:fhir-manifest:2026");
         content.setFormat(formatCoding);
 
         docRef.addContent(content);
 
-        // Context - including accession number and facility
+        // Context - including Study Instance UID and Accession Number in related
         DocumentReference.DocumentReferenceContextComponent context = new DocumentReference.DocumentReferenceContextComponent();
 
-        String accessionNumber = study.getString(Tag.AccessionNumber);
-        if (accessionNumber != null && !accessionNumber.isEmpty()) {
-            Reference eventRef = new Reference();
-            eventRef.setType("ServiceRequest");
-            Identifier accIdentifier = new Identifier();
-            accIdentifier.setSystem("urn:oid:" + config.getAccessionNumberIssuerOid());
-            accIdentifier.setValue(accessionNumber);
-            eventRef.setIdentifier(accIdentifier);
-            context.addRelated(eventRef);
+        // Period - study started date (required by MADO IG: context.period min:1, period.start min:1)
+        if (studyDate != null) {
+            Period period = new Period();
+            period.setStart(studyDate);
+            context.setPeriod(period);
         }
 
-        // Facility type
+        // FacilityType (required by MADO IG min:1)
         CodeableConcept facilityType = new CodeableConcept();
         facilityType.addCoding()
             .setSystem("http://snomed.info/sct")
-            .setCode("22232009")
-            .setDisplay("Hospital");
+            .setCode("722171005")
+            .setDisplay("Diagnostic imaging department");
         context.setFacilityType(facilityType);
 
-        // Modality in context.event
-        String[] modalities = study.getStrings(Tag.ModalitiesInStudy);
-        if (modalities != null && modalities.length > 0) {
-            for (String modality : modalities) {
-                CodeableConcept event = new CodeableConcept();
-                event.addCoding()
-                        .setSystem("urn:oid:1.2.840.10008.2.11.1")
-                        .setCode(modality)
-                        .setDisplay(modality);
-                context.addEvent(event);
-            }
-        } else {
-            // Default to OT if missing
-            CodeableConcept event = new CodeableConcept();
-            event.addCoding()
-                    .setSystem("urn:oid:1.2.840.10008.2.11.1")
-                    .setCode("OT")
-                    .setDisplay("Other");
-            context.addEvent(event);
+        // PracticeSetting (required by MADO IG min:1)
+        CodeableConcept practiceSetting = new CodeableConcept();
+        practiceSetting.addCoding()
+            .setSystem("http://snomed.info/sct")
+            .setCode("394914008")
+            .setDisplay("Radiology");
+        context.setPracticeSetting(practiceSetting);
+
+        // Related - Study Instance UID (typed identifier per MadoReferencedStudyInstanceUidIdentifier)
+        Reference studyUidRef = new Reference();
+        Identifier studyUidIdentifier = new Identifier();
+        CodeableConcept studyUidType = new CodeableConcept();
+        studyUidType.addCoding()
+            .setSystem("http://dicom.nema.org/resources/ontology/DCM")
+            .setCode("110180")
+            .setDisplay("Study Instance UID");
+        studyUidIdentifier.setType(studyUidType);
+        studyUidIdentifier.setSystem("urn:dicom:uid");
+        studyUidIdentifier.setValue("urn:oid:" + studyUid);
+        studyUidRef.setIdentifier(studyUidIdentifier);
+        context.addRelated(studyUidRef);
+
+        // Related - Accession Number (typed identifier per MadoReferencedAccessionNumberIdentifier)
+        String accessionNumber = study.getString(Tag.AccessionNumber);
+        if (accessionNumber != null && !accessionNumber.isEmpty()) {
+            Reference accRef = new Reference();
+            Identifier accIdentifier = new Identifier();
+            CodeableConcept accType = new CodeableConcept();
+            accType.addCoding()
+                .setSystem("http://dicom.nema.org/resources/ontology/DCM")
+                .setCode("121022")
+                .setDisplay("Accession Number");
+            accType.addCoding()
+                .setSystem("http://terminology.hl7.org/CodeSystem/v2-0203")
+                .setCode("ACSN")
+                .setDisplay("Accession Id");
+            accIdentifier.setType(accType);
+            accIdentifier.setSystem("urn:oid:" + config.getAccessionNumberIssuerOid());
+            accIdentifier.setValue(accessionNumber);
+            accRef.setIdentifier(accIdentifier);
+            context.addRelated(accRef);
         }
 
         docRef.setContext(context);
@@ -258,10 +325,263 @@ public class DicomToFhirMapper {
     }
 
     /**
+     * Map DICOM study attributes to a FHIR DocumentReference for a DICOM KOS manifest.
+     * Implements MADO IG R4 MadoDicomKosDocumentReference profile.
+     */
+    public static DocumentReference mapStudyToKosDocumentReference(Attributes study, MHDConfiguration config,
+                                                                     byte[] kosManifestBytes, String sopInstanceUid) {
+        DocumentReference docRef = new DocumentReference();
+
+        String studyUid = study.getString(Tag.StudyInstanceUID);
+        String fhirId = "kos-" + createFhirId(studyUid);
+
+        // Set resource ID
+        docRef.setId(fhirId);
+
+        // Meta profile - MADO KOS DocumentReference
+        Meta meta = new Meta();
+        meta.addProfile(PROFILE_KOS_DOCREF);
+        docRef.setMeta(meta);
+
+        // Modality extension (R5 cross-version extension) - MADO IG mandates exactly 1 extension with CodeableConcept
+        String[] modalities = study.getStrings(Tag.ModalitiesInStudy);
+        if (modalities != null && modalities.length > 0) {
+            Extension modalityExt = new Extension(EXT_DOCREF_MODALITY);
+            CodeableConcept modalityConcept = new CodeableConcept();
+            for (String modality : modalities) {
+                modalityConcept.addCoding()
+                    .setSystem("http://dicom.nema.org/resources/ontology/DCM")
+                    .setCode(modality);
+            }
+            modalityExt.setValue(modalityConcept);
+            docRef.addExtension(modalityExt);
+        }
+
+        // BodySite extension (R5 cross-version extension) - MADO IG 0..1, MustSupport
+        String bodyPartExamined = study.getString(Tag.BodyPartExamined);
+        if (bodyPartExamined != null && !bodyPartExamined.isEmpty()) {
+            Extension bodySiteExt = new Extension(EXT_DOCREF_BODY_SITE);
+            Extension conceptExt = new Extension("concept");
+            CodeableConcept bodySiteConcept = new CodeableConcept();
+            bodySiteConcept.setText(bodyPartExamined);
+            conceptExt.setValue(bodySiteConcept);
+            bodySiteExt.addExtension(conceptExt);
+            docRef.addExtension(bodySiteExt);
+        }
+
+        // Master Identifier - SOP Instance UID of the KOS (MADO IG R4 requirement: UniqueIdIdentifier)
+        String kosSopUid = sopInstanceUid != null ? sopInstanceUid : studyUid;
+        Identifier masterIdentifier = new Identifier();
+        masterIdentifier.setSystem("urn:ietf:rfc:3986");
+        masterIdentifier.setValue("urn:oid:" + kosSopUid);
+        docRef.setMasterIdentifier(masterIdentifier);
+
+        // Identifier - must include masterIdentifier per mado-docref-1 constraint
+        docRef.addIdentifier(masterIdentifier.copy());
+
+        // Document status - current
+        docRef.setStatus(Enumerations.DocumentReferenceStatus.CURRENT);
+
+        // Document type - LOINC 18748-4 "Diagnostic imaging Study"
+        CodeableConcept type = new CodeableConcept();
+        type.addCoding()
+            .setSystem("http://loinc.org")
+            .setCode("18748-4")
+            .setDisplay("Diagnostic imaging Study");
+        docRef.setType(type);
+
+        // Category - Medical-Imaging
+        CodeableConcept category = new CodeableConcept();
+        category.addCoding()
+            .setSystem("http://hl7.eu/fhir/eu-health-data-api/CodeSystem/eehrxf-document-priority-category-cs")
+            .setCode("Medical-Imaging")
+            .setDisplay("Medical-Imaging");
+        docRef.addCategory(category);
+
+        // Subject - Patient reference
+        String patientId = study.getString(Tag.PatientID);
+        if (patientId != null) {
+            Reference patientRef = new Reference();
+            patientRef.setType("Patient");
+            Identifier patientIdentifier = new Identifier();
+            patientIdentifier.setSystem("urn:oid:" + config.getPatientIdIssuerOid());
+            patientIdentifier.setValue(patientId);
+            patientRef.setIdentifier(patientIdentifier);
+            String patientName = study.getString(Tag.PatientName, "");
+            patientRef.setDisplay(patientName.replace("^", " ").trim());
+            docRef.setSubject(patientRef);
+        }
+
+        // Date - Study Date/Time
+        Date studyDate = parseDicomDateTime(study.getString(Tag.StudyDate), study.getString(Tag.StudyTime));
+        if (studyDate != null) {
+            docRef.setDate(studyDate);
+        }
+
+        // Author - source-device (MADO Creator device)
+        Reference deviceRef = createMadoCreatorDeviceReference(config);
+        docRef.addAuthor(deviceRef);
+
+        // Author - source-organization (MADO Creator Organization)
+        Reference orgRef = createMadoCreatorOrganizationReference(config);
+        docRef.addAuthor(orgRef);
+
+        // Description - prefer StudyDescription, fallback to generic
+        String kosStudyDescription = study.getString(Tag.StudyDescription);
+        if (kosStudyDescription != null && !kosStudyDescription.trim().isEmpty()) {
+            docRef.setDescription(kosStudyDescription);
+        } else {
+            docRef.setDescription("DICOM KOS Imaging Manifest for Imaging Study urn:oid:" + studyUid);
+        }
+
+        // Content - KOS Binary attachment (no content.profile extension for KOS - only format)
+        DocumentReference.DocumentReferenceContentComponent content = new DocumentReference.DocumentReferenceContentComponent();
+
+        Attachment attachment = new Attachment();
+        attachment.setContentType("application/dicom");
+        attachment.setLanguage("en");
+
+        // URL to retrieve the KOS binary
+        String retrieveUrl = config.getFhirBaseUrl() + "/Binary/" + createFhirId(studyUid) + ".dcm";
+        attachment.setUrl(retrieveUrl);
+        // Title - prefer StudyDescription, fallback to generic
+        String kosStudyDesc = study.getString(Tag.StudyDescription);
+        if (kosStudyDesc != null && !kosStudyDesc.trim().isEmpty()) {
+            attachment.setTitle(kosStudyDesc);
+        } else {
+            attachment.setTitle("KOS Imaging Manifest for Imaging Study");
+        }
+        attachment.setCreation(new Date());
+
+        if (kosManifestBytes != null && kosManifestBytes.length > 0) {
+            attachment.setSize(kosManifestBytes.length);
+            try {
+                MessageDigest digest = MessageDigest.getInstance("SHA-256");
+                byte[] hash = digest.digest(kosManifestBytes);
+                attachment.setHash(hash);
+            } catch (NoSuchAlgorithmException e) {
+                // SHA-256 should always be available
+            }
+        }
+
+        content.setAttachment(attachment);
+
+        // Format code for KOS (patternCoding from IG: DCMUID system with KOS SOP Class UID)
+        Coding formatCoding = new Coding();
+        formatCoding.setSystem("http://dicom.nema.org/resources/ontology/DCMUID");
+        formatCoding.setCode("1.2.840.10008.5.1.4.1.1.88.59");
+        formatCoding.setDisplay("Key Object Selection Document");
+        content.setFormat(formatCoding);
+
+        docRef.addContent(content);
+
+        // Context
+        DocumentReference.DocumentReferenceContextComponent context = new DocumentReference.DocumentReferenceContextComponent();
+
+        // Period (required by MADO IG: context.period min:1, period.start min:1)
+        if (studyDate != null) {
+            Period period = new Period();
+            period.setStart(studyDate);
+            context.setPeriod(period);
+        }
+
+        // FacilityType (required by MADO IG min:1)
+        CodeableConcept facilityType = new CodeableConcept();
+        facilityType.addCoding()
+            .setSystem("http://snomed.info/sct")
+            .setCode("722171005")
+            .setDisplay("Diagnostic imaging department");
+        context.setFacilityType(facilityType);
+
+        // PracticeSetting (required by MADO IG min:1)
+        CodeableConcept practiceSetting = new CodeableConcept();
+        practiceSetting.addCoding()
+            .setSystem("http://snomed.info/sct")
+            .setCode("394914008")
+            .setDisplay("Radiology");
+        context.setPracticeSetting(practiceSetting);
+
+        // Related - Study Instance UID (per MadoReferencedStudyInstanceUidIdentifier)
+        Reference studyUidRef = new Reference();
+        Identifier studyUidIdentifier = new Identifier();
+        CodeableConcept studyUidType = new CodeableConcept();
+        studyUidType.addCoding()
+            .setSystem("http://dicom.nema.org/resources/ontology/DCM")
+            .setCode("110180")
+            .setDisplay("Study Instance UID");
+        studyUidIdentifier.setType(studyUidType);
+        studyUidIdentifier.setSystem("urn:dicom:uid");
+        studyUidIdentifier.setValue("urn:oid:" + studyUid);
+        studyUidRef.setIdentifier(studyUidIdentifier);
+        context.addRelated(studyUidRef);
+
+        // Related - Accession Number (per MadoReferencedAccessionNumberIdentifier)
+        String accessionNumber = study.getString(Tag.AccessionNumber);
+        if (accessionNumber != null && !accessionNumber.isEmpty()) {
+            Reference accRef = new Reference();
+            Identifier accIdentifier = new Identifier();
+            CodeableConcept accType = new CodeableConcept();
+            accType.addCoding()
+                .setSystem("http://dicom.nema.org/resources/ontology/DCM")
+                .setCode("121022")
+                .setDisplay("Accession Number");
+            accType.addCoding()
+                .setSystem("http://terminology.hl7.org/CodeSystem/v2-0203")
+                .setCode("ACSN")
+                .setDisplay("Accession Id");
+            accIdentifier.setType(accType);
+            accIdentifier.setSystem("urn:oid:" + config.getAccessionNumberIssuerOid());
+            accIdentifier.setValue(accessionNumber);
+            accRef.setIdentifier(accIdentifier);
+            context.addRelated(accRef);
+        }
+
+        docRef.setContext(context);
+
+        return docRef;
+    }
+
+    /**
+     * Create a MADO Creator Device reference per MadoCreator profile.
+     * Used as author:source-device in DocumentReferences.
+     */
+    private static Reference createMadoCreatorDeviceReference(MHDConfiguration config) {
+        Reference deviceRef = new Reference();
+        deviceRef.setType("Device");
+        deviceRef.setDisplay(config.getManufacturerModelName() + " v" + config.getSoftwareVersion());
+
+        // Use logical identifier with MADO device type
+        Identifier deviceIdentifier = new Identifier();
+        CodeableConcept deviceType = new CodeableConcept();
+        deviceType.addCoding()
+            .setSystem(MADO_DEVICE_TYPE_SYSTEM)
+            .setCode("mado-creator")
+            .setDisplay("MADO Creator");
+        deviceIdentifier.setType(deviceType);
+        deviceIdentifier.setValue(config.getManufacturerModelName());
+        deviceRef.setIdentifier(deviceIdentifier);
+
+        return deviceRef;
+    }
+
+    /**
+     * Create a MADO Creator Organization reference per MadoCreatorOrganization profile.
+     * Used as author:source-organization in DocumentReferences.
+     */
+    private static Reference createMadoCreatorOrganizationReference(MHDConfiguration config) {
+        Reference orgRef = new Reference();
+        orgRef.setType("Organization");
+        orgRef.setDisplay(config.getInstitutionName());
+        return orgRef;
+    }
+
+    /**
      * Create a FHIR List resource representing the MHD SubmissionSet.
+     * Per MADO IG, includes entries for BOTH FHIR and KOS DocumentReferences.
      */
     public static ListResource createSubmissionSetList(Attributes study, MHDConfiguration config,
-                                                        DocumentReference docRef) {
+                                                        DocumentReference fhirDocRef,
+                                                        DocumentReference kosDocRef) {
         ListResource list = new ListResource();
 
         String studyUid = study.getString(Tag.StudyInstanceUID);
@@ -324,12 +644,28 @@ public class DicomToFhirMapper {
             .setType("Organization")
             .setDisplay(config.getInstitutionName()));
 
-        // Entry - reference to the DocumentReference
-        ListResource.ListEntryComponent entry = new ListResource.ListEntryComponent();
-        entry.setItem(new Reference("DocumentReference/" + docRef.getId()));
-        list.addEntry(entry);
+        // Entry - reference to the FHIR DocumentReference
+        ListResource.ListEntryComponent fhirEntry = new ListResource.ListEntryComponent();
+        fhirEntry.setItem(new Reference("DocumentReference/" + fhirDocRef.getId()));
+        list.addEntry(fhirEntry);
+
+        // Entry - reference to the KOS DocumentReference (both formats in the submission set)
+        if (kosDocRef != null) {
+            ListResource.ListEntryComponent kosEntry = new ListResource.ListEntryComponent();
+            kosEntry.setItem(new Reference("DocumentReference/" + kosDocRef.getId()));
+            list.addEntry(kosEntry);
+        }
 
         return list;
+    }
+
+    /**
+     * Backward-compatible overload: Create a submission set with only one DocumentReference.
+     * @deprecated Use {@link #createSubmissionSetList(Attributes, MHDConfiguration, DocumentReference, DocumentReference)} instead.
+     */
+    public static ListResource createSubmissionSetList(Attributes study, MHDConfiguration config,
+                                                        DocumentReference docRef) {
+        return createSubmissionSetList(study, config, docRef, null);
     }
 
     /**
@@ -337,12 +673,9 @@ public class DicomToFhirMapper {
      */
     public static Binary createBinaryResource(String studyInstanceUid, byte[] manifestBytes) {
         Binary binary = new Binary();
-
-        // Append .dcm to the Binary id so clients that infer filename from URL will receive an id with extension
         binary.setId(createFhirId(studyInstanceUid) + ".dcm");
         binary.setContentType("application/dicom");
         binary.setData(manifestBytes);
-
         return binary;
     }
 
@@ -359,14 +692,12 @@ public class DicomToFhirMapper {
             String formatString = "yyyyMMdd";
 
             if (time != null && !time.isEmpty()) {
-                // Remove fractional seconds if present (e.g. 101530.500 -> 101530)
                 if (time.contains(".")) {
                     time = time.substring(0, time.indexOf("."));
                 }
 
                 dateTimeString += time;
 
-                // Construct format string based on length
                 if (time.length() == 2) {
                     formatString += "HH";
                 } else if (time.length() == 4) {
@@ -404,4 +735,3 @@ public class DicomToFhirMapper {
         }
     }
 }
-

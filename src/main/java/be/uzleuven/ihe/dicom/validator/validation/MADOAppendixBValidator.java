@@ -18,6 +18,7 @@ import be.uzleuven.ihe.dicom.validator.model.ValidationResult;
  * - Extension to Hierarchical SOP Instance Reference Macro (Section B.1)
  * - Validation of Retrieve Location UID and Retrieve URL at appropriate levels
  */
+@SuppressWarnings("deprecation")
 public final class MADOAppendixBValidator {
 
     private MADOAppendixBValidator() {

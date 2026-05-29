@@ -63,37 +63,96 @@ const Validator = {
   async loadFileFromUrl(url) {
     try {
       // Show loading state
-      this.showLoadingState('Loading DICOM file from URL...');
+      this.showLoadingState('Loading file from URL...');
 
-      const response = await fetch(url, {
+      let response = await fetch(url, {
         headers: {
-          'Accept': 'application/dicom, application/octet-stream, */*'
+          'Accept': 'application/dicom, application/fhir+json, application/json, application/octet-stream, */*'
         }
       });
 
+      // If the URL returns 404, try fallback: Bundle/ID → DocumentReference/ID
       if (!response.ok) {
-        throw new Error(`Failed to fetch file: HTTP ${response.status}`);
+        const fallbackResp = await this.tryFallbackFetch(url);
+        if (fallbackResp) {
+          response = fallbackResp;
+        } else {
+          throw new Error(`Failed to fetch file: HTTP ${response.status}`);
+        }
       }
 
+      const contentType = (response.headers.get('content-type') || '').toLowerCase();
       const blob = await response.blob();
 
+      // Check if the response is a DocumentReference — if so, follow its content URL
+      if (contentType.includes('application/fhir+json') || contentType.includes('application/json')) {
+        try {
+          const text = await blob.text();
+          const json = JSON.parse(text);
+          if (json && json.resourceType === 'DocumentReference' && json.content?.length > 0) {
+            // Follow the first content attachment URL
+            const contentUrl = json.content[0]?.attachment?.url;
+            if (contentUrl && contentUrl !== url) {
+              UIHelpers.showNotification('Following DocumentReference to manifest...', 'info');
+              return await this.loadFileFromUrl(contentUrl);
+            }
+          }
+        } catch (_) {
+          // Not JSON or not a DocumentReference, continue with normal handling
+        }
+      }
+
+      // Detect if the response is FHIR JSON
+      const isFhirContent = contentType.includes('application/fhir+json') ||
+                            contentType.includes('application/json');
+
       // Extract filename from URL or use default
-      let filename = 'mado-manifest.dcm';
+      let filename = isFhirContent ? 'mado-manifest.json' : 'mado-manifest.dcm';
       try {
         const urlObj = new URL(url);
         const pathParts = urlObj.pathname.split('/');
         const lastPart = pathParts[pathParts.length - 1];
         if (lastPart && lastPart.length > 0) {
-          filename = lastPart.includes('.') ? lastPart : lastPart + '.dcm';
+          if (lastPart.includes('.')) {
+            filename = lastPart;
+          } else {
+            filename = isFhirContent ? lastPart + '.json' : lastPart + '.dcm';
+          }
         }
       } catch (e) {
         // Keep default filename
       }
 
-      // Create a File object from the blob
-      const file = new File([blob], filename, { type: 'application/dicom' });
+      // If content type is not clearly FHIR, peek at the bytes to detect
+      let detectedFhir = isFhirContent;
+      if (!detectedFhir) {
+        try {
+          const peekBytes = new Uint8Array(await blob.slice(0, 132).arrayBuffer());
+          const isDicomMagic = peekBytes.length >= 132 &&
+            peekBytes[128] === 0x44 && peekBytes[129] === 0x49 &&
+            peekBytes[130] === 0x43 && peekBytes[131] === 0x4D;
+          if (!isDicomMagic) {
+            // Try parsing as JSON to confirm it's FHIR
+            const text = await blob.text();
+            try {
+              const json = JSON.parse(text);
+              if (json && json.resourceType) {
+                detectedFhir = true;
+                filename = filename.replace(/\.dcm$/i, '.json');
+              }
+            } catch (_) {
+              // Not JSON, treat as DICOM
+            }
+          }
+        } catch (_) {
+          // Detection failed, keep defaults
+        }
+      }
 
-      // Set the file (skip validation since it's from URL)
+      const fileType = detectedFhir ? 'application/fhir+json' : 'application/dicom';
+      const file = new File([blob], filename, { type: fileType });
+
+      // Set the file (skip extension validation since it's from URL)
       this.setFile(file, true);
       this.hideLoadingState();
 
@@ -141,10 +200,10 @@ const Validator = {
       if (uploadContent) {
         uploadContent.innerHTML = `
           <div class="upload-icon">📁</div>
-          <h3>Drag & Drop your DICOM file here</h3>
+          <h3>Drag & Drop your DICOM or FHIR file here</h3>
           <p>or</p>
           <button type="button" class="btn btn-secondary" id="browse-button">Browse Files</button>
-          <p class="supported-formats">Supported formats: .dcm, .dicom</p>
+          <p class="supported-formats">Supported formats: .dcm, .dicom, .json (FHIR)</p>
         `;
         // Re-attach browse button listener
         const newBrowseBtn = document.getElementById('browse-button');
@@ -289,8 +348,8 @@ const Validator = {
    * @param {boolean} skipValidation - Skip file extension validation (for URL-loaded files)
    */
   setFile(file, skipValidation = false) {
-    if (!skipValidation && !FileUtils.isDicomFile(file)) {
-      UIHelpers.showNotification('Please select a valid DICOM file (.dcm or .dicom)', 'error');
+    if (!skipValidation && !FileUtils.isSupportedFile(file)) {
+      UIHelpers.showNotification('Please select a valid DICOM (.dcm, .dicom) or FHIR (.json) file', 'error');
       return;
     }
 
@@ -331,6 +390,55 @@ const Validator = {
   },
 
   /**
+   * Detect whether a file is JSON/FHIR based on extension or content type
+   */
+  isJsonFile(file) {
+    const extension = file.name.split('.').pop().toLowerCase();
+    const contentType = (file.type || '').toLowerCase();
+    return extension === 'json' ||
+           contentType.includes('application/fhir+json') ||
+           contentType.includes('application/json');
+  },
+
+  /**
+   * Convert a FHIR JSON file to DICOM via the converter endpoint,
+   * returning a File object containing the DICOM binary.
+   */
+  async convertJsonToDicom(jsonFile) {
+    const convertUrl = `${API.baseURL}/api/converter/convert`;
+
+    const formData = new FormData();
+    formData.append('file', jsonFile);
+    formData.append('sourceType', 'fhir');
+
+    const response = await fetch(convertUrl, {
+      method: 'POST',
+      body: formData
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(errorText || 'FHIR→DICOM conversion failed');
+    }
+
+    const result = await response.json();
+
+    if (!result.convertedBase64) {
+      throw new Error('Converter did not return DICOM binary data');
+    }
+
+    // Decode base64 to binary
+    const binaryString = atob(result.convertedBase64);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+
+    const filename = result.suggestedFilename || jsonFile.name.replace(/\.json$/i, '.dcm');
+    return new File([bytes], filename, { type: 'application/dicom' });
+  },
+
+  /**
    * Handle validation
    */
   async handleValidation() {
@@ -345,7 +453,17 @@ const Validator = {
     this.hideResults();
 
     try {
-      const result = await API.validateFile(selectedFile, this.getProfileIdentifier(selectedProfile));
+      let fileToValidate = selectedFile;
+
+      // If the input is a JSON/FHIR file, convert it to DICOM first
+      if (this.isJsonFile(selectedFile)) {
+        this.elements.validateBtn.querySelector('.btn-text').textContent = 'Converting FHIR to DICOM...';
+        UIHelpers.showNotification('Converting FHIR JSON to DICOM before validation...', 'info');
+        fileToValidate = await this.convertJsonToDicom(selectedFile);
+      }
+
+      this.elements.validateBtn.querySelector('.btn-text').textContent = 'Validating...';
+      const result = await API.validateFile(fileToValidate, this.getProfileIdentifier(selectedProfile));
       this.displayResults(result);
     } catch (error) {
       console.error('Validation error:', error);
@@ -528,12 +646,66 @@ const Validator = {
   },
 
   /**
-  /**
    * Hide error
    */
   hideError() {
     this.elements.errorSection.style.display = 'none';
     this.elements.errorMessage.textContent = '';
+  },
+
+  /**
+   * When the primary fetch fails (e.g. 404), try fallback strategies:
+   * 1. If URL is fhir/Bundle/ID, try fhir/DocumentReference/ID
+   * 2. If URL is fhir/DocumentReference/ID, try searching by identifier
+   */
+  async tryFallbackFetch(fetchUrl) {
+    // Strategy 1: Bundle/ID → DocumentReference/ID
+    const bundlePattern = /\/Bundle\/([^/?#]+)/;
+    const bundleMatch = fetchUrl.match(bundlePattern);
+    if (bundleMatch) {
+      const resourceId = bundleMatch[1];
+      const docRefUrl = fetchUrl.replace(bundlePattern, `/DocumentReference/${resourceId}`);
+      try {
+        const resp = await fetch(docRefUrl, {
+          headers: { 'Accept': 'application/fhir+json, application/json, */*' }
+        });
+        if (resp.ok) return resp;
+      } catch (_) {}
+    }
+
+    // Strategy 2: DocumentReference/ID → search by identifier
+    const docRefPattern = /\/DocumentReference\/([^/?#]+)/;
+    const docRefMatch = fetchUrl.match(docRefPattern);
+    if (docRefMatch) {
+      const resourceId = docRefMatch[1];
+      const cleanId = resourceId.replace(/^kos-/, '');
+      // Extract FHIR base URL from the fetch URL
+      const fhirBaseIdx = fetchUrl.indexOf('/DocumentReference/');
+      const fhirBase = fhirBaseIdx > 0 ? fetchUrl.substring(0, fhirBaseIdx) : '/fhir';
+      const searchUrl = `${fhirBase}/DocumentReference?identifier=${encodeURIComponent(cleanId)}`;
+      try {
+        const resp = await fetch(searchUrl, {
+          headers: { 'Accept': 'application/fhir+json' }
+        });
+        if (resp.ok) {
+          const bundle = await resp.json();
+          if (bundle?.entry?.length > 0) {
+            // Return the first matching DocumentReference
+            const doc = bundle.entry[0].resource;
+            if (doc) {
+              const docJson = JSON.stringify(doc);
+              const blob = new Blob([docJson], { type: 'application/fhir+json' });
+              return new Response(blob, {
+                status: 200,
+                headers: { 'Content-Type': 'application/fhir+json' }
+              });
+            }
+          }
+        }
+      } catch (_) {}
+    }
+
+    return null;
   }
 };
 

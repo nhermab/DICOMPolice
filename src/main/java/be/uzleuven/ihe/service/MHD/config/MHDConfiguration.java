@@ -52,13 +52,15 @@ public class MHDConfiguration {
     private int connectTimeout = 5000;
     private int responseTimeout = 10000;
 
-    // Document Responder settings
-    private String formatCode = "urn:ihe:rad:MADO";
-    private String formatCodeSystem = "http://ihe.net/fhir/ihe.formatcode.fhir/CodeSystem/formatcodes";
-    private String typeCode = "55115-0"; // LOINC for Imaging study manifest
+    // Document Responder settings (MADO IG R4 format codes)
+    private String formatCode = "urn:ihe:rad:MADO:fhir-manifest:2026";
+    private String formatCodeSystem = "http://ihe.net/fhir/ihe.formatcode.fhir/CodeSystem/formatcode";
+    private String kosFormatCode = "1.2.840.10008.5.1.4.1.1.88.59";
+    private String kosFormatCodeSystem = "http://dicom.nema.org/resources/ontology/DCMUID";
+    private String typeCode = "18748-4"; // LOINC for Diagnostic imaging Study
     private String typeCodeSystem = "http://loinc.org";
-    private String classCode = "IMAGES";
-    private String classCodeSystem = "urn:oid:1.3.6.1.4.1.19376.1.2.6.1";
+    private String classCode = "Medical-Imaging";
+    private String classCodeSystem = "http://hl7.eu/fhir/eu-health-data-api/CodeSystem/eehrxf-document-priority-category-cs";
 
     // MADO Manifest Generation Settings
     // If true, include extended instance-level metadata (Rows, Columns, Bits Allocated, etc.)
@@ -214,6 +216,22 @@ public class MHDConfiguration {
 
     public void setFormatCodeSystem(String formatCodeSystem) {
         this.formatCodeSystem = formatCodeSystem;
+    }
+
+    public String getKosFormatCode() {
+        return kosFormatCode;
+    }
+
+    public void setKosFormatCode(String kosFormatCode) {
+        this.kosFormatCode = kosFormatCode;
+    }
+
+    public String getKosFormatCodeSystem() {
+        return kosFormatCodeSystem;
+    }
+
+    public void setKosFormatCodeSystem(String kosFormatCodeSystem) {
+        this.kosFormatCodeSystem = kosFormatCodeSystem;
     }
 
     public String getTypeCode() {

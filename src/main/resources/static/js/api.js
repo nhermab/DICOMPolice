@@ -87,7 +87,7 @@ const API = {
     const base64Content = await this.readFileAsBase64(file);
 
     const validationRequest = {
-      validationProfileId: profileId,
+      validationProfileID: profileId,
       inputs: [
         {
           id: 'uploaded',

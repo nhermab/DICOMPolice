@@ -13,6 +13,21 @@ const FileUtils = {
   },
 
   /**
+   * Validate FHIR file (JSON)
+   */
+  isFhirFile(file) {
+    const name = file.name.toLowerCase();
+    return name.endsWith('.json');
+  },
+
+  /**
+   * Validate that file is either DICOM or FHIR
+   */
+  isSupportedFile(file) {
+    return this.isDicomFile(file) || this.isFhirFile(file);
+  },
+
+  /**
    * Export data to JSON
    */
   exportToJson(data, filename = null) {
@@ -111,10 +126,23 @@ const FileUtils = {
   },
 
   /**
-   * Clear file input
+   * Clear file input - ensures the change event fires even when
+   * the same file is re-selected by wrapping in a temporary form and resetting.
    */
   clearFileInput(fileInput) {
-    fileInput.value = '';
+    // Wrap the input in a temporary form and reset it.
+    // This is the most reliable cross-browser way to clear a file input
+    // and ensure the 'change' event fires when the same file is selected again.
+    const form = document.createElement('form');
+    const parent = fileInput.parentNode;
+    const ref = fileInput.nextSibling;
+    form.appendChild(fileInput);
+    form.reset();
+    if (ref) {
+      parent.insertBefore(fileInput, ref);
+    } else {
+      parent.appendChild(fileInput);
+    }
   }
 };
 

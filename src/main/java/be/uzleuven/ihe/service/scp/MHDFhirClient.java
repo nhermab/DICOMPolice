@@ -76,9 +76,12 @@ public class MHDFhirClient {
      * @param dateTo Study date to (YYYYMMDD)
      * @return List of DocumentReference resources
      */
-    /** DICOM UID for Key Object Selection Document – the only format we care about for MADO. */
+    /** DICOM UID for Key Object Selection Document – KOS format for MADO. */
     private static final String KOS_FORMAT_CODE = "1.2.840.10008.5.1.4.1.1.88.59";
     private static final String KOS_FORMAT_SYSTEM = "http://dicom.nema.org/resources/ontology/DCMUID";
+    /** MADO FHIR manifest format code (MADO IG R4) */
+    private static final String FHIR_MADO_FORMAT_CODE = "urn:ihe:rad:MADO:fhir-manifest:2026";
+    private static final String FHIR_MADO_FORMAT_SYSTEM = "http://ihe.net/fhir/ihe.formatcode.fhir/CodeSystem/formatcode";
 
     public List<DocumentReference> searchDocumentReferences(
             String patientId,
@@ -108,17 +111,19 @@ public class MHDFhirClient {
         }
 
         if (accessionNumber != null && !accessionNumber.isEmpty()) {
-            // not specified in the trial standard, tentative example
-            params.add("accession=" + urlEncode(accessionNumber));
+            // MADO IG R4 custom search parameter: accession-number
+            params.add("accession-number=" + urlEncode(accessionNumber));
         }
 
         if (studyInstanceUid != null && !studyInstanceUid.isEmpty()) {
-            // not specified in the trial standard, tentative example
-            params.add("identifier=" + urlEncode(studyInstanceUid));
+            // MADO IG R4 custom search parameter: study-instance-uid (token type)
+            // Token search format: system|value - use urn:dicom:uid as system per MadoStudyInstanceUidIdentifier profile
+            String uidValue = studyInstanceUid.startsWith("urn:oid:") ? studyInstanceUid : "urn:oid:" + studyInstanceUid;
+            params.add("study-instance-uid=urn:dicom:uid|" + urlEncode(uidValue));
         }
 
         if (modality != null && !modality.isEmpty()) {
-            //not specified in the trial standard, likely not correct
+            // MADO IG R4 custom search parameter: modality
             params.add("modality=" + urlEncode(modality));
         }
 
@@ -179,7 +184,7 @@ public class MHDFhirClient {
 
                 // Handle pagination if there are more results
                 while (bundle.getLink(Bundle.LINK_NEXT) != null) {
-                    String nextUrl = bundle.getLink(Bundle.LINK_NEXT).getUrl();
+                    String nextUrl = rewritePaginationUrl(bundle.getLink(Bundle.LINK_NEXT).getUrl());
                     LOG.info("Fetching next page: {}", nextUrl);
                     bundle = fetchNextPage(nextUrl);
                     for (Bundle.BundleEntryComponent entry : bundle.getEntry()) {
@@ -197,13 +202,12 @@ public class MHDFhirClient {
 
         LOG.info("Retrieved {} DocumentReferences from MHD endpoint", results.size());
 
-        // Client-side safety filter: only keep KOS (Key Object Selection) documents.
-        // The server may not support the formatcode search parameter, so we filter here as well.
+        // Client-side safety filter: only keep MADO DocumentReferences (KOS or FHIR manifest).
+        // The server may not support the format search parameter, so we filter here as well.
         int beforeFilter = results.size();
-        // TODO detect and keep also FHIR MADO Manifest Document References
-        results.removeIf(docRef -> !isKosDocumentReference(docRef));
+        results.removeIf(docRef -> !isMadoDocumentReference(docRef));
         if (results.size() < beforeFilter) {
-            LOG.info("Filtered out {} non-KOS DocumentReferences (kept {})", beforeFilter - results.size(), results.size());
+            LOG.info("Filtered out {} non-MADO DocumentReferences (kept {})", beforeFilter - results.size(), results.size());
         }
 
         return results;
@@ -306,6 +310,7 @@ public class MHDFhirClient {
      * Extract Study Instance UID from a DocumentReference.
      * Looks in context.related for identifier with type coding code "110180" (Study Instance UID),
      * falls back to masterIdentifier.
+     * Strips the "urn:oid:" prefix if present (MADO IG R4 format).
      */
     public static String extractStudyInstanceUIDFromDocRef(DocumentReference docRef) {
         if (docRef.hasContext() && docRef.getContext().hasRelated()) {
@@ -315,14 +320,26 @@ public class MHDFhirClient {
                     if (id.hasType() && id.getType().hasCoding()) {
                         for (org.hl7.fhir.r4.model.Coding coding : id.getType().getCoding()) {
                             if ("110180".equals(coding.getCode())) {
-                                return id.getValue();
+                                return stripUrnOidPrefix(id.getValue());
                             }
                         }
                     }
                 }
             }
         }
-        return docRef.getMasterIdentifier() != null ? docRef.getMasterIdentifier().getValue() : null;
+        String masterValue = docRef.getMasterIdentifier() != null ? docRef.getMasterIdentifier().getValue() : null;
+        return stripUrnOidPrefix(masterValue);
+    }
+
+    /**
+     * Strip "urn:oid:" prefix from a UID value if present.
+     */
+    private static String stripUrnOidPrefix(String value) {
+        if (value == null) return null;
+        if (value.startsWith("urn:oid:")) {
+            return value.substring(8);
+        }
+        return value;
     }
 
     /**
@@ -405,11 +422,11 @@ public class MHDFhirClient {
     }
 
     /**
-     * Check whether a DocumentReference represents a KOS (Key Object Selection) document.
-     * Matches on the format coding ({@value KOS_FORMAT_CODE}) or, as a fallback,
-     * on {@code application/dicom} content type with a KOS SOP Class UID.
+     * Check whether a DocumentReference represents a MADO manifest (KOS or FHIR format).
+     * Matches on the format coding ({@value KOS_FORMAT_CODE} or {@value FHIR_MADO_FORMAT_CODE}),
+     * or as a fallback on content type.
      */
-    private static boolean isKosDocumentReference(DocumentReference docRef) {
+    private static boolean isMadoDocumentReference(DocumentReference docRef) {
         if (docRef == null || !docRef.hasContent()) return false;
         for (DocumentReference.DocumentReferenceContentComponent content : docRef.getContent()) {
             // Primary check: format coding
@@ -418,8 +435,35 @@ public class MHDFhirClient {
                 if (KOS_FORMAT_CODE.equals(format.getCode())) {
                     return true;
                 }
+                if (FHIR_MADO_FORMAT_CODE.equals(format.getCode())) {
+                    return true;
+                }
             }
-            // Fallback: application/dicom content type (may include non-KOS, but better than nothing)
+            // Fallback: application/dicom or application/fhir+json content type
+            if (content.hasAttachment()) {
+                String contentType = content.getAttachment().getContentType();
+                if ("application/dicom".equals(contentType) || "application/fhir+json".equals(contentType)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Check whether a DocumentReference represents a KOS (Key Object Selection) document.
+     * @deprecated Use {@link #isMadoDocumentReference(DocumentReference)} instead
+     */
+    @Deprecated
+    private static boolean isKosDocumentReference(DocumentReference docRef) {
+        if (docRef == null || !docRef.hasContent()) return false;
+        for (DocumentReference.DocumentReferenceContentComponent content : docRef.getContent()) {
+            if (content.hasFormat()) {
+                Coding format = content.getFormat();
+                if (KOS_FORMAT_CODE.equals(format.getCode())) {
+                    return true;
+                }
+            }
             if (content.hasAttachment() && "application/dicom".equals(content.getAttachment().getContentType())) {
                 return true;
             }
@@ -449,6 +493,43 @@ public class MHDFhirClient {
     }
 
      */
+
+    /**
+     * Rewrite a pagination URL returned by the server so that the scheme, host and port
+     * match the configured {@link #mhdBaseUrl}.
+     * <p>
+     * Some FHIR servers advertise pagination links with an internal/wrong IP address.
+     * This method replaces the origin (scheme + authority) of the URL with the one we
+     * actually configured, keeping the path and query string intact.
+     */
+    private String rewritePaginationUrl(String paginationUrl) {
+        if (paginationUrl == null) return null;
+        try {
+            java.net.URI serverUri = new java.net.URI(paginationUrl);
+            // Strip trailing slash from configured base, then extract scheme + authority
+            String base = mhdBaseUrl.endsWith("/") ? mhdBaseUrl.substring(0, mhdBaseUrl.length() - 1) : mhdBaseUrl;
+            java.net.URI baseUri = new java.net.URI(base);
+
+            // Build the corrected URL: configured origin + server path/query/fragment
+            String correctedUrl = new java.net.URI(
+                    baseUri.getScheme(),
+                    null,                       // userInfo
+                    baseUri.getHost(),
+                    baseUri.getPort(),
+                    serverUri.getPath(),
+                    serverUri.getQuery(),
+                    serverUri.getFragment()
+            ).toString();
+
+            if (!correctedUrl.equals(paginationUrl)) {
+                LOG.warn("Rewrote pagination URL from '{}' to '{}'", paginationUrl, correctedUrl);
+            }
+            return correctedUrl;
+        } catch (Exception e) {
+            LOG.warn("Failed to rewrite pagination URL '{}', using as-is: {}", paginationUrl, e.getMessage());
+            return paginationUrl;
+        }
+    }
 
     /**
      * Resolve a document attachment URL that may be relative (e.g. "Binary/6909") against

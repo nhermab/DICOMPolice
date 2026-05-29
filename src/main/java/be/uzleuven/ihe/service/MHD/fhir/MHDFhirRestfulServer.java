@@ -3,6 +3,7 @@ package be.uzleuven.ihe.service.MHD.fhir;
 import be.uzleuven.ihe.service.MHD.config.MHDConfiguration;
 import be.uzleuven.ihe.service.MHD.fhir.interceptor.BinaryContentDispositionInterceptor;
 import be.uzleuven.ihe.service.MHD.fhir.provider.BinaryProvider;
+import be.uzleuven.ihe.service.MHD.fhir.provider.BundleProvider;
 import be.uzleuven.ihe.service.MHD.fhir.provider.CapabilityStatementProvider;
 import be.uzleuven.ihe.service.MHD.fhir.provider.DocumentReferenceProvider;
 import be.uzleuven.ihe.service.MHD.fhir.provider.ListProvider;
@@ -26,6 +27,7 @@ public class MHDFhirRestfulServer extends ca.uhn.fhir.rest.server.RestfulServer 
     private final DocumentReferenceProvider documentReferenceProvider;
     private final ListProvider listProvider;
     private final BinaryProvider binaryProvider;
+    private final BundleProvider bundleProvider;
     private final CapabilityStatementProvider capabilityStatementProvider;
     private final MHDConfiguration config;
 
@@ -33,11 +35,13 @@ public class MHDFhirRestfulServer extends ca.uhn.fhir.rest.server.RestfulServer 
     public MHDFhirRestfulServer(DocumentReferenceProvider documentReferenceProvider,
                                   ListProvider listProvider,
                                   BinaryProvider binaryProvider,
+                                  BundleProvider bundleProvider,
                                   CapabilityStatementProvider capabilityStatementProvider,
                                   MHDConfiguration config) {
         this.documentReferenceProvider = documentReferenceProvider;
         this.listProvider = listProvider;
         this.binaryProvider = binaryProvider;
+        this.bundleProvider = bundleProvider;
         this.capabilityStatementProvider = capabilityStatementProvider;
         this.config = config;
     }
@@ -51,6 +55,7 @@ public class MHDFhirRestfulServer extends ca.uhn.fhir.rest.server.RestfulServer 
         registerProvider(documentReferenceProvider);
         registerProvider(listProvider);
         registerProvider(binaryProvider);
+        registerProvider(bundleProvider);
 
         // Register capability statement provider (for /metadata endpoint)
         registerProvider(capabilityStatementProvider);

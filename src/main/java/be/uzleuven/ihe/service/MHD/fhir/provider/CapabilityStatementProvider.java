@@ -71,14 +71,16 @@ public class CapabilityStatementProvider {
         cs.addFormat("application/fhir+json");
         cs.addFormat("application/fhir+xml");
 
-        // Implementation Guides (IHE MHD)
+        // Implementation Guides (IHE MHD + MADO IG R4)
         cs.addImplementationGuide("https://profiles.ihe.net/ITI/MHD/ImplementationGuide/ihe.iti.mhd");
+        cs.addImplementationGuide("https://profiles.ihe.net/RAD/MADO/ImplementationGuide/ihe.rad.mado");
 
         // REST configuration
         CapabilityStatement.CapabilityStatementRestComponent rest =
             new CapabilityStatement.CapabilityStatementRestComponent();
         rest.setMode(CapabilityStatement.RestfulCapabilityMode.SERVER);
-        rest.setDocumentation("MHD Document Responder supporting ITI-66, ITI-67, and ITI-68 transactions");
+        rest.setDocumentation("MADO Document Responder (server) extending MHD Document Responder. " +
+                "Supports ITI-66, ITI-67, and ITI-68 transactions with MADO-specific search parameters.");
 
         // Security - placeholder for IUA support
         CapabilityStatement.CapabilityStatementRestSecurityComponent security =
@@ -91,9 +93,10 @@ public class CapabilityStatementProvider {
         CapabilityStatement.CapabilityStatementRestResourceComponent docRefResource =
             new CapabilityStatement.CapabilityStatementRestResourceComponent();
         docRefResource.setType("DocumentReference");
-        // supported profiles
-        docRefResource.getSupportedProfile().add(new CanonicalType("https://profiles.ihe.net/ITI/MHD/StructureDefinition/IHE.MHD.Minimal.DocumentReference"));
-        docRefResource.setDocumentation("ITI-67: Find Document References");
+        // supported profiles (MADO IG R4)
+        docRefResource.getSupportedProfile().add(new CanonicalType("https://profiles.ihe.net/RAD/MADO/StructureDefinition/MadoFhirDocumentReference"));
+        docRefResource.getSupportedProfile().add(new CanonicalType("https://profiles.ihe.net/RAD/MADO/StructureDefinition/MadoDicomKosDocumentReference"));
+        docRefResource.setDocumentation("ITI-67: Find Document References (MADO Document Responder)");
 
         // DocumentReference interactions
         docRefResource.addInteraction()
@@ -103,7 +106,7 @@ public class CapabilityStatementProvider {
             .setCode(CapabilityStatement.TypeRestfulInteraction.SEARCHTYPE)
             .setDocumentation("Search for DocumentReferences");
 
-        // DocumentReference search parameters
+        // DocumentReference search parameters (standard + MADO IG R4 imaging-specific)
         addSearchParam(docRefResource, "patient", Enumerations.SearchParamType.REFERENCE,
             "Patient reference");
         addSearchParam(docRefResource, "patient.identifier", Enumerations.SearchParamType.TOKEN,
@@ -112,12 +115,18 @@ public class CapabilityStatementProvider {
             "Document status");
         addSearchParam(docRefResource, "date", Enumerations.SearchParamType.DATE,
             "Document creation date");
-        addSearchParam(docRefResource, "study-instance-uid", Enumerations.SearchParamType.STRING,
-            "MADO: DICOM Study Instance UID");
-        addSearchParam(docRefResource, "accession", Enumerations.SearchParamType.TOKEN,
-            "MADO: Accession Number");
+        addSearchParam(docRefResource, "format", Enumerations.SearchParamType.TOKEN,
+            "Format code filter (e.g. urn:ihe:rad:MADO:fhir-manifest:2026 or 1.2.840.10008.5.1.4.1.1.88.59)");
+        addSearchParam(docRefResource, "related:identifier", Enumerations.SearchParamType.TOKEN,
+            "Standard: Related identifier (Study Instance UID or Accession Number)");
+        addSearchParam(docRefResource, "study-instance-uid", Enumerations.SearchParamType.TOKEN,
+            "MADO: DICOM Study Instance UID (DocumentReferenceStudyInstanceUid)");
+        addSearchParam(docRefResource, "accession-number", Enumerations.SearchParamType.TOKEN,
+            "MADO: Accession Number (DocumentReferenceAccessionNumber)");
         addSearchParam(docRefResource, "modality", Enumerations.SearchParamType.TOKEN,
-            "MADO: Modality filter");
+            "MADO: Modality filter (DocumentReferenceModality)");
+        addSearchParam(docRefResource, "bodysite", Enumerations.SearchParamType.TOKEN,
+            "MADO: Anatomical region (DocumentReferenceAnatomicalRegion)");
 
         rest.addResource(docRefResource);
 
@@ -162,6 +171,19 @@ public class CapabilityStatementProvider {
             .setDocumentation("Retrieve MADO manifest as DICOM file");
 
         rest.addResource(binaryResource);
+
+        // Bundle resource (FHIR MADO manifest)
+        CapabilityStatement.CapabilityStatementRestResourceComponent bundleResource =
+            new CapabilityStatement.CapabilityStatementRestResourceComponent();
+        bundleResource.setType("Bundle");
+        bundleResource.getSupportedProfile().add(new CanonicalType("https://profiles.ihe.net/RAD/MADO/StructureDefinition/MadoFhirBundle"));
+        bundleResource.setDocumentation("Retrieve FHIR MADO manifest as a FHIR Bundle (converted from DICOM KOS on-the-fly)");
+
+        bundleResource.addInteraction()
+            .setCode(CapabilityStatement.TypeRestfulInteraction.READ)
+            .setDocumentation("Retrieve FHIR MADO manifest Bundle by ID");
+
+        rest.addResource(bundleResource);
 
         cs.addRest(rest);
 

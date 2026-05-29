@@ -66,7 +66,9 @@ public final class MADOContentUtils {
                 if (conceptSeq != null && !conceptSeq.isEmpty()) {
                     Attributes concept = conceptSeq.get(0);
                     String codeValue = concept.getString(Tag.CodeValue);
-                    if (CodeConstants.CODE_SOP_INSTANCE_UID.equals(codeValue)) {
+                    @SuppressWarnings("deprecation")
+                    String sopInstanceUidCode = CodeConstants.CODE_SOP_INSTANCE_UID;
+                    if (sopInstanceUidCode.equals(codeValue)) {
                         referencedUIDs.add(uid);
                     }
                 }

@@ -34,7 +34,7 @@ public class FHIRToMADOConverter {
 
 
     // IHE UID prefix used in FHIR identifiers
-    public static final String IHE_UID_PREFIX = "ihe:urn:oid:";
+    public static final String IHE_UID_PREFIX = "urn:oid:";
 
     // Default values when information is not available
     private static final String DEFAULT_INSTITUTION = "IHE Demo Hospital";
@@ -157,19 +157,23 @@ public class FHIRToMADOConverter {
             throw new IllegalArgumentException("Bundle cannot be null");
         }
 
-        if (bundle.getType() != Bundle.BundleType.DOCUMENT) {
-            throw new IllegalArgumentException("Bundle must be of type 'document', found: " + bundle.getType());
+        // Accept both DOCUMENT and COLLECTION bundle types for round-trip compatibility
+        if (bundle.getType() != Bundle.BundleType.DOCUMENT &&
+            bundle.getType() != Bundle.BundleType.COLLECTION) {
+            throw new IllegalArgumentException("Bundle must be of type 'document' or 'collection', found: " + bundle.getType());
         }
 
-        // First entry must be Composition
         if (bundle.getEntry().isEmpty()) {
-            throw new IllegalArgumentException("Bundle must have at least one entry (Composition)");
+            throw new IllegalArgumentException("Bundle must have at least one entry");
         }
 
-        Resource firstResource = bundle.getEntryFirstRep().getResource();
-        if (!(firstResource instanceof Composition)) {
-            throw new IllegalArgumentException("First entry must be a Composition, found: " +
-                (firstResource != null ? firstResource.getResourceType() : "null"));
+        // For DOCUMENT bundles, first entry must be Composition
+        if (bundle.getType() == Bundle.BundleType.DOCUMENT) {
+            Resource firstResource = bundle.getEntryFirstRep().getResource();
+            if (!(firstResource instanceof Composition)) {
+                throw new IllegalArgumentException("First entry must be a Composition, found: " +
+                    (firstResource != null ? firstResource.getResourceType() : "null"));
+            }
         }
     }
 
@@ -195,15 +199,19 @@ public class FHIRToMADOConverter {
                 resources.practitioner = (Practitioner) resource;
             } else if (resource instanceof Endpoint) {
                 resources.endpoints.add((Endpoint) resource);
+            } else if (resource instanceof Organization) {
+                resources.organization = (Organization) resource;
+            } else if (resource instanceof ServiceRequest) {
+                resources.serviceRequest = (ServiceRequest) resource;
+            } else if (resource instanceof Provenance) {
+                resources.provenance = (Provenance) resource;
             } else if (resource instanceof Basic) {
                 // ImagingSelection backport
                 resources.imagingSelections.add((Basic) resource);
             }
         }
 
-        if (resources.composition == null) {
-            throw new IllegalArgumentException("Bundle must contain a Composition resource");
-        }
+        // Composition is required for DOCUMENT bundles but optional for COLLECTION bundles
         if (resources.patient == null) {
             throw new IllegalArgumentException("Bundle must contain a Patient resource");
         }
@@ -312,7 +320,8 @@ public class FHIRToMADOConverter {
      */
     private void restoreCodeSequence(Attributes parent, int tag, String json) {
         if (json == null || "[]".equals(json.trim())) {
-            parent.newSequence(tag, 0);
+            // Preserve null-sequence (SQ []) rather than empty-sequence (SQ [0 Items])
+            parent.setNull(tag, VR.SQ);
             return;
         }
         List<Map<String, String>> items = parseSimpleJsonArray(json);
@@ -403,13 +412,17 @@ public class FHIRToMADOConverter {
     private void populateSOPCommonModule(Attributes mado, Bundle bundle, BundleResources resources) {
         mado.setString(Tag.SOPClassUID, VR.UI, KOS_SOP_CLASS_UID);
 
-        // Extract SOP Instance UID from Bundle or Composition identifier
+        // Extract SOP Instance UID - try multiple sources for round-trip fidelity
         String sopInstanceUID = extractUidFromIdentifier(bundle.getIdentifier());
         if (sopInstanceUID == null && resources.composition != null) {
             for (Identifier id : resources.composition.getIdentifier()) {
                 sopInstanceUID = extractUidFromIdentifier(id);
                 if (sopInstanceUID != null) break;
             }
+        }
+        // Fallback: try round-trip extension on ImagingStudy
+        if (sopInstanceUID == null && resources.imagingStudy != null) {
+            sopInstanceUID = getExtensionStringValue(resources.imagingStudy, EXT_SOP_INSTANCE_UID);
         }
 
         // Generate if not found
@@ -515,22 +528,36 @@ public class FHIRToMADOConverter {
         }
         mado.setString(Tag.StudyInstanceUID, VR.UI, studyUID);
 
-        // Study Date/Time from started - use original string values from extensions where possible
-        if (study.hasStarted()) {
+        // Study Date/Time - prefer round-trip extensions, then fall back to started
+        String studyDateStr = getExtensionStringValue(study, EXT_STUDY_DATE);
+        String studyTimeStr = getExtensionStringValue(study, EXT_STUDY_TIME);
+
+        if (studyDateStr != null && !studyDateStr.isEmpty()) {
+            mado.setString(Tag.StudyDate, VR.DA, studyDateStr);
+        } else if (study.hasStarted()) {
             Date started = study.getStarted();
             SimpleDateFormat dateFmt = new SimpleDateFormat("yyyyMMdd");
-            SimpleDateFormat timeFmt = new SimpleDateFormat("HHmmss");
             mado.setString(Tag.StudyDate, VR.DA, dateFmt.format(started));
+        }
+
+        if (studyTimeStr != null && !studyTimeStr.isEmpty()) {
+            mado.setString(Tag.StudyTime, VR.TM, studyTimeStr);
+        } else if (study.hasStarted()) {
+            Date started = study.getStarted();
+            SimpleDateFormat timeFmt = new SimpleDateFormat("HHmmss");
             mado.setString(Tag.StudyTime, VR.TM, timeFmt.format(started));
         }
 
         // Study Description – restore from extension (preserves empty tag)
+        // Type 2 tag: always present, may be empty
         String studyDesc = getExtensionStringValue(study, EXT_STUDY_DESCRIPTION);
         if (studyDesc != null) {
             // Extension present means tag existed in original (value may be empty)
             mado.setString(Tag.StudyDescription, VR.LO, studyDesc);
         } else if (study.hasDescription()) {
             mado.setString(Tag.StudyDescription, VR.LO, study.getDescription());
+        } else {
+            mado.setString(Tag.StudyDescription, VR.LO, "");
         }
 
         // Study ID - first try extension (for round-trip), then fallback
@@ -546,8 +573,17 @@ public class FHIRToMADOConverter {
         }
         mado.setString(Tag.StudyID, VR.SH, studyId);
 
-        // Accession Number from basedOn
-        if (study.hasBasedOn()) {
+        // Accession Number - prefer round-trip extension (header-level), then fall back to basedOn
+        String headerAccession = getExtensionStringValue(study, EXT_ACCESSION_NUMBER);
+        String headerAccessionIssuer = getExtensionStringValue(study, EXT_ACCESSION_NUMBER_ISSUER);
+
+        if (headerAccession != null && !headerAccession.isEmpty()) {
+            // Round-trip: restore original header-level AccessionNumber
+            mado.setString(Tag.AccessionNumber, VR.SH, headerAccession);
+            if (headerAccessionIssuer != null && !headerAccessionIssuer.isEmpty()) {
+                addAccessionNumberIssuer(mado, headerAccessionIssuer);
+            }
+        } else if (study.hasBasedOn()) {
             Reference basedOn = study.getBasedOnFirstRep();
             if (basedOn.hasIdentifier()) {
                 Identifier accessionId = basedOn.getIdentifier();
@@ -568,6 +604,7 @@ public class FHIRToMADOConverter {
         }
 
         // Referring Physician - first try extension (for round-trip), then practitioner
+        // Type 2 tag: always present, may be empty
         String refPhysName = getExtensionStringValue(study, EXT_REFERRING_PHYSICIAN);
         if (refPhysName != null) {
             // Extension present: restore exactly (even if empty string)
@@ -575,24 +612,27 @@ public class FHIRToMADOConverter {
         } else if (study.hasReferrer() && resources.practitioner != null) {
             refPhysName = buildDicomNameFromPractitioner(resources.practitioner);
             mado.setString(Tag.ReferringPhysicianName, VR.PN, refPhysName);
+        } else {
+            mado.setString(Tag.ReferringPhysicianName, VR.PN, "");
         }
 
         // ReferencedStudySequence – restore from extension
+        // Type 2 tag: always present, may be empty/null sequence
         String refStudyUids = getExtensionStringValue(study, EXT_REFERENCED_STUDY_SEQUENCE);
-        if (refStudyUids != null) {
-            // Extension present: restore (empty string = empty sequence)
+        if (refStudyUids != null && !refStudyUids.isEmpty()) {
             Sequence refStudySeq = mado.newSequence(Tag.ReferencedStudySequence, 1);
-            if (!refStudyUids.isEmpty()) {
-                for (String uid : refStudyUids.split(",")) {
-                    uid = uid.trim();
-                    if (!uid.isEmpty()) {
-                        Attributes item = new Attributes();
-                        item.setString(Tag.ReferencedSOPClassUID, VR.UI, "1.2.840.10008.3.1.2.3.1"); // Detached Study Management
-                        item.setString(Tag.ReferencedSOPInstanceUID, VR.UI, uid);
-                        refStudySeq.add(item);
-                    }
+            for (String uid : refStudyUids.split(",")) {
+                uid = uid.trim();
+                if (!uid.isEmpty()) {
+                    Attributes item = new Attributes();
+                    item.setString(Tag.ReferencedSOPClassUID, VR.UI, "1.2.840.10008.3.1.2.3.1"); // Detached Study Management
+                    item.setString(Tag.ReferencedSOPInstanceUID, VR.UI, uid);
+                    refStudySeq.add(item);
                 }
             }
+        } else {
+            // Preserve null-sequence (SQ []) rather than empty-sequence (SQ [0 Items])
+            mado.setNull(Tag.ReferencedStudySequence, VR.SQ);
         }
     }
 
@@ -629,7 +669,8 @@ public class FHIRToMADOConverter {
         mado.setString(Tag.SeriesDescription, VR.LO, "MADO Manifest");
 
         // ReferencedPerformedProcedureStepSequence - Type 2 (can be empty)
-        mado.newSequence(Tag.ReferencedPerformedProcedureStepSequence, 0);
+        // Use setNull to preserve null-sequence (SQ []) rather than empty-sequence (SQ [0 Items])
+        mado.setNull(Tag.ReferencedPerformedProcedureStepSequence, VR.SQ);
     }
 
 
@@ -655,7 +696,13 @@ public class FHIRToMADOConverter {
                 mado.setString(Tag.ManufacturerModelName, VR.LO,
                     device.getNameFirstRep().getValue());
             } else {
-                mado.setString(Tag.ManufacturerModelName, VR.LO, DEFAULT_MODEL);
+                // Check for round-trip extension preserving original model name
+                String originalModelName = getExtensionStringValue(device, EXT_ORIGINAL_MODEL_NAME);
+                if (originalModelName != null) {
+                    mado.setString(Tag.ManufacturerModelName, VR.LO, originalModelName);
+                } else {
+                    mado.setString(Tag.ManufacturerModelName, VR.LO, DEFAULT_MODEL);
+                }
             }
 
             if (device.hasVersion()) {
@@ -691,7 +738,7 @@ public class FHIRToMADOConverter {
             mado.setString(Tag.ContentDate, VR.DA, contentDateStr);
         } else {
             Date contentDate = null;
-            if (resources.composition.hasDate()) {
+            if (resources.composition != null && resources.composition.hasDate()) {
                 contentDate = resources.composition.getDate();
             }
             if (contentDate == null) {
@@ -705,7 +752,7 @@ public class FHIRToMADOConverter {
             mado.setString(Tag.ContentTime, VR.TM, contentTimeStr);
         } else {
             Date contentDate = null;
-            if (resources.composition.hasDate()) {
+            if (resources.composition != null && resources.composition.hasDate()) {
                 contentDate = resources.composition.getDate();
             }
             if (contentDate == null) {
@@ -1227,10 +1274,12 @@ public class FHIRToMADOConverter {
         // add Instance Number and Number of Frames as children of the IMAGE item
         Sequence contentSeq = entry.newSequence(Tag.ContentSequence, 2);
 
-        // get extra instance info
-        String instanceNumber = instance.hasNumber() ? String.valueOf(instance.getNumber()) : "1";
-        contentSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_INSTANCE_NUMBER,
-                SCHEME_DCM, CodeConstants.MEANING_INSTANCE_NUMBER, instanceNumber));
+        // Instance Number: only add if present in the FHIR instance (RC+ per MADO spec:
+        // "Required when present in the referenced SOP Instance")
+        if (instance.hasNumber()) {
+            contentSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_INSTANCE_NUMBER,
+                    SCHEME_DCM, CodeConstants.MEANING_INSTANCE_NUMBER, String.valueOf(instance.getNumber())));
+        }
 
         // Add Number of Frames as acquisition context if it's a multiframe SOP Class and number of frames is available
         String sopClassUID = null;
@@ -1320,6 +1369,7 @@ public class FHIRToMADOConverter {
     }
 
     private String extractWadoBaseUrl(List<Endpoint> endpoints) {
+        // First pass: look for endpoints with explicit dicom-wado-rs connectionType
         for (Endpoint endpoint : endpoints) {
             if (endpoint.hasConnectionType()) {
                 for (CodeableConcept ct : endpoint.getConnectionType()) {
@@ -1337,6 +1387,19 @@ public class FHIRToMADOConverter {
                         }
                     }
                 }
+            }
+        }
+        // Second pass: fall back to any Endpoint with an http(s) address
+        // (handles Endpoints without connectionType, e.g. MADO WADO-RS endpoints
+        // that only specify profile and address)
+        for (Endpoint endpoint : endpoints) {
+            String address = endpoint.getAddress();
+            if (address != null && (address.startsWith("http://") || address.startsWith("https://"))) {
+                int studiesIndex = address.indexOf("/studies");
+                if (studiesIndex > 0) {
+                    return address.substring(0, studiesIndex);
+                }
+                return address;
             }
         }
         return null;
@@ -1432,6 +1495,9 @@ public class FHIRToMADOConverter {
         ImagingStudy imagingStudy;
         Device device;
         Practitioner practitioner;
+        Organization organization;
+        ServiceRequest serviceRequest;
+        Provenance provenance;
         List<Endpoint> endpoints = new ArrayList<>();
         List<Basic> imagingSelections = new ArrayList<>();
     }

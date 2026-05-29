@@ -75,11 +75,12 @@ public class ListProvider implements IResourceProvider {
                 throw new ResourceNotFoundException("SubmissionSet not found for ID: " + listId);
             }
 
-            // Create the associated DocumentReference
-            DocumentReference docRef = DicomToFhirMapper.mapStudyToDocumentReference(study, config, null);
+            // Create the associated DocumentReferences (both FHIR and KOS per MADO IG)
+            DocumentReference fhirDocRef = DicomToFhirMapper.mapStudyToDocumentReference(study, config, null);
+            DocumentReference kosDocRef = DicomToFhirMapper.mapStudyToKosDocumentReference(study, config, null, null);
 
-            // Create the SubmissionSet List
-            return DicomToFhirMapper.createSubmissionSetList(study, config, docRef);
+            // Create the SubmissionSet List with both DocumentReferences
+            return DicomToFhirMapper.createSubmissionSetList(study, config, fhirDocRef, kosDocRef);
 
         } catch (IOException e) {
             LOG.error("Error reading SubmissionSet", e);
@@ -141,8 +142,9 @@ public class ListProvider implements IResourceProvider {
             List<IBaseResource> results = new ArrayList<>();
             for (Attributes study : studies) {
                 try {
-                    DocumentReference docRef = DicomToFhirMapper.mapStudyToDocumentReference(study, config, null);
-                    ListResource list = DicomToFhirMapper.createSubmissionSetList(study, config, docRef);
+                    DocumentReference fhirDocRef = DicomToFhirMapper.mapStudyToDocumentReference(study, config, null);
+                    DocumentReference kosDocRef = DicomToFhirMapper.mapStudyToKosDocumentReference(study, config, null, null);
+                    ListResource list = DicomToFhirMapper.createSubmissionSetList(study, config, fhirDocRef, kosDocRef);
                     results.add(list);
                 } catch (Exception e) {
                     LOG.warn("Error mapping study to SubmissionSet: {}",
@@ -161,10 +163,16 @@ public class ListProvider implements IResourceProvider {
 
     /**
      * Extract patient ID from various FHIR reference/identifier formats.
+     * The identifier system is intentionally ignored; only the value part is used.
+     * Supports both plain values and system|value token format.
      */
     private String extractPatientId(ReferenceParam patient, TokenParam patientIdentifier) {
         if (patientIdentifier != null) {
-            return patientIdentifier.getValue();
+            // getValue() returns only the value portion of a system|value token, ignoring the system
+            String value = patientIdentifier.getValue();
+            if (value != null && !value.isEmpty()) {
+                return value;
+            }
         }
 
         if (patient != null) {

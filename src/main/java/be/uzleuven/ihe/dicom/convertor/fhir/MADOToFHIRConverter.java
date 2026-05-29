@@ -54,9 +54,8 @@ public class MADOToFHIRConverter {
 
     // KOS SOP Class UID for validation
 
-    // MADO IG mandated UID prefix (invariant im-imagingstudy-01)
-    // The MADO IG requires "ihe:urn:oid:" for identifiers per im-imagingstudy-01
-    public static final String IHE_UID_PREFIX = "ihe:urn:oid:";
+    // MADO IG R4 mandated UID prefix for identifiers
+    public static final String IHE_UID_PREFIX = "urn:oid:";
 
     // Body site mapping from SRT codes to SNOMED CT
     // Maps SRT anatomical region codes to {SNOMED CT code, display name}
@@ -140,7 +139,7 @@ public class MADOToFHIRConverter {
         // Generate UUIDs for cross-referencing
         ResourceUUIDs uuids = new ResourceUUIDs(metadata, useDeterministicUuids);
 
-        // Create the FHIR Document Bundle
+        // Create the FHIR Collection Bundle (MADO IG R4: type=collection)
         Bundle bundle = createDocumentBundle(metadata);
 
         // Create resources
@@ -150,9 +149,6 @@ public class MADOToFHIRConverter {
         Device device = createDevice(metadata);
         device.setId(uuids.deviceUuid);
 
-        Practitioner practitioner = createPractitioner(metadata);
-        practitioner.setId(uuids.practitionerUuid);
-
         // Create Endpoints
         List<Endpoint> endpoints = createEndpoints(attrs, metadata, uuids, useDeterministicUuids);
 
@@ -160,38 +156,53 @@ public class MADOToFHIRConverter {
         ImagingStudy imagingStudy = createImagingStudy(attrs, metadata, uuids);
         imagingStudy.setId(uuids.studyUuid);
 
-        // Create ImagingSelection resources (backported to R4 as Basic)
-        List<Basic> imagingSelections = createImagingSelections(attrs, metadata, uuids);
+        // Create Organization (MadoCreatorOrganization)
+        Organization organization = createOrganization(metadata);
+        String organizationUuid = useDeterministicUuids
+            ? DeterministicUuidGenerator.generateOrganizationUuid(metadata.institutionName)
+            : UUID.randomUUID().toString();
+        organization.setId(organizationUuid);
 
-        // Create Composition (first entry in document bundle)
-        Composition composition = createComposition(metadata, uuids, imagingSelections.size());
-        composition.setId(uuids.compositionUuid);
+        // Create ServiceRequest (MadoRequestedProcedure)
+        ServiceRequest serviceRequest = createServiceRequest(metadata, uuids);
+        String serviceRequestUuid = useDeterministicUuids
+            ? DeterministicUuidGenerator.generateServiceRequestUuid(metadata.accessionNumber)
+            : UUID.randomUUID().toString();
+        serviceRequest.setId(serviceRequestUuid);
 
-        // Add entries in MADO-compliant order
-        // 1. Composition (MUST be first for document bundle)
+        // Update Device owner to reference Organization
+        device.setOwner(new Reference("urn:uuid:" + organizationUuid)
+            .setType("Organization")
+            .setDisplay(metadata.institutionName != null ? metadata.institutionName : ""));
+
+        // Update ImagingStudy.basedOn to reference ServiceRequest
+        if (metadata.accessionNumber != null || !metadata.referencedRequests.isEmpty()) {
+            // basedOn already set in createImagingStudy, update reference
+            if (!imagingStudy.getBasedOn().isEmpty()) {
+                Reference basedOnRef = imagingStudy.getBasedOn().get(0);
+                basedOnRef.setReference("urn:uuid:" + serviceRequestUuid);
+                basedOnRef.setType("ServiceRequest");
+            }
+        }
+
+        // Add entries in MADO IG R4 compliant order
+        // All fullUrl values use urn:uuid: format for proper intra-bundle resolution
+        // 1. ImagingStudy (main resource)
         bundle.addEntry()
-            .setFullUrl("urn:uuid:" + uuids.compositionUuid)
-            .setResource(composition);
+            .setFullUrl("urn:uuid:" + uuids.studyUuid)
+            .setResource(imagingStudy);
 
-        // 2. Patient
+        // 2. Organization (MadoCreatorOrganization)
+        bundle.addEntry()
+            .setFullUrl("urn:uuid:" + organizationUuid)
+            .setResource(organization);
+
+        // 3. Patient
         bundle.addEntry()
             .setFullUrl("urn:uuid:" + uuids.patientUuid)
             .setResource(patient);
 
-        // 3. Device (author device)
-        bundle.addEntry()
-            .setFullUrl("urn:uuid:" + uuids.deviceUuid)
-            .setResource(device);
-
-        // 4. Practitioner (if meaningful data exists)
-        if (metadata.referringPhysicianName != null && !metadata.referringPhysicianName.isEmpty()
-            && !metadata.referringPhysicianName.startsWith("-")) {
-            bundle.addEntry()
-                .setFullUrl("urn:uuid:" + uuids.practitionerUuid)
-                .setResource(practitioner);
-        }
-
-        // 5. Endpoints
+        // 4. Endpoints
         for (Endpoint endpoint : endpoints) {
             String uuid = uuids.endpointUuids.get(endpoint.getAddress());
             bundle.addEntry()
@@ -199,49 +210,25 @@ public class MADOToFHIRConverter {
                 .setResource(endpoint);
         }
 
-        // 6. ImagingStudy
+        // 5. Device (MadoCreator)
         bundle.addEntry()
-            .setFullUrl("urn:uuid:" + uuids.studyUuid)
-            .setResource(imagingStudy);
+            .setFullUrl("urn:uuid:" + uuids.deviceUuid)
+            .setResource(device);
 
-        // 7. ImagingSelection resources (as Basic in R4)
-        for (Basic selection : imagingSelections) {
-            // Generate deterministic UUID based on the selection's extensions
-            String uuid;
-            if (useDeterministicUuids) {
-                // Extract key data from the selection for deterministic UUID generation
-                String sopInstanceUID = "";
-                for (Extension ext : selection.getExtension()) {
-                    if (EXT_SELECTED_INSTANCE.equals(ext.getUrl())) {
-                        for (Extension innerExt : ext.getExtension()) {
-                            if ("uid".equals(innerExt.getUrl()) && innerExt.getValue() instanceof StringType) {
-                                sopInstanceUID = ((StringType) innerExt.getValue()).getValue();
-                                break;
-                            }
-                        }
-                        if (!sopInstanceUID.isEmpty()) break;
-                    }
-                }
-                // Use the study UID and first SOP Instance UID to create a deterministic UUID
-                uuid = DeterministicUuidGenerator.generateImagingSelectionUuid(
-                    metadata.studyInstanceUID,
-                    "", // Series UID not easily available here, but study + SOP should be unique enough
-                    sopInstanceUID
-                );
-            } else {
-                uuid = UUID.randomUUID().toString();
-            }
+        // 6. ServiceRequest (MadoRequestedProcedure)
+        bundle.addEntry()
+            .setFullUrl("urn:uuid:" + serviceRequestUuid)
+            .setResource(serviceRequest);
 
-            selection.setId(uuid);
-            bundle.addEntry()
-                .setFullUrl("urn:uuid:" + uuid)
-                .setResource(selection);
-
-            // Add reference to Composition Key Image Selections section
-            if (uuids.keyImageSelectionSection != null) {
-                uuids.keyImageSelectionSection.addEntry(new Reference("urn:uuid:" + uuid));
-            }
-        }
+        // 7. Provenance (MadoProvenance)
+        Provenance provenance = createProvenance(metadata, uuids, organizationUuid, serviceRequestUuid, endpoints);
+        String provenanceUuid = useDeterministicUuids
+            ? DeterministicUuidGenerator.generateProvenanceUuid(metadata.sopInstanceUID)
+            : UUID.randomUUID().toString();
+        provenance.setId(provenanceUuid);
+        bundle.addEntry()
+            .setFullUrl("urn:uuid:" + provenanceUuid)
+            .setResource(provenance);
 
         return bundle;
     }
@@ -251,18 +238,25 @@ public class MADOToFHIRConverter {
     // ============================================================================
 
     /**
-     * Creates the Document Bundle with mandatory identifiers and timestamp.
+     * Creates the Collection Bundle with mandatory identifiers and timestamp.
+     * MADO IG R4: Bundle type is 'collection' (not 'document').
      */
     private Bundle createDocumentBundle(MADOMetadata metadata) {
         Bundle bundle = new Bundle();
 
-        // MADO requirement: Bundle type must be 'document'
-        bundle.setType(Bundle.BundleType.DOCUMENT);
+        // MADO IG R4: Bundle type must be 'collection'
+        bundle.setType(Bundle.BundleType.COLLECTION);
 
         // Add profile
         bundle.getMeta().addProfile(PROFILE_IMAGING_STUDY_MANIFEST);
 
-        // MADO requirement: Business identifier with system and value
+        // Set Bundle id from Study Instance UID (base64 encoded for URL-safe id)
+        if (metadata.studyInstanceUID != null && !metadata.studyInstanceUID.isEmpty()) {
+            bundle.setId(Base64.getEncoder().withoutPadding().encodeToString(
+                metadata.studyInstanceUID.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        }
+
+        // MADO IG R4: Business identifier with custom system and value
         bundle.setIdentifier(new Identifier()
             .setSystem("urn:dicom:uid")
             .setValue(IHE_UID_PREFIX + metadata.sopInstanceUID));
@@ -381,8 +375,8 @@ public class MADOToFHIRConverter {
         metadata.accessionNumber = attrs.getString(Tag.AccessionNumber);
         metadata.studyDate = attrs.getString(Tag.StudyDate);
         metadata.studyTime = attrs.getString(Tag.StudyTime);
-        // StudyDescription: detect presence even when empty
-        metadata.studyDescriptionPresent = attrs.containsValue(Tag.StudyDescription);
+        // StudyDescription: detect presence even when empty (use contains() not containsValue())
+        metadata.studyDescriptionPresent = attrs.contains(Tag.StudyDescription);
         metadata.studyDescription = attrs.getString(Tag.StudyDescription); // may be null or ""
         metadata.studyID = attrs.getString(Tag.StudyID);
 
@@ -419,8 +413,11 @@ public class MADOToFHIRConverter {
         metadata.softwareVersions = attrs.getString(Tag.SoftwareVersions);
         metadata.institutionName = attrs.getString(Tag.InstitutionName);
 
-        // Referring physician
+        // Referring physician (use contains() to detect empty tags)
         metadata.referringPhysicianName = attrs.getString(Tag.ReferringPhysicianName);
+        if (metadata.referringPhysicianName == null && attrs.contains(Tag.ReferringPhysicianName)) {
+            metadata.referringPhysicianName = ""; // tag present but empty
+        }
 
         // Issuer of Accession Number
         Sequence issuerSeq = attrs.getSequence(Tag.IssuerOfAccessionNumberSequence);
@@ -681,7 +678,8 @@ public class MADOToFHIRConverter {
     }
 
     /**
-     * Creates Device resource for the manifest author system (ImImagingDevice).
+     * Creates Device resource for the manifest creator (MadoCreator profile).
+     * MADO IG R4: type = MadoDeviceType#mado-creator
      */
     private Device createDevice(MADOMetadata metadata) {
         Device device = new Device();
@@ -692,15 +690,13 @@ public class MADOToFHIRConverter {
         // Status
         device.setStatus(Device.FHIRDeviceStatus.ACTIVE);
 
-        // Category (R5: changed from 'type' to 'category')
-        // Required by ImImagingDevice profile slice Device.category:imaging
-        // Pattern: SNOMED CT 314789007 "Diagnostic imaging equipment"
-        CodeableConcept deviceCategory = new CodeableConcept();
-        deviceCategory.addCoding()
-            .setSystem("http://snomed.info/sct")
-            .setCode("314789007")
-            .setDisplay("Diagnostic imaging equipment");
-        device.addCategory(deviceCategory);
+        // Type - MADO IG R4: MadoDeviceType code system
+        CodeableConcept deviceType = new CodeableConcept();
+        deviceType.addCoding()
+            .setSystem(MADO_DEVICE_TYPE_SYSTEM)
+            .setCode(MADO_DEVICE_TYPE_CODE)
+            .setDisplay(MADO_DEVICE_TYPE_DISPLAY);
+        device.addCategory(deviceType);
 
         // Manufacturer (always set for round-trip consistency, even if empty)
         if (metadata.manufacturer != null && !metadata.manufacturer.isEmpty()) {
@@ -720,6 +716,8 @@ public class MADOToFHIRConverter {
             Device.DeviceNameComponent name = device.addName();
             name.setValue(metadata.manufacturerModelName);
             name.setType(Enumerations.DeviceNameType.USERFRIENDLYNAME);
+            // Also store as extension for round-trip fidelity
+            device.addExtension(new Extension(EXT_ORIGINAL_MODEL_NAME, new StringType(metadata.manufacturerModelName)));
         }
 
         // Software version (MADO requirement: must be populated)
@@ -760,6 +758,122 @@ public class MADOToFHIRConverter {
         }
 
         return practitioner;
+    }
+
+    /**
+     * Creates an Organization resource (MadoCreatorOrganization profile).
+     * MADO IG R4: represents the institution that created the manifest.
+     */
+    private Organization createOrganization(MADOMetadata metadata) {
+        Organization org = new Organization();
+        org.getMeta().addProfile(PROFILE_CREATOR_ORGANIZATION);
+
+        if (metadata.institutionName != null && !metadata.institutionName.isEmpty()) {
+            org.setName(metadata.institutionName);
+        }
+
+        return org;
+    }
+
+    /**
+     * Creates a ServiceRequest resource (MadoRequestedProcedure profile).
+     * MADO IG R4: represents the Requested Procedure with accession number.
+     */
+    private ServiceRequest createServiceRequest(MADOMetadata metadata, ResourceUUIDs uuids) {
+        ServiceRequest serviceRequest = new ServiceRequest();
+        serviceRequest.getMeta().addProfile(PROFILE_REQUESTED_PROCEDURE);
+
+        // Identifier - Accession Number
+        if (metadata.accessionNumber != null && !metadata.accessionNumber.isEmpty()) {
+            Identifier accIdentifier = serviceRequest.addIdentifier();
+            CodeableConcept accType = new CodeableConcept();
+            accType.addCoding()
+                .setSystem("http://dicom.nema.org/resources/ontology/DCM")
+                .setCode("121022")
+                .setDisplay("Accession Number");
+            accType.addCoding()
+                .setSystem("http://terminology.hl7.org/CodeSystem/v2-0203")
+                .setCode("ACSN")
+                .setDisplay("Accession Id");
+            accIdentifier.setType(accType);
+
+            if (metadata.issuerOfAccessionNumber != null) {
+                accIdentifier.setSystem("urn:oid:" + metadata.issuerOfAccessionNumber);
+            }
+            accIdentifier.setValue(metadata.accessionNumber);
+        }
+
+        // Placer Order Number (from ReferencedRequests if available)
+        if (!metadata.referencedRequests.isEmpty()) {
+            ReferencedRequest req = metadata.referencedRequests.get(0);
+            if (req.placerOrderNumber != null && !req.placerOrderNumber.isEmpty()) {
+                Identifier placerIdentifier = serviceRequest.addIdentifier();
+                CodeableConcept placerType = new CodeableConcept();
+                placerType.addCoding()
+                    .setSystem("http://terminology.hl7.org/CodeSystem/v2-0203")
+                    .setCode("PLAC")
+                    .setDisplay("Placer Identifier");
+                placerIdentifier.setType(placerType);
+                if (req.orderPlacerIdentifierOid != null) {
+                    placerIdentifier.setSystem("urn:oid:" + req.orderPlacerIdentifierOid);
+                }
+                placerIdentifier.setValue(req.placerOrderNumber);
+            }
+        }
+
+        serviceRequest.setStatus(Enumerations.RequestStatus.COMPLETED);
+        serviceRequest.setIntent(Enumerations.RequestIntent.ORDER);
+
+        // Category - Imaging
+        CodeableConcept category = new CodeableConcept();
+        category.addCoding()
+            .setSystem("http://snomed.info/sct")
+            .setCode("363679005")
+            .setDisplay("Imaging");
+        serviceRequest.addCategory(category);
+
+        // Subject
+        serviceRequest.setSubject(new Reference("urn:uuid:" + uuids.patientUuid)
+            .setType("Patient"));
+
+        return serviceRequest;
+    }
+
+    /**
+     * Creates a Provenance resource (MadoProvenance profile).
+     * MADO IG R4: indicates information about the system that created the manifest.
+     */
+    private Provenance createProvenance(MADOMetadata metadata, ResourceUUIDs uuids,
+                                         String organizationUuid, String serviceRequestUuid,
+                                         List<Endpoint> endpoints) {
+        Provenance provenance = new Provenance();
+        provenance.getMeta().addProfile(PROFILE_PROVENANCE);
+
+        // Targets - all resources in the bundle (use urn:uuid: for proper intra-bundle resolution)
+        provenance.addTarget(new Reference("urn:uuid:" + uuids.patientUuid).setType("Patient"));
+        for (Map.Entry<String, String> e : uuids.endpointUuids.entrySet()) {
+            provenance.addTarget(new Reference("urn:uuid:" + e.getValue()).setType("Endpoint"));
+        }
+        provenance.addTarget(new Reference("urn:uuid:" + serviceRequestUuid).setType("ServiceRequest"));
+        provenance.addTarget(new Reference("urn:uuid:" + uuids.studyUuid).setType("ImagingStudy"));
+        provenance.addTarget(new Reference("urn:uuid:" + uuids.deviceUuid).setType("Device"));
+        provenance.addTarget(new Reference("urn:uuid:" + organizationUuid).setType("Organization"));
+
+        // Recorded timestamp
+        provenance.setRecorded(new Date());
+
+        // Agent - assembler
+        Provenance.ProvenanceAgentComponent agent = provenance.addAgent();
+        CodeableConcept agentType = new CodeableConcept();
+        agentType.addCoding()
+            .setSystem("http://terminology.hl7.org/CodeSystem/provenance-participant-type")
+            .setCode("assembler")
+            .setDisplay("Assembler");
+        agent.setType(agentType);
+        agent.setWho(new Reference("urn:uuid:" + uuids.deviceUuid).setType("Device"));
+        agent.setOnBehalfOf(new Reference("urn:uuid:" + organizationUuid).setType("Organization"));
+
+        return provenance;
     }
 
     /**
@@ -811,8 +925,8 @@ public class MADOToFHIRConverter {
     }
 
     /**
-     * Creates a WADO-RS Endpoint resource (R5 compatible).
-     * Per ImWadoRsEndpoint profile: requires 17 mimeTypes in payload:wadors slice.
+     * Creates a WADO-RS Endpoint resource conforming to MadoWadoEndpoint profile.
+     * MADO IG R4: includes RetrieveLocationUID extension and required payloadMimeTypes.
      */
     private Endpoint createWadoRsEndpoint(String address) {
         Endpoint endpoint = new Endpoint();
@@ -822,14 +936,16 @@ public class MADOToFHIRConverter {
 
         endpoint.setStatus(Endpoint.EndpointStatus.ACTIVE);
 
-        // Connection type: dicom-wado-rs (R5: array of CodeableConcept)
-        // Must match pattern for connectionType:wado slice
+        // Connection type: dicom-wado-rs
         CodeableConcept connectionType = new CodeableConcept();
         connectionType.addCoding(new Coding()
             .setSystem(ENDPOINT_CONNECTION_TYPE_SYSTEM)
             .setCode("dicom-wado-rs")
             .setDisplay("DICOM WADO-RS"));
         endpoint.addConnectionType(connectionType);
+
+        // Name
+        endpoint.setName("WADO endpoint");
 
         // Payload (R5: payload is now an array with type and mimeType inside)
         // Pattern for slice payload:wadors - type must match connectionType pattern
@@ -874,16 +990,13 @@ public class MADOToFHIRConverter {
 
 
     /**
-     * Creates IHE-IID Endpoint for viewer launch (MADO requirement, R5 compatible).
-     * Note: This endpoint is included in the Bundle as an entry, but we do NOT
-     * automatically reference it from ImagingStudy.endpoint because the IG's
-     * endpoint slicing expects specific endpoint profiles and some validators
-     * cannot reliably evaluate those slices when the IG canonical URL is unreachable.
+     * Creates Web Viewer Endpoint (MadoWebViewerEndpoint profile, MADO IG R4).
+     * The URL SHALL be a fully populated URL that contains all information to launch the viewer.
      */
     private Endpoint createIheIidEndpoint(String baseUrl, String studyInstanceUID) {
         Endpoint endpoint = new Endpoint();
 
-        // Add profile
+        // Add profile - MadoWebViewerEndpoint
         endpoint.getMeta().addProfile(PROFILE_IID_ENDPOINT);
 
         endpoint.setStatus(Endpoint.EndpointStatus.ACTIVE);
@@ -987,10 +1100,16 @@ public class MADOToFHIRConverter {
 
         study.setStatus(ImagingStudy.ImagingStudyStatus.AVAILABLE);
 
-        // MADO requirement (im-imagingstudy-01): Study Instance UID with IHE prefix
-        study.addIdentifier()
-            .setSystem("urn:dicom:uid")
-            .setValue(IHE_UID_PREFIX + metadata.studyInstanceUID);
+        // MADO IG R4: Study Instance UID with type coding and urn:oid: prefix
+        Identifier studyIdentifier = study.addIdentifier();
+        studyIdentifier.setSystem("urn:dicom:uid");
+        studyIdentifier.setValue(IHE_UID_PREFIX + metadata.studyInstanceUID);
+        CodeableConcept identifierType = new CodeableConcept();
+        identifierType.addCoding()
+            .setSystem("http://dicom.nema.org/resources/ontology/DCM")
+            .setCode("110180")
+            .setDisplay("Study Instance UID");
+        studyIdentifier.setType(identifierType);
 
         // Patient reference
         study.setSubject(new Reference("urn:uuid:" + uuids.patientUuid));
@@ -1007,6 +1126,14 @@ public class MADOToFHIRConverter {
         // StudyID
         if (metadata.studyID != null && !metadata.studyID.isEmpty()) {
             study.addExtension(new Extension(EXT_STUDY_ID, new StringType(metadata.studyID)));
+        }
+        // StudyDate (original DICOM string, avoids timezone conversion issues)
+        if (metadata.studyDate != null && !metadata.studyDate.isEmpty()) {
+            study.addExtension(new Extension(EXT_STUDY_DATE, new StringType(metadata.studyDate)));
+        }
+        // StudyTime (original DICOM string, avoids timezone conversion issues)
+        if (metadata.studyTime != null && !metadata.studyTime.isEmpty()) {
+            study.addExtension(new Extension(EXT_STUDY_TIME, new StringType(metadata.studyTime)));
         }
         // ContentDate
         if (metadata.contentDate != null && !metadata.contentDate.isEmpty()) {
@@ -1047,6 +1174,16 @@ public class MADOToFHIRConverter {
         if (metadata.referencedStudyUids != null) {
             study.addExtension(new Extension(EXT_REFERENCED_STUDY_SEQUENCE,
                 new StringType(metadata.referencedStudyUids)));
+        }
+
+        // Header-level AccessionNumber – preserve for round-trip (may differ from ReferencedRequestSequence)
+        if (metadata.accessionNumber != null) {
+            study.addExtension(new Extension(EXT_ACCESSION_NUMBER,
+                new StringType(metadata.accessionNumber)));
+        }
+        if (metadata.issuerOfAccessionNumber != null) {
+            study.addExtension(new Extension(EXT_ACCESSION_NUMBER_ISSUER,
+                new StringType(metadata.issuerOfAccessionNumber)));
         }
 
         // MADO requirement: Map ALL entries from Referenced Request Sequence to basedOn
@@ -1209,15 +1346,10 @@ public class MADOToFHIRConverter {
                             for (Attributes sopItem : refSopSeq) {
                                 String sopClassUID = sopItem.getString(Tag.ReferencedSOPClassUID);
                                 String sopInstanceUID = sopItem.getString(Tag.ReferencedSOPInstanceUID);
-                                // No extra instance info in the Evidence sequence
-                                //int numberOfFrames = sopItem.getInt(Tag.NumberOfFrames, 0);
-                                //int rows = sopItem.getInt(Tag.Rows, 0);
-                                //int columns = sopItem.getInt(Tag.Columns, 0);
-                                //int instanceNumber = sopItem.getInt(Tag.InstanceNumber, 0);
+                                int numberOfFrames = sopItem.getInt(Tag.NumberOfFrames, 0);
 
-                                System.out.println("DEBUG MADOToFHIRConverter: Reading from Evidence - SOP=" + sopInstanceUID);
-                                //System.out.println("DEBUG MADOToFHIRConverter: Reading from Evidence - SOP=" + sopInstanceUID +
-                                //                   ", InstanceNumber from Evidence=" + instanceNumber);
+                                System.out.println("DEBUG MADOToFHIRConverter: Reading from Evidence - SOP=" + sopInstanceUID +
+                                                   ", NumberOfFrames=" + numberOfFrames);
 
                                 ImagingStudy.ImagingStudySeriesInstanceComponent instance =
                                     new ImagingStudy.ImagingStudySeriesInstanceComponent();
@@ -1229,37 +1361,17 @@ public class MADOToFHIRConverter {
                                         .setCode(IHE_UID_PREFIX + sopClassUID));
                                 }
 
-                                /* No extra instance info in the Evidence sequence
-
-                                // Instance number (DICOM Instance Number tag)
-                                if (instanceNumber > 0) {
-                                    instance.setNumber(instanceNumber);
-                                    System.out.println("DEBUG MADOToFHIRConverter: Set InstanceNumber=" + instanceNumber +
-                                                       " from Evidence on FHIR instance " + sopInstanceUID);
-                                } else {
-                                    System.out.println("DEBUG MADOToFHIRConverter: NO InstanceNumber in Evidence for " + sopInstanceUID +
-                                                       ", will check ContentSequence later");
-                                }
-
-                                // Instance description extension (MADO IG URL)
-                                // Include dimensions and optionally number of frames in description
-                                StringBuilder descBuilder = new StringBuilder();
-                                if (rows > 0 && columns > 0) {
-                                    descBuilder.append(rows).append("x").append(columns);
-                                    if (numberOfFrames > 0) {
-                                        descBuilder.append(" (").append(numberOfFrames).append(" frames)");
-                                    }
-                                } else if (numberOfFrames > 0) {
-                                    descBuilder.append(numberOfFrames).append(" frames");
-                                }
-
-                                if (descBuilder.length() > 0) {
+                                // Store NumberOfFrames from Evidence Sequence as instance description extension
+                                // This is used for round-trip preservation (FHIR -> DICOM)
+                                if (numberOfFrames > 0) {
                                     Extension descExt = new Extension();
                                     descExt.setUrl(EXT_INSTANCE_DESCRIPTION);
-                                    descExt.setValue(new StringType(descBuilder.toString()));
+                                    descExt.setValue(new StringType(numberOfFrames + " frames"));
                                     instance.addExtension(descExt);
+                                    System.out.println("DEBUG MADOToFHIRConverter: Stored NumberOfFrames=" + numberOfFrames +
+                                                       " in instance description for SOP " + sopInstanceUID);
                                 }
-                                */
+
                                 series.addInstance(instance);
                             }
                         }
