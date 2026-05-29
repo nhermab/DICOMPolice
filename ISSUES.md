@@ -31,11 +31,11 @@ These values are temporary and align with the draft/public-comment state of the 
 
 ## Active Known Issues
 
-- Gazelle API: the Gazelle API integration does not yet work as intended. Functionality depending on Gazelle (test management/validation workflows) is incomplete.
+- Gazelle API: the Gazelle API field naming mismatch (`validationProfileId` vs `validationProfileID`) has been fixed. The `ValidationRequest` now accepts both field names via `@JsonAlias`. Input content null-safety checks have been added. Remaining Gazelle integration work (test management/validation workflows) may still be incomplete.
 
-- Validator UI — "Upload file" bug: there is a reproducible bug when clicking the "Upload file" button in the validator UI; files are not always accepted/processed as expected. Please file a GitHub issue with steps to reproduce and a browser/OS report when encountering this.
+- Validator UI — "Upload file" bug: fixed. The file input is now reliably reset using a form-wrap-and-reset technique, ensuring the `change` event fires even when re-selecting the same file.
 
-- FHIR→DICOM→FHIR→DICOM conversion issue: the conversion pipeline sometimes inserts Instance Number values in locations where none are expected. This is caused by a faulty implementation of the suggested KOS handling in the conversion logic; it needs to be corrected to follow the intended KOS specification behavior.
+- FHIR→DICOM→FHIR→DICOM conversion issue: fixed. The `FHIRToMADOConverter` no longer inserts a default Instance Number "1" when none is present in the FHIR instance. Instance Number is now only added when `instance.hasNumber()` returns true, following the KOS specification behavior (RC+: "Required when present in the referenced SOP Instance").
 
 ---
 
@@ -43,4 +43,4 @@ These values are temporary and align with the draft/public-comment state of the 
 
 Please report any other issues via GitHub Issues with clear reproduction steps, the command or UI action used, and any example files (de-identified).
 
-**Last Updated:** 2026-01-17
+**Last Updated:** 2026-05-29
