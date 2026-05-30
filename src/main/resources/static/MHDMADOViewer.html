@@ -193,6 +193,9 @@
                     </div>
                     <div class="datagrid-controls">
                         <input type="text" id="quickSearch" class="quick-search" placeholder="Quick filter..." aria-label="Quick filter">
+                        <button type="button" class="btn-small" id="columnsBtn" title="Configure visible columns">
+                            🔧 Columns
+                        </button>
                         <button type="button" class="btn-small btn-accent" id="inspectJsonBtn" title="Inspect FHIR Response">
                             📋 Inspect JSON
                         </button>
@@ -343,6 +346,29 @@
             </div>
             <div class="modal-body json-body">
                 <pre id="docJsonContent" class="json-viewer"></pre>
+            </div>
+        </div>
+    </div>
+
+    <!-- Column Configuration Modal -->
+    <div id="columnsModal" class="modal" style="display: none;">
+        <div class="modal-backdrop" onclick="MadoViewer.closeModal('columnsModal')"></div>
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h3>🔧 Configure Table Columns</h3>
+                <button class="modal-close" onclick="MadoViewer.closeModal('columnsModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 12px;">
+                    Check/uncheck columns to show or hide them. Drag visible columns to reorder.
+                </p>
+                <div id="columnsListContainer">
+                    <!-- Dynamically populated by JS -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="MadoViewer.closeModal('columnsModal')">Cancel</button>
+                <button class="btn btn-primary" onclick="MadoViewer.saveColumnsConfig()">💾 Apply &amp; Save</button>
             </div>
         </div>
     </div>
