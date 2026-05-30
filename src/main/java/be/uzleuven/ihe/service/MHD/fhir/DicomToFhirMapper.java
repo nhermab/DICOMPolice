@@ -190,6 +190,15 @@ public class DicomToFhirMapper {
         Reference orgRef = createMadoCreatorOrganizationReference(config);
         docRef.addAuthor(orgRef);
 
+        // Custodian - Institution Name from DICOM (performing institution)
+        String institutionName = study.getString(Tag.InstitutionName);
+        if (institutionName != null && !institutionName.trim().isEmpty()) {
+            Reference custodianRef = new Reference();
+            custodianRef.setType("Organization");
+            custodianRef.setDisplay(institutionName.trim());
+            docRef.setCustodian(custodianRef);
+        }
+
         // Description - prefer StudyDescription, fallback to generic
         String studyDescription = study.getString(Tag.StudyDescription);
         if (studyDescription != null && !studyDescription.trim().isEmpty()) {
@@ -425,6 +434,15 @@ public class DicomToFhirMapper {
         // Author - source-organization (MADO Creator Organization)
         Reference orgRef = createMadoCreatorOrganizationReference(config);
         docRef.addAuthor(orgRef);
+
+        // Custodian - Institution Name from DICOM (performing institution)
+        String institutionName = study.getString(Tag.InstitutionName);
+        if (institutionName != null && !institutionName.trim().isEmpty()) {
+            Reference custodianRef = new Reference();
+            custodianRef.setType("Organization");
+            custodianRef.setDisplay(institutionName.trim());
+            docRef.setCustodian(custodianRef);
+        }
 
         // Description - prefer StudyDescription, fallback to generic
         String kosStudyDescription = study.getString(Tag.StudyDescription);

@@ -246,7 +246,7 @@ const MadoViewer = (function() {
             // Store raw bundle for inspection
             state.rawBundle = bundle;
 
-            // Extract documents from bundle
+            // Extract and combine documents from bundle
             state.allDocuments = parseDocumentBundle(bundle);
             state.filteredDocuments = [...state.allDocuments];
             state.currentPage = 1;
@@ -257,9 +257,14 @@ const MadoViewer = (function() {
 
             // Show success toast
             if (state.allDocuments.length > 0) {
-                const fhirCount = state.allDocuments.filter(d => d.manifestFormat === 'FHIR').length;
-                const kosCount = state.allDocuments.filter(d => d.manifestFormat === 'DICOM KOS').length;
-                showToast(`Found ${state.allDocuments.length} document(s): ${fhirCount} FHIR + ${kosCount} DICOM KOS`, 'success');
+                const pairedCount = state.allDocuments.filter(d => d.fhirDoc && d.kosDoc).length;
+                const fhirOnlyCount = state.allDocuments.filter(d => d.fhirDoc && !d.kosDoc).length;
+                const kosOnlyCount = state.allDocuments.filter(d => !d.fhirDoc && d.kosDoc).length;
+                let msg = `Found ${state.allDocuments.length} study/studies`;
+                if (pairedCount > 0) msg += `, ${pairedCount} paired (FHIR+KOS)`;
+                if (fhirOnlyCount > 0) msg += `, ${fhirOnlyCount} FHIR-only`;
+                if (kosOnlyCount > 0) msg += `, ${kosOnlyCount} KOS-only`;
+                showToast(msg, 'success');
             }
 
         } catch (error) {
@@ -272,108 +277,237 @@ const MadoViewer = (function() {
         }
     }
 
+    /**
+     * Parse a single FHIR DocumentReference entry into a flat document descriptor.
+     */
+    function parseSingleEntry(doc) {
+        // Extract patient info
+        const patientId = doc.subject?.identifier?.value ||
+                         doc.subject?.reference?.split('/').pop() || 'Unknown';
+        const patientName = doc.subject?.display || 'Unknown Patient';
+
+        // Extract date
+        const date = doc.date ? new Date(doc.date) : null;
+
+        // Extract modalities from the R5 cross-version modality extension
+        let modalities = [];
+        const modalityExt = doc.extension?.find(e =>
+            e.url === 'http://hl7.org/fhir/5.0/StructureDefinition/extension-DocumentReference.modality');
+        if (modalityExt?.valueCodeableConcept?.coding) {
+            modalities = modalityExt.valueCodeableConcept.coding.map(c => c.code).filter(Boolean);
+        }
+        if (modalities.length === 0) {
+            modalities = ['OT'];
+        }
+
+        // Extract body site from the R5 cross-version bodySite extension
+        let bodySite = '';
+        const bodySiteExt = doc.extension?.find(e =>
+            e.url === 'http://hl7.org/fhir/5.0/StructureDefinition/extension-DocumentReference.bodySite');
+        if (bodySiteExt) {
+            const conceptExt = bodySiteExt.extension?.find(e => e.url === 'concept');
+            if (conceptExt?.valueCodeableConcept) {
+                const coding = conceptExt.valueCodeableConcept.coding;
+                if (coding && coding.length > 0) {
+                    bodySite = coding[0].display || coding[0].code || '';
+                }
+                if (!bodySite) {
+                    bodySite = conceptExt.valueCodeableConcept.text || '';
+                }
+            }
+        }
+
+        // Extract study description
+        const description = doc.description || doc.content?.[0]?.attachment?.title || 'No Description';
+
+        // Extract accession number from context.related
+        let accessionNumber = '-';
+        if (doc.context?.related) {
+            const accRelated = doc.context.related.find(r =>
+                r.identifier?.type?.coding?.some(c => c.code === '121022' || c.code === 'ACSN'));
+            if (accRelated?.identifier?.value) {
+                accessionNumber = accRelated.identifier.value;
+            }
+        }
+
+        // Extract study UID from context.related
+        let studyUid = doc.masterIdentifier?.value || doc.id;
+        if (doc.context?.related) {
+            const studyUidRelated = doc.context.related.find(r =>
+                r.identifier?.type?.coding?.some(c => c.code === '110180'));
+            if (studyUidRelated?.identifier?.value) {
+                studyUid = studyUidRelated.identifier.value;
+            }
+        }
+
+        // Determine manifest format from content.format and meta.profile
+        const formatCode = doc.content?.[0]?.format?.code || '';
+        const contentType = doc.content?.[0]?.attachment?.contentType || '';
+        const profiles = doc.meta?.profile || [];
+        let manifestFormat = 'FHIR';
+        if (formatCode === '1.2.840.10008.5.1.4.1.1.88.59' ||
+            contentType === 'application/dicom' ||
+            profiles.some(p => p.includes('MadoDicomKosDocumentReference'))) {
+            manifestFormat = 'DICOM KOS';
+        } else if (formatCode.includes('fhir-manifest') ||
+                   contentType === 'application/fhir+json' ||
+                   profiles.some(p => p.includes('MadoFhirDocumentReference'))) {
+            manifestFormat = 'FHIR';
+        }
+
+        // Extract Binary URL for MADO manifest
+        const binaryUrl = doc.content?.[0]?.attachment?.url || '';
+
+        // Extract author info (both device and organization)
+        let author = 'Unknown';
+        if (doc.author && doc.author.length > 0) {
+            const authorParts = doc.author.map(a => a.display).filter(Boolean);
+            author = authorParts.join(', ') || 'Unknown';
+        }
+
+        // Extract institution name from custodian
+        const institutionName = doc.custodian?.display || '';
+
+        // Extract relatesTo reference (KOS ↔ FHIR link)
+        let relatesToRef = null;
+        if (doc.relatesTo && doc.relatesTo.length > 0) {
+            const kosRelation = doc.relatesTo.find(r => r.code === 'transforms');
+            if (kosRelation?.target?.reference) {
+                relatesToRef = kosRelation.target.reference;
+            }
+        }
+
+        return {
+            id: doc.id,
+            studyUid,
+            patientId,
+            patientName,
+            date,
+            dateString: date ? formatDate(date) : '-',
+            modalities,
+            bodySite,
+            description,
+            accessionNumber,
+            author,
+            institutionName,
+            binaryUrl,
+            manifestFormat,
+            relatesToRef,
+            size: doc.content?.[0]?.attachment?.size || 0,
+            rawResource: doc
+        };
+    }
+
+    /**
+     * Parse the FHIR Bundle and combine FHIR + KOS DocumentReferences into
+     * single combined study entries.
+     */
     function parseDocumentBundle(bundle) {
         if (!bundle || !bundle.entry || bundle.entry.length === 0) {
             return [];
         }
 
-        return bundle.entry.map(entry => {
-            const doc = entry.resource;
+        // First pass: parse all entries individually
+        const allEntries = bundle.entry.map(entry => parseSingleEntry(entry.resource));
 
-            // Extract patient info
-            const patientId = doc.subject?.identifier?.value ||
-                             doc.subject?.reference?.split('/').pop() || 'Unknown';
-            const patientName = doc.subject?.display || 'Unknown Patient';
+        // Separate FHIR and KOS entries
+        const fhirEntries = allEntries.filter(e => e.manifestFormat === 'FHIR');
+        const kosEntries = allEntries.filter(e => e.manifestFormat === 'DICOM KOS');
 
-            // Extract date
-            const date = doc.date ? new Date(doc.date) : null;
+        // Build a map of KOS entries by their DocumentReference id for quick lookup
+        const kosById = new Map();
+        kosEntries.forEach(k => kosById.set(k.id, k));
 
-            // Extract modalities from the R5 cross-version modality extension
-            let modalities = [];
-            const modalityExt = doc.extension?.find(e =>
-                e.url === 'http://hl7.org/fhir/5.0/StructureDefinition/extension-DocumentReference.modality');
-            if (modalityExt?.valueCodeableConcept?.coding) {
-                modalities = modalityExt.valueCodeableConcept.coding.map(c => c.code).filter(Boolean);
-            }
-            if (modalities.length === 0) {
-                modalities = ['OT'];
-            }
+        // Build a map of FHIR entries by their DocumentReference id
+        const fhirById = new Map();
+        fhirEntries.forEach(f => fhirById.set(f.id, f));
 
-            // Extract study description
-            const description = doc.description || doc.content?.[0]?.attachment?.title || 'No Description';
+        // Track which KOS entries have been paired
+        const pairedKosIds = new Set();
 
-            // Extract accession number from context.related
-            let accessionNumber = '-';
-            if (doc.context?.related) {
-                const accRelated = doc.context.related.find(r =>
-                    r.identifier?.type?.coding?.some(c => c.code === '121022' || c.code === 'ACSN'));
-                if (accRelated?.identifier?.value) {
-                    accessionNumber = accRelated.identifier.value;
-                }
+        // Combined results
+        const combined = [];
+
+        // Pair FHIR entries with their KOS counterparts via relatesTo
+        for (const fhir of fhirEntries) {
+            let kosMatch = null;
+
+            if (fhir.relatesToRef) {
+                // relatesTo is like "DocumentReference/kos-xxxxx"
+                const kosId = fhir.relatesToRef.replace('DocumentReference/', '');
+                kosMatch = kosById.get(kosId) || null;
             }
 
-            // Extract study UID from context.related
-            let studyUid = doc.masterIdentifier?.value || doc.id;
-            if (doc.context?.related) {
-                const studyUidRelated = doc.context.related.find(r =>
-                    r.identifier?.type?.coding?.some(c => c.code === '110180'));
-                if (studyUidRelated?.identifier?.value) {
-                    studyUid = studyUidRelated.identifier.value;
-                }
+            // Fallback: match by studyUid
+            if (!kosMatch) {
+                kosMatch = kosEntries.find(k =>
+                    !pairedKosIds.has(k.id) && k.studyUid === fhir.studyUid);
             }
 
-            // Determine manifest format from content.format and meta.profile
-            const formatCode = doc.content?.[0]?.format?.code || '';
-            const contentType = doc.content?.[0]?.attachment?.contentType || '';
-            const profiles = doc.meta?.profile || [];
-            let manifestFormat = 'FHIR';
-            if (formatCode === '1.2.840.10008.5.1.4.1.1.88.59' ||
-                contentType === 'application/dicom' ||
-                profiles.some(p => p.includes('MadoDicomKosDocumentReference'))) {
-                manifestFormat = 'DICOM KOS';
-            } else if (formatCode.includes('fhir-manifest') ||
-                       contentType === 'application/fhir+json' ||
-                       profiles.some(p => p.includes('MadoFhirDocumentReference'))) {
-                manifestFormat = 'FHIR';
+            if (kosMatch) {
+                pairedKosIds.add(kosMatch.id);
             }
 
-            // Extract Binary URL for MADO manifest
-            const binaryUrl = doc.content?.[0]?.attachment?.url || '';
+            combined.push(createCombinedEntry(fhir, kosMatch));
+        }
 
-            // Extract author info (both device and organization)
-            let author = 'Unknown';
-            if (doc.author && doc.author.length > 0) {
-                const authorParts = doc.author.map(a => a.display).filter(Boolean);
-                author = authorParts.join(', ') || 'Unknown';
+        // Add any unpaired KOS entries
+        for (const kos of kosEntries) {
+            if (!pairedKosIds.has(kos.id)) {
+                // Check if a FHIR doc references this KOS via relatesTo (reverse lookup)
+                // Already handled above, so this is truly unpaired
+                combined.push(createCombinedEntry(null, kos));
             }
+        }
 
-            // Extract relatesTo reference (KOS ↔ FHIR link)
-            let relatesToRef = null;
-            if (doc.relatesTo && doc.relatesTo.length > 0) {
-                const kosRelation = doc.relatesTo.find(r => r.code === 'transforms');
-                if (kosRelation?.target?.reference) {
-                    relatesToRef = kosRelation.target.reference;
-                }
-            }
+        return combined;
+    }
 
-            return {
-                id: doc.id,
-                studyUid,
-                patientId,
-                patientName,
-                date,
-                dateString: date ? formatDate(date) : '-',
-                modalities,
-                description,
-                accessionNumber,
-                author,
-                binaryUrl,
-                manifestFormat,
-                relatesToRef,
-                size: doc.content?.[0]?.attachment?.size || 0,
-                rawResource: doc  // Store raw resource for inspection
-            };
-        });
+    /**
+     * Create a combined entry from a FHIR and/or KOS parsed document.
+     */
+    function createCombinedEntry(fhirDoc, kosDoc) {
+        // Use FHIR doc as primary source when available, fall back to KOS
+        const primary = fhirDoc || kosDoc;
+
+        return {
+            // Combined identity
+            studyUid: primary.studyUid,
+            patientId: primary.patientId,
+            patientName: primary.patientName,
+            date: primary.date,
+            dateString: primary.dateString,
+            modalities: primary.modalities,
+            bodySite: primary.bodySite,
+            description: primary.description,
+            accessionNumber: primary.accessionNumber,
+            author: primary.author,
+            institutionName: primary.institutionName,
+
+            // Individual document references (null if not present)
+            fhirDoc: fhirDoc || null,
+            kosDoc: kosDoc || null,
+
+            // Convenience: has both formats?
+            hasFhir: !!fhirDoc,
+            hasKos: !!kosDoc,
+            isPaired: !!(fhirDoc && kosDoc),
+
+            // Primary binary URL (prefer KOS for OHIF viewing)
+            binaryUrl: kosDoc?.binaryUrl || fhirDoc?.binaryUrl || '',
+            fhirBinaryUrl: fhirDoc?.binaryUrl || '',
+            kosBinaryUrl: kosDoc?.binaryUrl || '',
+
+            // For sorting compatibility
+            manifestFormat: fhirDoc && kosDoc ? 'FHIR+KOS' : (fhirDoc ? 'FHIR' : 'DICOM KOS'),
+
+            // Size (sum of both)
+            size: (fhirDoc?.size || 0) + (kosDoc?.size || 0),
+
+            // Raw resources for inspection
+            rawFhirResource: fhirDoc?.rawResource || null,
+            rawKosResource: kosDoc?.rawResource || null
+        };
     }
 
     function updateStats() {
@@ -386,10 +520,10 @@ const MadoViewer = (function() {
 
         elements.statsGrid.style.display = 'grid';
 
-        // Total count (group by study - count unique studies, not individual doc refs)
-        const fhirCount = docs.filter(d => d.manifestFormat === 'FHIR').length;
-        const kosCount = docs.filter(d => d.manifestFormat === 'DICOM KOS').length;
-        document.getElementById('totalCount').textContent = `${fhirCount}+${kosCount}`;
+        // Total studies
+        const pairedCount = docs.filter(d => d.isPaired).length;
+        const totalCount = docs.length;
+        document.getElementById('totalCount').textContent = `${totalCount} (${pairedCount} paired)`;
 
         // Unique patients
         const uniquePatients = new Set(docs.map(d => d.patientId));
@@ -421,8 +555,10 @@ const MadoViewer = (function() {
                        doc.patientName.toLowerCase().includes(query) ||
                        doc.description.toLowerCase().includes(query) ||
                        doc.accessionNumber.toLowerCase().includes(query) ||
+                       doc.bodySite.toLowerCase().includes(query) ||
                        doc.modalities.some(m => m.toLowerCase().includes(query)) ||
                        doc.manifestFormat.toLowerCase().includes(query) ||
+                       doc.institutionName.toLowerCase().includes(query) ||
                        doc.author.toLowerCase().includes(query);
             });
         }
@@ -496,8 +632,12 @@ const MadoViewer = (function() {
                                 Modality
                                 <span class="sort-indicator"></span>
                             </th>
+                            <th data-sort="bodySite">
+                                Body Site
+                                <span class="sort-indicator"></span>
+                            </th>
                             <th data-sort="manifestFormat">
-                                Format
+                                Formats
                                 <span class="sort-indicator"></span>
                             </th>
                             <th data-sort="description">
@@ -508,31 +648,36 @@ const MadoViewer = (function() {
                                 Accession
                                 <span class="sort-indicator"></span>
                             </th>
+                            <th data-sort="institutionName">
+                                Institution
+                                <span class="sort-indicator"></span>
+                            </th>
                             <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         ${pageDocuments.map((doc, idx) => `
-                            <tr data-doc-index="${startIdx + idx}" class="${doc.manifestFormat === 'DICOM KOS' ? 'kos-row' : 'fhir-row'}">
+                            <tr data-doc-index="${startIdx + idx}" class="${doc.isPaired ? 'paired-row' : (doc.hasKos ? 'kos-row' : 'fhir-row')}">
                                 <td class="date-cell">${doc.dateString}</td>
                                 <td class="patient-cell">${escapeHtml(doc.patientId)}</td>
                                 <td class="patient-cell">${escapeHtml(doc.patientName)}</td>
                                 <td class="modality-cell">
                                     ${doc.modalities.map(m => `<span class="modality-badge">${m}</span>`).join('')}
                                 </td>
+                                <td class="bodysite-cell">${escapeHtml(doc.bodySite) || '-'}</td>
                                 <td class="format-cell">
-                                    <span class="format-badge ${doc.manifestFormat === 'FHIR' ? 'format-fhir' : 'format-kos'}">
-                                        ${doc.manifestFormat === 'FHIR' ? '🔥 FHIR' : '🩻 DICOM KOS'}
-                                    </span>
-                                    ${doc.relatesToRef ? '<span class="linked-badge" title="Linked to ' + escapeHtml(doc.relatesToRef) + '">🔗</span>' : ''}
+                                    ${doc.hasFhir ? '<span class="format-badge format-fhir" title="FHIR DocumentReference available">🔥 FHIR</span>' : ''}
+                                    ${doc.hasKos ? '<span class="format-badge format-kos" title="DICOM KOS DocumentReference available">🩻 KOS</span>' : ''}
+                                    ${doc.isPaired ? '<span class="linked-badge" title="FHIR and KOS are linked via relatesTo">🔗</span>' : ''}
                                 </td>
                                 <td class="description-cell" title="${escapeHtml(doc.description)}">
                                     ${escapeHtml(doc.description)}
                                 </td>
                                 <td>${escapeHtml(doc.accessionNumber)}</td>
+                                <td class="institution-cell" title="${escapeHtml(doc.institutionName)}">${escapeHtml(doc.institutionName) || '-'}</td>
                                 <td class="action-cell">
                                     <div class="action-buttons">
-                                        <button class="action-btn view" onclick="MadoViewer.quickAction('view', ${startIdx + idx}, event)" title="View in OHIF">
+                                        <button class="action-btn view" onclick="MadoViewer.quickAction('view', ${startIdx + idx}, event)" title="View in OHIF (uses KOS)">
                                             👁️
                                         </button>
                                         <button class="action-btn download" onclick="MadoViewer.quickAction('download', ${startIdx + idx}, event)" title="Download DICOM">
@@ -757,18 +902,124 @@ const MadoViewer = (function() {
                     <span><strong>Patient:</strong> ${escapeHtml(doc.patientName)} (${escapeHtml(doc.patientId)})</span>
                     <span><strong>Date:</strong> ${doc.dateString}</span>
                     <span><strong>Modality:</strong> ${doc.modalities.join(', ')}</span>
+                    <span><strong>Body Site:</strong> ${escapeHtml(doc.bodySite) || '-'}</span>
                     <span><strong>Accession:</strong> ${escapeHtml(doc.accessionNumber)}</span>
-                    <span><strong>Format:</strong> <span class="format-badge ${doc.manifestFormat === 'FHIR' ? 'format-fhir' : 'format-kos'}">${doc.manifestFormat === 'FHIR' ? '🔥 FHIR JSON' : '🩻 DICOM KOS'}</span></span>
-                    ${doc.relatesToRef ? '<span><strong>Linked to:</strong> ' + escapeHtml(doc.relatesToRef) + '</span>' : ''}
+                    <span><strong>Institution:</strong> ${escapeHtml(doc.institutionName) || '-'}</span>
+                    <span><strong>Available Formats:</strong>
+                        ${doc.hasFhir ? '<span class="format-badge format-fhir">🔥 FHIR</span>' : ''}
+                        ${doc.hasKos ? '<span class="format-badge format-kos">🩻 KOS</span>' : ''}
+                        ${doc.isPaired ? '<span class="linked-badge">🔗 Linked</span>' : ''}
+                    </span>
                 </div>
             `;
+        }
+
+        // Update actions grid to reflect available formats
+        const actionsGrid = document.getElementById('actionsGridContent');
+        if (actionsGrid) {
+            let actionsHTML = '';
+
+            // View in OHIF — uses KOS
+            if (doc.hasKos) {
+                actionsHTML += `
+                    <button class="action-card" onclick="MadoViewer.executeAction('view')">
+                        <span class="action-icon">👁️</span>
+                        <span class="action-title">View in OHIF</span>
+                        <span class="action-desc">Open DICOM KOS manifest in OHIF viewer</span>
+                    </button>
+                `;
+            }
+
+            // Download — uses KOS binary
+            if (doc.hasKos) {
+                actionsHTML += `
+                    <button class="action-card" onclick="MadoViewer.executeAction('download-kos')">
+                        <span class="action-icon">💾</span>
+                        <span class="action-title">Download DICOM KOS</span>
+                        <span class="action-desc">Download KOS manifest and images</span>
+                    </button>
+                `;
+            }
+
+            // Download FHIR
+            if (doc.hasFhir) {
+                actionsHTML += `
+                    <button class="action-card" onclick="MadoViewer.executeAction('download-fhir')">
+                        <span class="action-icon">💾</span>
+                        <span class="action-title">Download FHIR Manifest</span>
+                        <span class="action-desc">Download FHIR ImagingStudy manifest</span>
+                    </button>
+                `;
+            }
+
+            // Validate — both formats
+            if (doc.hasKos) {
+                actionsHTML += `
+                    <button class="action-card" onclick="MadoViewer.executeAction('validate-kos')">
+                        <span class="action-icon">✅</span>
+                        <span class="action-title">Validate DICOM KOS</span>
+                        <span class="action-desc">Validate KOS against DICOM/IHE profiles</span>
+                    </button>
+                `;
+            }
+            if (doc.hasFhir) {
+                actionsHTML += `
+                    <button class="action-card" onclick="MadoViewer.executeAction('validate-fhir')">
+                        <span class="action-icon">✅</span>
+                        <span class="action-title">Validate FHIR Manifest</span>
+                        <span class="action-desc">Validate FHIR manifest against profiles</span>
+                    </button>
+                `;
+            }
+
+            // Bridge — both formats
+            if (doc.hasKos) {
+                actionsHTML += `
+                    <button class="action-card" onclick="MadoViewer.executeAction('bridge-kos')">
+                        <span class="action-icon">🔄</span>
+                        <span class="action-title">Bridge from KOS</span>
+                        <span class="action-desc">Convert DICOM KOS to FHIR</span>
+                    </button>
+                `;
+            }
+            if (doc.hasFhir) {
+                actionsHTML += `
+                    <button class="action-card" onclick="MadoViewer.executeAction('bridge-fhir')">
+                        <span class="action-icon">🔄</span>
+                        <span class="action-title">Bridge from FHIR</span>
+                        <span class="action-desc">Convert FHIR manifest to DICOM</span>
+                    </button>
+                `;
+            }
+
+            // Inspect JSON — both formats
+            if (doc.hasFhir) {
+                actionsHTML += `
+                    <button class="action-card" onclick="MadoViewer.executeAction('inspect-fhir')">
+                        <span class="action-icon">📋</span>
+                        <span class="action-title">Inspect FHIR JSON</span>
+                        <span class="action-desc">View raw FHIR DocumentReference</span>
+                    </button>
+                `;
+            }
+            if (doc.hasKos) {
+                actionsHTML += `
+                    <button class="action-card" onclick="MadoViewer.executeAction('inspect-kos')">
+                        <span class="action-icon">📋</span>
+                        <span class="action-title">Inspect KOS JSON</span>
+                        <span class="action-desc">View raw KOS DocumentReference</span>
+                    </button>
+                `;
+            }
+
+            actionsGrid.innerHTML = actionsHTML;
         }
 
         openModal('actionsModal');
     }
 
     function executeAction(action) {
-        console.log('executeAction called with action:', action, 'type:', typeof action, 'length:', action?.length);
+        console.log('executeAction called with action:', action);
 
         const doc = state.selectedDocument;
         if (!doc) {
@@ -779,43 +1030,79 @@ const MadoViewer = (function() {
 
         closeModal('actionsModal');
 
-
         switch (action) {
+            // View in OHIF — always uses KOS
             case 'view':
-                openMADOViewer(doc.binaryUrl);
+                openMADOViewer(doc.kosBinaryUrl || doc.binaryUrl);
                 break;
 
+            // Quick download — prefers KOS
             case 'download':
-                navigateToDownloader(doc);
+                navigateToDownloader(doc, doc.kosBinaryUrl || doc.fhirBinaryUrl);
                 break;
 
+            // Format-specific download
+            case 'download-kos':
+                navigateToDownloader(doc, doc.kosBinaryUrl);
+                break;
+            case 'download-fhir':
+                navigateToDownloader(doc, doc.fhirBinaryUrl);
+                break;
+
+            // Quick validate — prefers KOS
             case 'validate':
-                navigateToValidator(doc);
+                navigateToValidator(doc, doc.kosBinaryUrl || doc.fhirBinaryUrl);
                 break;
 
+            // Format-specific validate
+            case 'validate-kos':
+                navigateToValidator(doc, doc.kosBinaryUrl);
+                break;
+            case 'validate-fhir':
+                navigateToValidator(doc, doc.fhirBinaryUrl);
+                break;
+
+            // Quick bridge — prefers KOS
             case 'bridge':
-                navigateToBridge(doc);
+                navigateToBridge(doc, doc.kosBinaryUrl || doc.fhirBinaryUrl);
                 break;
 
+            // Format-specific bridge
+            case 'bridge-kos':
+                navigateToBridge(doc, doc.kosBinaryUrl);
+                break;
+            case 'bridge-fhir':
+                navigateToBridge(doc, doc.fhirBinaryUrl);
+                break;
+
+            // Quick inspect — prefers FHIR
             case 'inspect':
-                openDocJsonInspector(doc);
+                openDocJsonInspector(doc.rawFhirResource || doc.rawKosResource);
+                break;
+
+            // Format-specific inspect
+            case 'inspect-fhir':
+                openDocJsonInspector(doc.rawFhirResource);
+                break;
+            case 'inspect-kos':
+                openDocJsonInspector(doc.rawKosResource);
                 break;
 
             default:
-                console.error('Unknown action received:', action, 'Available actions: view, download, validate, bridge, inspect');
+                console.error('Unknown action received:', action);
                 showToast(`Unknown action: "${action}"`, 'error');
         }
     }
 
-    function navigateToValidator(doc) {
-        if (!doc.binaryUrl) {
+    function navigateToValidator(doc, url) {
+        if (!url) {
             showToast('No manifest URL available for validation', 'error');
             return;
         }
 
         // Store document info for the validator page
         const validationData = {
-            url: doc.binaryUrl,
+            url: url,
             description: doc.description,
             patientId: doc.patientId,
             studyUid: doc.studyUid
@@ -828,23 +1115,23 @@ const MadoViewer = (function() {
         }
 
         // Navigate to validator with URL parameter
-        const fullUrl = doc.binaryUrl.startsWith('http')
-            ? doc.binaryUrl
-            : window.location.origin + '/' + doc.binaryUrl.replace(/^\.\//, '');
+        const fullUrl = url.startsWith('http')
+            ? url
+            : window.location.origin + '/' + url.replace(/^\.\//, '');
 
         window.open(`./?loadUrl=${encodeURIComponent(fullUrl)}`, '_blank');
         showToast('Opening validator...', 'info');
     }
 
-    function navigateToBridge(doc) {
-        if (!doc.binaryUrl) {
+    function navigateToBridge(doc, url) {
+        if (!url) {
             showToast('No manifest URL available', 'error');
             return;
         }
 
         // Store document info for the bridge page
         const bridgeData = {
-            url: doc.binaryUrl,
+            url: url,
             description: doc.description,
             patientId: doc.patientId,
             studyUid: doc.studyUid
@@ -857,25 +1144,25 @@ const MadoViewer = (function() {
         }
 
         // Navigate to converter/bridge
-        const fullUrl = doc.binaryUrl.startsWith('http')
-            ? doc.binaryUrl
-            : window.location.origin + '/' + doc.binaryUrl.replace(/^\.\//, '');
+        const fullUrl = url.startsWith('http')
+            ? url
+            : window.location.origin + '/' + url.replace(/^\.\//, '');
 
         window.open(`./converter?loadUrl=${encodeURIComponent(fullUrl)}`, '_blank');
         showToast('Opening DICOM↔FHIR Bridge...', 'info');
     }
 
-    function navigateToDownloader(doc) {
+    function navigateToDownloader(doc, url) {
         console.log('navigateToDownloader called with doc:', doc);
 
-        if (!doc.binaryUrl) {
+        if (!url) {
             showToast('No manifest URL available', 'error');
             return;
         }
 
         // Store document info for the downloader page
         const downloaderData = {
-            url: doc.binaryUrl,
+            url: url,
             description: doc.description,
             patientId: doc.patientId,
             studyUid: doc.studyUid
@@ -888,9 +1175,9 @@ const MadoViewer = (function() {
         }
 
         // Navigate to DICOM downloader
-        const fullUrl = doc.binaryUrl.startsWith('http')
-            ? doc.binaryUrl
-            : window.location.origin + '/' + doc.binaryUrl.replace(/^\.\//, '');
+        const fullUrl = url.startsWith('http')
+            ? url
+            : window.location.origin + '/' + url.replace(/^\.\//, '');
 
         window.open(`./dicom-downloader?manifestUrl=${encodeURIComponent(fullUrl)}`, '_blank');
         showToast('Opening DICOM Downloader...', 'info');
@@ -911,13 +1198,13 @@ const MadoViewer = (function() {
         openModal('jsonModal');
     }
 
-    function openDocJsonInspector(doc) {
-        if (!doc || !doc.rawResource) {
-            showToast('No document data available', 'error');
+    function openDocJsonInspector(rawResource) {
+        if (!rawResource) {
+            showToast('No document data available for this format', 'error');
             return;
         }
 
-        renderJsonContent(doc.rawResource, 'docJsonContent');
+        renderJsonContent(rawResource, 'docJsonContent');
         openModal('docJsonModal');
     }
 
@@ -1000,22 +1287,26 @@ const MadoViewer = (function() {
     }
 
     function copyDocJson() {
-        if (!state.selectedDocument?.rawResource) return;
+        if (!state.selectedDocument) return;
+        const raw = state.selectedDocument.rawFhirResource || state.selectedDocument.rawKosResource;
+        if (!raw) return;
 
-        const jsonStr = JSON.stringify(state.selectedDocument.rawResource, null, 2);
+        const jsonStr = JSON.stringify(raw, null, 2);
         navigator.clipboard.writeText(jsonStr)
             .then(() => showToast('DocumentReference JSON copied', 'success'))
             .catch(() => showToast('Failed to copy JSON', 'error'));
     }
 
     function downloadDocJson() {
-        if (!state.selectedDocument?.rawResource) return;
+        if (!state.selectedDocument) return;
+        const raw = state.selectedDocument.rawFhirResource || state.selectedDocument.rawKosResource;
+        if (!raw) return;
 
-        const jsonStr = JSON.stringify(state.selectedDocument.rawResource, null, 2);
+        const jsonStr = JSON.stringify(raw, null, 2);
         const blob = new Blob([jsonStr], { type: 'application/json' });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
-        link.download = `document-reference-${state.selectedDocument.id || 'unknown'}.json`;
+        link.download = `document-reference-${state.selectedDocument.studyUid || 'unknown'}.json`;
         link.click();
 
         showToast('DocumentReference JSON downloaded', 'success');
@@ -1059,15 +1350,17 @@ const MadoViewer = (function() {
             return;
         }
 
-        const headers = ['Study Date', 'Patient ID', 'Patient Name', 'Modality', 'Format', 'Description', 'Accession', 'Author', 'Study UID'];
+        const headers = ['Study Date', 'Patient ID', 'Patient Name', 'Modality', 'Body Site', 'Formats', 'Description', 'Accession', 'Institution', 'Author', 'Study UID'];
         const rows = state.filteredDocuments.map(doc => [
             doc.dateString,
             doc.patientId,
             doc.patientName,
             doc.modalities.join('; '),
+            doc.bodySite,
             doc.manifestFormat,
             doc.description,
             doc.accessionNumber,
+            doc.institutionName,
             doc.author,
             doc.studyUid
         ]);

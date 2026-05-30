@@ -160,7 +160,7 @@
                     <div class="stats-grid" id="statsGrid" style="display: none;">
                         <div class="stat-card">
                             <div class="stat-value" id="totalCount">0</div>
-                            <div class="stat-label">FHIR+KOS Docs</div>
+                            <div class="stat-label">Studies</div>
                         </div>
                         <div class="stat-card">
                             <div class="stat-value" id="patientCount">0</div>
@@ -316,32 +316,8 @@
                 <div class="document-preview" id="documentPreview">
                     <!-- Document info will be inserted here -->
                 </div>
-                <div class="actions-grid">
-                    <button class="action-card" onclick="MadoViewer.executeAction('view')">
-                        <span class="action-icon">👁️</span>
-                        <span class="action-title">View in OHIF</span>
-                        <span class="action-desc">Open MADO manifest in OHIF viewer</span>
-                    </button>
-                    <button class="action-card" onclick="MadoViewer.executeAction('download')">
-                        <span class="action-icon">💾</span>
-                        <span class="action-title">Download DICOM</span>
-                        <span class="action-desc">Download images from this study</span>
-                    </button>
-                    <button class="action-card" onclick="MadoViewer.executeAction('validate')">
-                        <span class="action-icon">✅</span>
-                        <span class="action-title">Validate MADO</span>
-                        <span class="action-desc">Validate against DICOM/IHE profiles</span>
-                    </button>
-                    <button class="action-card" onclick="MadoViewer.executeAction('bridge')">
-                        <span class="action-icon">🔄</span>
-                        <span class="action-title">DICOM↔FHIR Bridge</span>
-                        <span class="action-desc">Convert between DICOM and FHIR</span>
-                    </button>
-                    <button class="action-card" onclick="MadoViewer.executeAction('inspect')">
-                        <span class="action-icon">📋</span>
-                        <span class="action-title">Inspect FHIR JSON</span>
-                        <span class="action-desc">View raw DocumentReference</span>
-                    </button>
+                <div class="actions-grid" id="actionsGridContent">
+                    <!-- Actions are dynamically populated based on available formats -->
                 </div>
             </div>
         </div>

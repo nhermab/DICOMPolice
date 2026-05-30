@@ -85,6 +85,8 @@ public class DicomBackendService {
         keys.setNull(Tag.NumberOfStudyRelatedSeries, VR.IS);
         keys.setNull(Tag.NumberOfStudyRelatedInstances, VR.IS);
         keys.setNull(Tag.ModalitiesInStudy, VR.CS);
+        keys.setNull(Tag.BodyPartExamined, VR.CS);
+        keys.setNull(Tag.InstitutionName, VR.LO);
 
         // Apply search filters
         if (patientId != null && !patientId.trim().isEmpty()) {
