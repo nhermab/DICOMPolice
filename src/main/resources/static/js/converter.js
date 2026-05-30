@@ -452,12 +452,65 @@
         elements.roundtripBtn.disabled = true;
     }
 
+    /**
+     * Peek at the actual file bytes to verify/correct the detected file type.
+     * Protects against misclassified files (e.g. FHIR JSON with a .dcm extension).
+     */
+    async function verifyFileType() {
+        if (!state.file) return;
+
+        try {
+            const blob = state.file;
+            const peekBytes = new Uint8Array(await blob.slice(0, 132).arrayBuffer());
+            const hasDicmMagic = peekBytes.length >= 132 &&
+                peekBytes[128] === 0x44 && peekBytes[129] === 0x49 &&
+                peekBytes[130] === 0x43 && peekBytes[131] === 0x4D;
+
+            if (state.fileType === 'dicom' && !hasDicmMagic) {
+                // Labeled as DICOM but no DICM magic — check if it is really JSON
+                try {
+                    const text = await blob.text();
+                    const json = JSON.parse(text);
+                    if (json && json.resourceType) {
+                        console.warn('File was classified as DICOM but is actually FHIR JSON — auto-correcting');
+                        state.fileType = 'fhir';
+                        // Re-create the File so the server receives the right content-type
+                        state.file = new File([text], state.file.name.replace(/\.dcm$/i, '.json'),
+                            { type: 'application/fhir+json' });
+                        // Update the badge in the UI
+                        if (elements.fileTypeBadge) {
+                            elements.fileTypeBadge.textContent = 'FHIR';
+                            elements.fileTypeBadge.className = 'file-type-badge fhir';
+                        }
+                        showSuccess('Auto-detected FHIR JSON content (was labelled DICOM)');
+                    }
+                } catch (_) { /* not JSON either — keep original classification */ }
+            } else if (state.fileType === 'fhir' && hasDicmMagic) {
+                // Labeled as FHIR but has DICM magic — it is really a DICOM file
+                console.warn('File was classified as FHIR but is actually DICOM — auto-correcting');
+                state.fileType = 'dicom';
+                state.file = new File([blob], state.file.name.replace(/\.json$/i, '.dcm'),
+                    { type: 'application/dicom' });
+                if (elements.fileTypeBadge) {
+                    elements.fileTypeBadge.textContent = 'DICOM';
+                    elements.fileTypeBadge.className = 'file-type-badge dicom';
+                }
+                showSuccess('Auto-detected DICOM content (was labelled FHIR)');
+            }
+        } catch (e) {
+            console.warn('File type verification failed, keeping original classification:', e);
+        }
+    }
+
     async function handleConvert() {
         if (!state.file) return;
 
         showLoading('Converting file...');
 
         try {
+            // Verify / auto-correct the file type before sending
+            await verifyFileType();
+
             const formData = new FormData();
             formData.append('file', state.file);
             formData.append('sourceType', state.fileType);
@@ -488,6 +541,9 @@
         showLoading('Performing round-trip conversion...');
 
         try {
+            // Verify / auto-correct the file type before sending
+            await verifyFileType();
+
             const formData = new FormData();
             formData.append('file', state.file);
             formData.append('sourceType', state.fileType);

@@ -92,6 +92,11 @@ public class ConverterController {
     /**
      * Convert a file from one format to another.
      * DICOM → FHIR or FHIR → DICOM
+     * <p>
+     * The endpoint auto-detects mislabelled files: if {@code sourceType=dicom}
+     * but the content is valid FHIR JSON (and vice-versa), it will silently
+     * swap the conversion direction so the caller gets a useful result instead
+     * of a cryptic "Not a DICOM Stream" error.
      */
     @PostMapping(value = "/convert", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<?> convert(
@@ -102,14 +107,18 @@ public class ConverterController {
                 return badRequest("No file provided");
             }
 
-            LOG.info("Converting {} file: {}, size: {} bytes", sourceType, file.getOriginalFilename(), file.getSize());
+            // Auto-detect actual format so mislabelled files still work
+            String effectiveSourceType = detectEffectiveSourceType(file, sourceType);
+
+            LOG.info("Converting {} file (requested {}): {}, size: {} bytes",
+                    effectiveSourceType, sourceType, file.getOriginalFilename(), file.getSize());
 
             Map<String, Object> response;
 
-            if ("dicom".equalsIgnoreCase(sourceType)) {
+            if ("dicom".equalsIgnoreCase(effectiveSourceType)) {
                 // DICOM → FHIR
                 response = convertDicomToFhir(file);
-            } else if ("fhir".equalsIgnoreCase(sourceType)) {
+            } else if ("fhir".equalsIgnoreCase(effectiveSourceType)) {
                 // FHIR → DICOM
                 response = convertFhirToDicom(file);
             } else {
@@ -137,14 +146,18 @@ public class ConverterController {
                 return badRequest("No file provided");
             }
 
-            LOG.info("Round-trip conversion for {} file: {}, size: {} bytes", sourceType, file.getOriginalFilename(), file.getSize());
+            // Auto-detect actual format
+            String effectiveSourceType = detectEffectiveSourceType(file, sourceType);
+
+            LOG.info("Round-trip conversion for {} file (requested {}): {}, size: {} bytes",
+                    effectiveSourceType, sourceType, file.getOriginalFilename(), file.getSize());
 
             Map<String, Object> response;
 
-            if ("dicom".equalsIgnoreCase(sourceType)) {
+            if ("dicom".equalsIgnoreCase(effectiveSourceType)) {
                 // DICOM → FHIR → DICOM
                 response = roundtripDicom(file);
-            } else if ("fhir".equalsIgnoreCase(sourceType)) {
+            } else if ("fhir".equalsIgnoreCase(effectiveSourceType)) {
                 // FHIR → DICOM → FHIR
                 response = roundtripFhir(file);
             } else {
@@ -326,6 +339,45 @@ public class ConverterController {
     // =========================
     // Helper Methods
     // =========================
+
+    /**
+     * Peek at the actual file bytes to verify the claimed source type.
+     * If the content contradicts the label (e.g. sourceType=dicom but the
+     * bytes are valid JSON with a FHIR {@code resourceType}), the effective
+     * type is swapped so the correct converter is used.
+     */
+    private String detectEffectiveSourceType(MultipartFile file, String claimed) throws IOException {
+        byte[] bytes = file.getBytes();
+
+        // Check for DICM magic at offset 128
+        boolean hasDicmMagic = bytes.length >= 132 &&
+                bytes[128] == 'D' && bytes[129] == 'I' &&
+                bytes[130] == 'C' && bytes[131] == 'M';
+
+        if ("dicom".equalsIgnoreCase(claimed) && !hasDicmMagic) {
+            // Labelled DICOM but no DICM preamble – might be JSON
+            try {
+                String text = new String(bytes, StandardCharsets.UTF_8).trim();
+                if (text.startsWith("{") || text.startsWith("[")) {
+                    // Quick sanity check: does it look like FHIR?
+                    com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                    Map<?, ?> json = mapper.readValue(text, Map.class);
+                    if (json.containsKey("resourceType")) {
+                        LOG.warn("File was labelled as DICOM but contains FHIR JSON (resourceType={}). Auto-correcting to fhir.",
+                                json.get("resourceType"));
+                        return "fhir";
+                    }
+                }
+            } catch (Exception ignored) {
+                // Not parseable JSON — keep original claim
+            }
+        } else if ("fhir".equalsIgnoreCase(claimed) && hasDicmMagic) {
+            LOG.warn("File was labelled as FHIR but contains DICM preamble. Auto-correcting to dicom.");
+            return "dicom";
+        }
+
+        return claimed;
+    }
 
     private File createTempFile(MultipartFile file) throws IOException {
         File tempFile = File.createTempFile("converter_", ".dcm");

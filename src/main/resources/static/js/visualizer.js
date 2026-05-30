@@ -90,16 +90,18 @@ const Visualizer = {
   },
 
   /**
-   * Load a file from a remote URL
+   * Load a file from a remote URL.
+   * Handles both DICOM binaries and FHIR JSON (DocumentReference / Bundle).
+   * If the content is FHIR JSON it is automatically converted to DICOM before parsing.
    */
   async loadFileFromUrl(url) {
     try {
       // Show loading state
-      this.showUrlLoadingState('Loading DICOM file from URL...');
+      this.showUrlLoadingState('Loading file from URL...');
 
       const response = await fetch(url, {
         headers: {
-          'Accept': 'application/dicom, application/octet-stream, */*'
+          'Accept': 'application/dicom, application/fhir+json, application/json, application/octet-stream, */*'
         }
       });
 
@@ -107,9 +109,67 @@ const Visualizer = {
         throw new Error(`Failed to fetch file: HTTP ${response.status}`);
       }
 
+      const contentType = (response.headers.get('content-type') || '').toLowerCase();
       const blob = await response.blob();
 
-      // Extract filename from URL or use default
+      // --- Detect whether the response is FHIR JSON ---
+      let isFhirContent = contentType.includes('application/fhir+json') ||
+                           contentType.includes('application/json');
+      let fhirJson = null;
+
+      if (isFhirContent) {
+        fhirJson = await blob.text();
+      } else {
+        // Peek at the first 132 bytes to check for DICM magic
+        const peekBytes = new Uint8Array(await blob.slice(0, 132).arrayBuffer());
+        const isDicomMagic = peekBytes.length >= 132 &&
+          peekBytes[128] === 0x44 && peekBytes[129] === 0x49 &&
+          peekBytes[130] === 0x43 && peekBytes[131] === 0x4D;
+        if (!isDicomMagic) {
+          try {
+            const text = await blob.text();
+            const parsed = JSON.parse(text);
+            if (parsed && parsed.resourceType) {
+              isFhirContent = true;
+              fhirJson = text;
+            }
+          } catch (_) {
+            // Not JSON — treat as DICOM
+          }
+        }
+      }
+
+      // --- If it is a DocumentReference, follow the content attachment URL ---
+      if (isFhirContent && fhirJson) {
+        try {
+          const json = JSON.parse(fhirJson);
+          if (json && json.resourceType === 'DocumentReference' && json.content?.length > 0) {
+            const contentUrl = json.content[0]?.attachment?.url;
+            if (contentUrl && contentUrl !== url) {
+              UIHelpers.showNotification('Following DocumentReference to manifest...', 'info');
+              return await this.loadFileFromUrl(contentUrl);
+            }
+          }
+        } catch (_) {
+          // Ignore parse errors — continue with normal handling
+        }
+      }
+
+      // --- If FHIR JSON, convert to DICOM via the converter API ---
+      if (isFhirContent && fhirJson) {
+        this.showUrlLoadingState('Converting FHIR JSON to DICOM...');
+        UIHelpers.showNotification('Converting FHIR JSON to DICOM before parsing...', 'info');
+
+        const convertedFile = await this.convertFhirJsonToDicom(fhirJson, url);
+        this.hideUrlLoadingState();
+        this.setFile(convertedFile, true);
+        UIHelpers.showNotification(`Converted & loaded: ${convertedFile.name}`, 'success');
+
+        setTimeout(() => { this.parseFile(); }, 300);
+        return;
+      }
+
+      // --- Regular DICOM binary ---
       let filename = 'mado-manifest.dcm';
       try {
         const urlObj = new URL(url);
@@ -122,26 +182,65 @@ const Visualizer = {
         // Keep default filename
       }
 
-      // Create a File object from the blob
       const file = new File([blob], filename, { type: 'application/dicom' });
 
-      // Set the file (skip validation since it's from URL)
       this.hideUrlLoadingState();
       this.setFile(file, true);
-
-      // Show notification
       UIHelpers.showNotification(`Loaded: ${filename}`, 'success');
 
-      // Auto-parse the file after a short delay
-      setTimeout(() => {
-        this.parseFile();
-      }, 300);
+      setTimeout(() => { this.parseFile(); }, 300);
 
     } catch (error) {
       console.error('Failed to load file from URL:', error);
       this.hideUrlLoadingState();
       UIHelpers.showNotification(`Failed to load file: ${error.message}`, 'error');
     }
+  },
+
+  /**
+   * Convert FHIR JSON text to a DICOM File object via the server converter API.
+   * @param {string} fhirJson  The raw FHIR JSON string
+   * @param {string} sourceUrl Optional URL for deriving a filename
+   * @returns {Promise<File>}  A File containing DICOM Part-10 bytes
+   */
+  async convertFhirJsonToDicom(fhirJson, sourceUrl) {
+    const jsonBlob = new Blob([fhirJson], { type: 'application/fhir+json' });
+    const jsonFile = new File([jsonBlob], 'manifest.json', { type: 'application/fhir+json' });
+
+    const convertUrl = `${API.baseURL}/api/converter/convert`;
+    const formData = new FormData();
+    formData.append('file', jsonFile);
+    formData.append('sourceType', 'fhir');
+
+    const resp = await fetch(convertUrl, { method: 'POST', body: formData });
+    if (!resp.ok) {
+      const errorText = await resp.text();
+      throw new Error(errorText || 'FHIR → DICOM conversion failed');
+    }
+
+    const result = await resp.json();
+    if (!result.convertedBase64) {
+      throw new Error('Converter did not return DICOM binary data');
+    }
+
+    const binaryString = atob(result.convertedBase64);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+
+    let filename = result.suggestedFilename || 'converted.dcm';
+    try {
+      if (sourceUrl) {
+        const urlObj = new URL(sourceUrl);
+        const lastPart = urlObj.pathname.split('/').pop();
+        if (lastPart && lastPart.length > 0 && !lastPart.includes('.')) {
+          filename = lastPart + '.dcm';
+        }
+      }
+    } catch (_) { /* keep default */ }
+
+    return new File([bytes], filename, { type: 'application/dicom' });
   },
 
   /**
@@ -165,10 +264,10 @@ const Visualizer = {
     if (this.elements.uploadContent) {
       this.elements.uploadContent.innerHTML = `
         <div class="upload-icon">📋</div>
-        <h3>Drop DICOM file here</h3>
+        <h3>Drop DICOM or FHIR file here</h3>
         <p>or</p>
         <button type="button" class="btn btn-secondary" id="browse-button">Browse Files</button>
-        <p class="file-types">Supports: .dcm, .dicom</p>
+        <p class="file-types">Supports: .dcm, .dicom, .json (FHIR)</p>
       `;
       // Re-attach browse button listener
       const newBrowseBtn = this.elements.uploadContent.querySelector('#browse-button') ||
@@ -244,8 +343,8 @@ const Visualizer = {
    * @param {boolean} skipValidation - Skip file extension validation (for URL-loaded files)
    */
   setFile(file, skipValidation = false) {
-    if (!skipValidation && !FileUtils.isDicomFile(file)) {
-      UIHelpers.showNotification('Please select a valid DICOM file (.dcm or .dicom)', 'error');
+    if (!skipValidation && !FileUtils.isSupportedFile(file)) {
+      UIHelpers.showNotification('Please select a valid DICOM (.dcm, .dicom) or FHIR (.json) file', 'error');
       return;
     }
 
@@ -296,16 +395,41 @@ const Visualizer = {
   },
 
   /**
+   * Detect whether a File is JSON/FHIR based on extension or content type.
+   */
+  isJsonFile(file) {
+    const ext = (file.name || '').split('.').pop().toLowerCase();
+    const ct = (file.type || '').toLowerCase();
+    return ext === 'json' || ct.includes('application/fhir+json') || ct.includes('application/json');
+  },
+
+  /**
+   * Ensure the file is DICOM. If it is FHIR JSON, convert it first.
+   * @param {File} file
+   * @returns {Promise<File>} a DICOM File
+   */
+  async ensureDicomFile(file) {
+    if (!this.isJsonFile(file)) return file;
+
+    UIHelpers.showNotification('Converting FHIR JSON to DICOM...', 'info');
+    const fhirJson = await file.text();
+    return await this.convertFhirJsonToDicom(fhirJson);
+  },
+
+  /**
    * Parse and validate file
    */
   async parseFile() {
-    const file = AppState.visualizer.selectedFile;
+    let file = AppState.visualizer.selectedFile;
     if (!file) return;
 
     this.showLoading(true);
     this.hideAllSections();
 
     try {
+      // Convert FHIR JSON to DICOM if needed
+      file = await this.ensureDicomFile(file);
+
       // 1) Parse for visualization
       const data = await API.parseFile(file);
 
@@ -338,7 +462,7 @@ const Visualizer = {
    * Validate only (no parse)
    */
   async validateOnly() {
-    const file = AppState.visualizer.selectedFile;
+    let file = AppState.visualizer.selectedFile;
     if (!file) return;
 
     this.showLoading(true);
@@ -346,6 +470,9 @@ const Visualizer = {
     this.elements.validationSection.style.display = 'none';
 
     try {
+      // Convert FHIR JSON to DICOM if needed
+      file = await this.ensureDicomFile(file);
+
       const validation = await API.validateVisualizerFile(file);
       this.displayValidationResults(validation);
     } catch (error) {
