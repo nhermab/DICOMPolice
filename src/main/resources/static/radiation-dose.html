@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Radiation Dose Passport - The DICOM Police</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="radiation-dose.css">
+</head>
+<body class="radiation-dose-page">
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <div class="logo-section">
+                    <div class="logo-placeholder">
+                        <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <rect width="40" height="40" rx="8" fill="white" opacity="0.2"/>
+                            <path d="M20 10L30 15V25L20 30L10 25V15L20 10Z" stroke="white" stroke-width="2" stroke-linejoin="round"/>
+                            <circle cx="20" cy="20" r="3" fill="white"/>
+                        </svg>
+                    </div>
+                    <div class="logo-text">
+                        <h1>The DICOM Police - Radiation Dose</h1>
+                        <p class="subtitle">UZ Leuven - Universitaire Ziekenhuizen Leuven</p>
+                    </div>
+                </div>
+                <div class="header-nav">
+                    <a href="./xtehdsMADO" class="nav-link">MADO on XDS / MHD</a>
+                    <a href="./" class="nav-link">MADO Validator</a>
+                    <a href="./imaging-timeline" class="nav-link">Imaging Timeline</a>
+                    <a href="./clinical-prefetcher" class="nav-link">Smart Prefetcher</a>
+                    <a href="./device-finder" class="nav-link">Device Finder</a>
+                    <a href="./qido-explorer" class="nav-link">QIDO-RS Explorer</a>
+                    <a href="./dicom-downloader" class="nav-link">DICOM Downloader</a>
+                    <a href="./radiation-dose" class="nav-link active">Radiation Dose</a>
+                    <a href="./converter" class="nav-link">DICOM↔FHIR Bridge</a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="dose-container">
+            <!-- Left Sidebar: query + config + safety -->
+            <aside class="dose-sidebar">
+                <section class="input-panel">
+                    <h2 class="panel-title">🔎 Patient Query</h2>
+                    <div class="form-group">
+                        <label for="patientId">Patient ID</label>
+                        <input type="text" id="patientId" class="form-input" placeholder="e.g. 12345678">
+                    </div>
+                    <div class="form-group">
+                        <label for="patientName">Patient Name</label>
+                        <input type="text" id="patientName" class="form-input" placeholder="Family name (prefix match)">
+                    </div>
+                    <div class="form-group">
+                        <label for="studyUid">Study Instance UID <small>(optional)</small></label>
+                        <input type="text" id="studyUid" class="form-input" placeholder="Analyse a single study">
+                    </div>
+                    <div class="form-group">
+                        <label for="windowMonths">Look-back window</label>
+                        <select id="windowMonths" class="form-input">
+                            <option value="6">Last 6 months</option>
+                            <option value="12">Last 12 months</option>
+                            <option value="18" selected>Last 18 months</option>
+                            <option value="36">Last 3 years</option>
+                            <option value="60">Last 5 years</option>
+                            <option value="0">No limit</option>
+                        </select>
+                    </div>
+
+                    <div class="action-row">
+                        <button type="button" class="btn btn-primary" id="analyzeBtn"><span>📊 Analyse Dose</span></button>
+                        <button type="button" class="btn btn-secondary" id="clearBtn"><span>Clear</span></button>
+                        <button type="button" class="btn btn-danger" id="cancelBtn" style="display:none;"><span>🛑 Cancel</span></button>
+                    </div>
+                </section>
+
+                <section class="input-panel">
+                    <h2 class="panel-title">⚙️ MHD / MADO Endpoint</h2>
+                    <div class="form-group">
+                        <label for="endpointInput">FHIR search base</label>
+                        <input type="text" id="endpointInput" class="form-input" placeholder="./fhir">
+                        <small class="form-hint">Endpoint: <span id="endpointBadge" class="endpoint-badge">—</span></small>
+                    </div>
+                </section>
+
+                <section class="input-panel source-hierarchy">
+                    <h2 class="panel-title">📚 Dose Source Hierarchy</h2>
+                    <ol class="source-list">
+                        <li><strong>Patient Radiation Dose SR</strong> <span class="src-pill high">high</span></li>
+                        <li><strong>RDSR / RRDSR</strong> <span class="src-pill high">high</span></li>
+                        <li><strong>Image pixels luma-estimator</strong> <span class="src-pill low">fallback</span></li>
+                        <li>Image headers fallback <span class="src-pill low">fallback</span></li>
+                    </ol>
+                    <p class="hierarchy-note">This app reads DICOM Radiation Dose Structured Reports, and falls back to a pixel-based attenuation algorithm if reports are absent.</p>
+                </section>
+
+                <section class="safety-panel">
+                    <h2 class="panel-title">🛡️ Safety Notice</h2>
+                    <p>Results are <strong>cumulative dose indices and estimated effective dose</strong> for decision support — not the patient's exact radiation or organ dose.</p>
+                    <p>True patient dose depends on size, anatomy, protocol, geometry and reconstruction. Patient dose estimation is complex and should involve a medical physicist.</p>
+                </section>
+            </aside>
+
+            <!-- Right Content -->
+            <div class="dose-content">
+                <div id="errorBanner" class="error-banner" style="display:none;"></div>
+
+                <!-- Progress -->
+                <section class="progress-panel" id="progressPanel" style="display:none;">
+                    <div class="panel-header">
+                        <div class="panel-title-row"><span>⏳</span><span>Analysis Progress</span></div>
+                    </div>
+                    <div class="progress-stats">
+                        <div class="progress-stat">
+                            <span class="progress-stat-label">Progress</span>
+                            <span class="progress-stat-value" id="progressPercent">0%</span>
+                        </div>
+                        <div class="progress-stat">
+                            <span class="progress-stat-label">Studies</span>
+                            <span class="progress-stat-value" id="progressStudies">0 / 0</span>
+                        </div>
+                        <div class="progress-stat">
+                            <span class="progress-stat-label">Dose SR docs</span>
+                            <span class="progress-stat-value" id="progressDocs">0</span>
+                        </div>
+                    </div>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar" id="progressBar" style="width:0%"></div>
+                    </div>
+                    <div class="progress-current" id="progressCurrent">Waiting to start…</div>
+                    <div class="progress-log" id="progressLog"></div>
+                </section>
+
+                <!-- Alert -->
+                <div id="alertBanner" class="dose-alert-banner" style="display:none;"></div>
+
+                <!-- Summary -->
+                <section class="result-panel" id="summaryPanel" style="display:none;">
+                    <div class="panel-header"><div class="panel-title-row"><span>📈</span><span>Cumulative Exposure</span></div></div>
+                    <div class="dose-summary-grid" id="summaryGrid"></div>
+                </section>
+
+                <!-- Modality breakdown -->
+                <section class="result-panel" id="modalityPanel" style="display:none;">
+                    <div class="panel-header"><div class="panel-title-row"><span>🧮</span><span>Effective Dose by Modality</span></div></div>
+                    <div class="modality-breakdown" id="modalityBreakdown"></div>
+                </section>
+
+                <!-- Events table -->
+                <section class="result-panel" id="eventsPanel" style="display:none;">
+                    <div class="panel-header"><div class="panel-title-row"><span>📋</span><span>Dose Records</span></div></div>
+                    <div class="table-scroll">
+                        <table class="dose-table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Modality</th>
+                                    <th>Study / Institution</th>
+                                    <th>Region</th>
+                                    <th>Dose indices</th>
+                                    <th>Est. effective dose</th>
+                                    <th>Source</th>
+                                    <th>Conf.</th>
+                                </tr>
+                            </thead>
+                            <tbody id="eventsBody"></tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- Empty state -->
+                <div class="empty-state" id="emptyState">
+                    <div class="empty-state-icon">☢️</div>
+                    <div class="empty-state-title">Radiation Dose Passport</div>
+                    <div class="empty-text">Run an analysis to see a patient's radiation exposure context.</div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <p>&copy; 2026 UZ Leuven - Universitaire Ziekenhuizen Leuven</p>
+                <p class="footer-links">
+                    <span>Radiation Dose Passport</span>
+                    <span class="separator">•</span>
+                    <span>Powered by The DICOM Police</span>
+                </p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="js/radiation-dose.js"></script>
+</body>
+</html>
+

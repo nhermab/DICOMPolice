@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Device Finder - The DICOM Police</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="device-finder.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <div class="logo-section">
+                    <div class="logo-placeholder">
+                        <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <rect width="40" height="40" rx="8" fill="white" opacity="0.2"/>
+                            <path d="M20 10L30 15V25L20 30L10 25V15L20 10Z" stroke="white" stroke-width="2" stroke-linejoin="round"/>
+                            <circle cx="20" cy="20" r="3" fill="white"/>
+                        </svg>
+                    </div>
+                    <div class="logo-text">
+                        <h1>The DICOM Police - Device Finder</h1>
+                        <p class="subtitle">UZ Leuven - Universitaire Ziekenhuizen Leuven</p>
+                    </div>
+                </div>
+                <div class="header-nav">
+                    <a href="./xtehdsMADO" class="nav-link">MADO on XDS / MHD</a>
+                    <a href="./" class="nav-link">MADO Validator</a>
+                    <a href="./imaging-timeline" class="nav-link">Imaging Timeline</a>
+                    <a href="./clinical-prefetcher" class="nav-link">Smart Prefetcher</a>
+                    <a href="./device-finder" class="nav-link active">Device Finder</a>
+                    <a href="./qido-explorer" class="nav-link">QIDO-RS Explorer</a>
+                    <a href="./dicom-downloader" class="nav-link">DICOM Downloader</a>
+                    <a href="./radiation-dose" class="nav-link">Radiation Dose</a>
+                    <a href="./converter" class="nav-link">DICOM↔FHIR Bridge</a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="device-finder-container">
+             <!-- Left Panel: Clinical Triggers & Configuration -->
+            <aside class="device-finder-sidebar">
+                <form id="scanForm" class="panel">
+                    <div class="panel-header">
+                        <h2>🔍 Scan Parameters</h2>
+                    </div>
+                    <div class="panel-body">
+                        <!-- Ollama status -->
+                        <div class="ollama-status" id="ollamaStatus" title="Local Ollama status">
+                            <span class="status-dot status-unknown" id="ollamaDot"></span>
+                            <span class="status-text" id="ollamaStatusText">Checking Ollama…</span>
+                            <button type="button" class="btn-link" id="recheckStatusBtn" title="Re-check">↻</button>
+                        </div>
+
+                        <!-- Ollama Models -->
+                        <div class="field">
+                            <label for="modelSelect">Vision LLM Model (Ollama)</label>
+                            <select id="modelSelect">
+                                <option value="">Checking status…</option>
+                            </select>
+                        </div>
+
+                        <!-- Preset Demo Patients -->
+                        <div class="field">
+                            <label for="patientSelector">Select Patient Profile</label>
+                            <select id="patientSelector">
+                                <option value="">-- Choose Patient Case --</option>
+                            </select>
+                        </div>
+
+                        <!-- Patient ID input -->
+                        <div class="field">
+                            <label for="patientId">Or Patient ID (XDS/MHD)</label>
+                            <input type="text" id="patientId" placeholder="e.g., 64.08.12-205.33">
+                        </div>
+
+                        <!-- Trigger Mode (determines prompt budget & sensitivity) -->
+                        <div class="field">
+                            <label for="triggerMode">Clinical Event / Trigger Mode</label>
+                            <select id="triggerMode">
+                                <option value="MRI_SAFETY" selected>🏥 MRI Safety Pre-check (Highly Sensitive)</option>
+                                <option value="ED_QUICK_SCAN">🚨 ED Quick Scan (Rapid Triage)</option>
+                                <option value="PRE_OP">🔪 Pre-operation Clinic (Surgeon Review)</option>
+                                <option value="GP_SUMMARY">🩺 General Physician Summary (Conservative)</option>
+                                <option value="PATIENT_VIEW">👤 Patient-facing View (Simplified)</option>
+                                <option value="RESEARCH_QA">🔬 Research Quality Assurance</option>
+                            </select>
+                        </div>
+
+                        <!-- User Custom prompt overrides -->
+                        <div class="field">
+                            <label for="customPrompt">Custom VLM Instructions (Optional)</label>
+                            <textarea id="customPrompt" rows="3" placeholder="e.g., Focus specifically on pacemaker lead fractures or loop recorders."></textarea>
+                        </div>
+
+                        <!-- Action buttons -->
+                        <div class="actions font-weight-bold">
+                            <button type="button" class="btn btn-primary btn-block" id="scanBtn">
+                                <span>⚡ Run Implant Discovery</span>
+                            </button>
+                        </div>
+
+                        <div class="hint-box">
+                            <strong>Architecture Principle</strong>
+                            <p>To avoid hammering the backend with prompts, this app maps a cascade pipeline:</p>
+                            <ol>
+                                <li>Metadata filtering &amp; prioritizing</li>
+                                <li>Report/text keyword boosts</li>
+                                <li>Cheap connected component CV</li>
+                                <li>Evidence selection contact sheet</li>
+                                <li>VLM query only on selected visuals</li>
+                            </ol>
+                        </div>
+                    </div>
+                </form>
+            </aside>
+
+            <!-- Right Panel: Results dashboard -->
+            <section class="device-finder-results">
+                <div id="errorBanner" class="error-banner" style="display:none;"></div>
+
+                <div id="welcomeState" class="empty-state">
+                    <div class="empty-state-icon">🛡️</div>
+                    <div class="empty-state-title">Device and Implant Imaging Finder</div>
+                    <div class="empty-state-text">
+                        Identify visible medical implants, orthopedic screws, pacemakers, and clips across local and cross-community PACS using cheap clinical cascades & local vision models.
+                    </div>
+                    <div class="empty-state-actions">
+                        <button type="button" class="btn btn-secondary" id="loadJaneDoeBtn">📊 Load Jane Doe Pacemaker Study (MRI Safety)</button>
+                    </div>
+                </div>
+
+                <div id="resultsDashboard" style="display:none;">
+                    <!-- Patient & High Alert Banner -->
+                    <div class="patient-card panel">
+                        <div class="patient-info-row">
+                            <div class="patient-avatar">👤</div>
+                            <div class="patient-meta">
+                                <h3 id="resPatientName">Jane Doe</h3>
+                                <p>Patient ID: <strong id="resPatientId">64.08.12-205.33</strong> | Age: <span id="resPatientAge">62</span> | Gender: <span id="resPatientGender">Female</span></p>
+                            </div>
+                            <div class="patient-trigger-badge" id="resTriggerBadge">MRI SAFETY</div>
+                        </div>
+
+                        <!-- Warnings & Discrepancies Alerts -->
+                        <div id="alertContainer" class="alert-container">
+                            <!-- Populated dynamically -->
+                        </div>
+                    </div>
+
+                    <!-- Device Reconciliation Section -->
+                    <section class="panel reconciliation-section">
+                        <div class="panel-header section-header">
+                            <h3>📑 Structured EHR Device Reconciliation</h3>
+                            <span class="status-indicator-badge">System Status: Verified</span>
+                        </div>
+                        <div class="panel-body">
+                            <p class="description">Reconciling visual evidence detected by the VLM cascade against active EHR structured device listings.</p>
+                            <div class="table-container">
+                                <table class="recon-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Device Category</th>
+                                            <th>Imaging Evidence</th>
+                                            <th>Comparison Status</th>
+                                            <th>Recommended Clinical Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="reconTableBody">
+                                        <!-- Populated dynamically -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Labeled Evidence Image Grid (The Contact Sheet) -->
+                    <section class="panel contact-sheet-section">
+                        <div class="panel-header section-header">
+                            <h3>🖼️ Labeled Contact Sheet Tiles</h3>
+                            <p class="panel-subtitle" id="policyTitle">Prompt budget policy constraints: Max 12 tiles</p>
+                        </div>
+                        <div class="panel-body">
+                            <p class="description">Only key candidate studies are downloaded. Individual instances are thresholded using cheap CV, grouped, and batched into styled interactive tiles before Ollama review.</p>
+                            <div class="contact-grid" id="tilesGrid">
+                                <!-- Populated dynamically -->
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Hidden study cards showing report analysis and ranking score details -->
+                    <section class="panel scored-studies-section">
+                        <div class="panel-header collapsible-header" id="priorsToggle">
+                            <h3>📊 Reviewed Prior Studies Metadata &amp; Rank Scores</h3>
+                            <span class="arrow-indicator">▼ Click to Expand</span>
+                        </div>
+                        <div class="collapsible-content" id="priorsContent" style="display:none;">
+                            <div class="table-container">
+                                <table class="priors-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Date &amp; Facility</th>
+                                            <th>Modality</th>
+                                            <th>Anatomy / Body Site</th>
+                                            <th>Study Title &amp; Conclusion</th>
+                                            <th>Cascade Code Score</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="priorsTableBody">
+                                        <!-- Populated dynamically -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Prompt policies & VLM stats -->
+                    <section class="panel orchestration-section">
+                        <div class="panel-header">
+                            <h3>🤖 VLM Orchestration &amp; Budget Log</h3>
+                        </div>
+                        <div class="panel-body orchestration-grid">
+                            <div>
+                                <p><strong>Orchestration Status:</strong> <span id="vlmStatusText" class="badge-status">Visual NLP Fallback</span></p>
+                                <p><strong>Model Ingested:</strong> <code id="vlmIngestedModel">-</code></p>
+                                <p><strong>Aggressive Studies Filtered:</strong> <span id="statStudiesFiltered">-</span></p>
+                                <p><strong>Total Image Pixels Saved:</strong> <span id="statPixelsSaved">-</span></p>
+                            </div>
+                            <div>
+                                <p><strong>Max Allowed VLM Calls:</strong> <span id="statMaxAllowed">-</span></p>
+                                <p><strong>Connected CV pre-screen:</strong> <span id="statPreScreen">Heuristics Connected Component Block</span></p>
+                                <p><strong>Review Assessment Quality:</strong> <span id="statReviewQuality" class="badge-status success">Adequate</span></p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="verification-card panel">
+                        <div class="panel-header">
+                            <h3>✅ Clinic Hand-Off &amp; Human Sign-off Verification</h3>
+                        </div>
+                        <div class="panel-body verification-actions">
+                            <p>Verify matches to complete PACS database checkout and proceed with secure scheduling:</p>
+                            <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 15px;">
+                                <button type="button" class="btn btn-secondary success-action" id="verApproveBtn">✓ Approve MRI Appointment (Proceed)</button>
+                                <button type="button" class="btn btn-secondary warning-action" id="verFlagBtn">⚠️ Request Secondary Radiologist Audit</button>
+                                <button type="button" class="btn btn-secondary info-action" id="verSyncBtn">🔄 Sync Discrepancies with Patient active EHR</button>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <p>&copy; 2026 UZ Leuven - Universitaire Ziekenhuizen Leuven</p>
+                <p class="footer-links">
+                    <span>Device Finder</span>
+                    <span class="separator">•</span>
+                    <span>Powered by The DICOM Police</span>
+                </p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- JS Scripts -->
+    <script src="js/api.js"></script>
+    <script src="js/device-finder.js"></script>
+</body>
+</html>
+

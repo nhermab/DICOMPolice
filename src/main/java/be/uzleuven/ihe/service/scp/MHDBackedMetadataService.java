@@ -443,7 +443,20 @@ public class MHDBackedMetadataService {
         study.accessionNumber = attrs.getString(Tag.AccessionNumber);
         study.referringPhysicianName = attrs.getString(Tag.ReferringPhysicianName);
         study.institutionName = attrs.getString(Tag.InstitutionName);
-        study.modalitiesInStudy = extractModalitiesInStudy(attrs);
+
+        // Populate series (and their instances) from the MADO evidence sequence.
+        // This also sets study.modalitiesInStudy based on the contained series.
+        extractSeriesFromEvidenceSequence(attrs, study);
+
+        // Fall back to the dataset-level ModalitiesInStudy tag when the evidence
+        // sequence did not yield any modalities.
+        if (study.modalitiesInStudy == null) {
+            study.modalitiesInStudy = extractModalitiesInStudy(attrs);
+        }
+
+        // Derive the study-level Retrieve URL and register it with the WADO-RS proxy.
+        deriveStudyRetrieveURL(study);
+
         study.numberOfStudyRelatedSeries = study.series.size();
 
         return study;

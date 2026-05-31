@@ -31,6 +31,7 @@ Drag-and-drop DICOM files to validate them against IHE profiles.
 
 ### 2. MHD Viewer & MADO SCU Client
 > **URL**: [https://ihebelgium.ehealthhub.be/TheDICOMPolice/xtehdsMADO](https://ihebelgium.ehealthhub.be/TheDICOMPolice/xtehdsMADO)
+> **API Developer Guide**: See the rich [MHD Service API & App Development Guide](src/main/java/be/uzleuven/ihe/service/MHD/README.md) for full cURL, JSON requests/responses, and JS/Python/Java integration guides!
 
 A **FHIR MHD (Mobile access to Health Documents)** Document Responder facade that sits on top of a standard DICOM PACS.
 - **Workflow**:

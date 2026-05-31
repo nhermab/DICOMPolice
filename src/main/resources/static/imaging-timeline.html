@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cross-Community Imaging Timeline - The DICOM Police</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="mado-viewer.css">
+    <link rel="stylesheet" href="imaging-timeline.css">
+</head>
+<body class="timeline-page">
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <div class="logo-section">
+                    <div class="logo-placeholder">
+                        <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <rect width="40" height="40" rx="8" fill="white" opacity="0.2"/>
+                            <path d="M20 10L30 15V25L20 30L10 25V15L20 10Z" stroke="white" stroke-width="2" stroke-linejoin="round"/>
+                            <circle cx="20" cy="20" r="3" fill="white"/>
+                        </svg>
+                    </div>
+                    <div class="logo-text">
+                        <h1>The DICOM Police - Cross-Community Imaging Timeline</h1>
+                        <p class="subtitle">UZ Leuven - Universitaire Ziekenhuizen Leuven</p>
+                    </div>
+                </div>
+                <div class="header-nav">
+                    <a href="./xtehdsMADO" class="nav-link">MADO on XDS / MHD</a>
+                    <a href="./" class="nav-link">MADO Validator</a>
+                    <a href="./imaging-timeline" class="nav-link active">Imaging Timeline</a>
+                    <a href="./clinical-prefetcher" class="nav-link">Smart Prefetcher</a>
+                    <a href="./device-finder" class="nav-link">Device Finder</a>
+                    <a href="./qido-explorer" class="nav-link">QIDO-RS Explorer</a>
+                    <a href="./dicom-downloader" class="nav-link">DICOM Downloader</a>
+                    <a href="./radiation-dose" class="nav-link">Radiation Dose</a>
+                    <a href="./converter" class="nav-link">DICOM↔FHIR Bridge</a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="viewer-container">
+            <!-- Left Sidebar: Patient lookup, communities, stats -->
+            <div class="left-sidebar">
+                <!-- Patient Search Panel -->
+                <section class="search-panel">
+                    <h2 class="panel-title">🧑‍⚕️ Patient Lookup</h2>
+                    <div class="search-grid">
+                        <div class="search-field">
+                            <label for="patientId">Patient ID / National Number</label>
+                            <input type="text" id="patientId" placeholder="e.g., 65.04.21-123.45">
+                        </div>
+                        <div class="search-field">
+                            <label for="patientName">Patient Name</label>
+                            <input type="text" id="patientName" placeholder="Surname, Given">
+                        </div>
+                        <div class="search-field">
+                            <label for="modalityFilter">Modality</label>
+                            <select id="modalityFilter">
+                                <option value="">All Modalities</option>
+                                <option value="CT">CT – Computed Tomography</option>
+                                <option value="MR">MR – Magnetic Resonance</option>
+                                <option value="US">US – Ultrasound</option>
+                                <option value="DX">DX – Digital Radiography</option>
+                                <option value="CR">CR – Computed Radiography</option>
+                                <option value="MG">MG – Mammography</option>
+                                <option value="NM">NM – Nuclear Medicine</option>
+                                <option value="PT">PT – PET</option>
+                                <option value="XA">XA – Angiography</option>
+                            </select>
+                        </div>
+                        <div class="search-field">
+                            <label for="dateFrom">From</label>
+                            <input type="date" id="dateFrom">
+                        </div>
+                        <div class="search-field">
+                            <label for="dateTo">To</label>
+                            <input type="date" id="dateTo">
+                        </div>
+                    </div>
+                    <div class="search-actions">
+                        <button type="button" class="btn-icon" id="configBtn" title="Configure communities &amp; networks">⚙️</button>
+                        <button type="button" class="btn-secondary" id="clearBtn">Clear</button>
+                        <button type="button" class="btn btn-primary" id="searchBtn"><span>🔎 Build Timeline</span></button>
+                    </div>
+
+                    <!-- Demo Patients -->
+                    <div class="demo-patients">
+                        <label class="demo-label">Demo patients</label>
+                        <div class="demo-buttons" id="demoButtons"></div>
+                    </div>
+
+                    <!-- Stats Cards -->
+                    <div class="stats-grid" id="statsGrid" style="display: none;">
+                        <div class="stat-card">
+                            <div class="stat-value" id="totalStudies">0</div>
+                            <div class="stat-label">Studies</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="communityCount">0</div>
+                            <div class="stat-label">Communities</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="modalityStat">0</div>
+                            <div class="stat-label">Modalities</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="spanStat">-</div>
+                            <div class="stat-label">Span</div>
+                        </div>
+                        <div class="stat-card stat-reports">
+                            <div class="stat-value" id="reportStat">0</div>
+                            <div class="stat-label">With Report</div>
+                        </div>
+                        <div class="stat-card stat-missing">
+                            <div class="stat-value" id="missingStat">0</div>
+                            <div class="stat-label">Missing Priors</div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Community legend / sources -->
+                <section class="sources-panel" id="sourcesPanel" style="display:none;">
+                    <h3 class="sources-title">🌐 Connected Communities</h3>
+                    <div class="sources-list" id="sourcesList"></div>
+                </section>
+            </div>
+
+            <!-- Right Content -->
+            <div class="right-content">
+                <!-- Missing Priors Alert -->
+                <div id="priorsAlert" class="priors-alert" style="display:none;"></div>
+
+                <!-- Error Banner -->
+                <div id="errorBanner" class="error-banner" style="display: none;"></div>
+
+                <!-- Timeline container -->
+                <section class="timeline-shell">
+                    <div class="datagrid-header">
+                        <div class="datagrid-title">
+                            <span>🗓️</span>
+                            <span>Longitudinal Imaging Timeline</span>
+                            <span class="patient-badge" id="patientBadge"></span>
+                        </div>
+                        <div class="datagrid-controls">
+                            <div class="view-toggle" id="viewToggle">
+                                <button type="button" class="view-toggle-btn active" data-view="lanes" title="Swimlane timeline by community">🛤️ Lanes</button>
+                                <button type="button" class="view-toggle-btn" data-view="chrono" title="Chronological cards">📜 Chronology</button>
+                                <button type="button" class="view-toggle-btn" data-view="table" title="Compact table">📊 Table</button>
+                            </div>
+                            <input type="text" id="quickSearch" class="quick-search" placeholder="Filter studies..." aria-label="Quick filter">
+                            <button type="button" class="btn-small" id="priorsBtn" title="Run missing-prior detection">🕵️ Detect Priors</button>
+                            <button type="button" class="btn-small" id="exportBtn">📥 Export CSV</button>
+                        </div>
+                    </div>
+
+                    <!-- Modality filter chips -->
+                    <div class="chip-bar" id="modalityChips" style="display:none;"></div>
+
+                    <div id="timelineContent" class="timeline-content">
+                        <div class="empty-state">
+                            <div class="empty-state-icon">🛰️</div>
+                            <div class="empty-state-title">No timeline yet</div>
+                            <div class="empty-state-text">Look up a patient or load a demo case to merge imaging history from every connected community into one chronology.</div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </main>
+
+    <!-- Study Detail Modal -->
+    <div id="studyModal" class="modal" style="display: none;">
+        <div class="modal-backdrop" onclick="ImagingTimeline.closeModal('studyModal')"></div>
+        <div class="modal-content modal-md">
+            <div class="modal-header">
+                <h3 id="studyModalTitle">🔬 Study Detail</h3>
+                <button class="modal-close" onclick="ImagingTimeline.closeModal('studyModal')">&times;</button>
+            </div>
+            <div class="modal-body" id="studyModalBody"></div>
+        </div>
+    </div>
+
+    <!-- Configuration Modal -->
+    <div id="configModal" class="modal" style="display: none;">
+        <div class="modal-backdrop" onclick="ImagingTimeline.closeModal('configModal')"></div>
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h3>⚙️ Cross-Community Configuration</h3>
+                <button class="modal-close" onclick="ImagingTimeline.closeModal('configModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="xcaEndpoint">Cross-Community (XCA / MHD) Gateway</label>
+                    <input type="text" id="xcaEndpoint" placeholder="e.g., https://hub.ehealth.be/fhir" class="form-input">
+                    <small class="form-hint">Initiating-gateway used to query responding communities. Leave empty for the bundled demo data.</small>
+                </div>
+                <div class="form-group">
+                    <label for="intervalTolerance">Missing-prior interval tolerance</label>
+                    <select id="intervalTolerance" class="form-input">
+                        <option value="1.5">Strict (1.5× expected interval)</option>
+                        <option value="2" selected>Balanced (2× expected interval)</option>
+                        <option value="3">Relaxed (3× expected interval)</option>
+                    </select>
+                    <small class="form-hint">Controls how aggressively follow-up gaps are flagged as possible missing priors.</small>
+                </div>
+                <div class="config-info-box">
+                    <strong>ℹ️ About this app</strong>
+                    <p>This timeline merges study metadata (modality, body part, acquisition date, source institution, report &amp; retrieval status) from every connected community into one chronology — then watches for <strong>missing priors</strong> when a current study is being interpreted.</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="ImagingTimeline.closeModal('configModal')">Cancel</button>
+                <button class="btn btn-primary" onclick="ImagingTimeline.saveConfig()">💾 Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <p>&copy; 2026 UZ Leuven - Universitaire Ziekenhuizen Leuven</p>
+                <p class="footer-links">
+                    <span>Cross-Community Imaging Timeline</span>
+                    <span class="separator">•</span>
+                    <span>Powered by The DICOM Police</span>
+                </p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="js/imaging-timeline.js"></script>
+</body>
+</html>
+

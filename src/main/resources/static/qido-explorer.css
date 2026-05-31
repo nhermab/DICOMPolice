@@ -1,7 +1,7 @@
 /* QIDO-RS MADO Explorer Styles */
 
 .qido-explorer-page {
-    background: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-blue-dark) 100%);
+    background: var(--background-primary);
     min-height: 100vh;
     height: 100vh;
     overflow: hidden;
@@ -108,7 +108,7 @@
 }
 
 .btn-icon {
-    background: #f3f4f6;
+    background: var(--neutral-100);
     border: none;
     border-radius: var(--radius-md);
     width: 32px;
@@ -122,12 +122,13 @@
 }
 
 .btn-icon:hover {
-    background: #e5e7eb;
+    background: var(--neutral-200);
     transform: scale(1.05);
 }
 
 .btn-secondary {
-    background: #f3f4f6;
+    background: var(--neutral-100);
+    color: var(--text-primary);
     border: none;
     border-radius: var(--radius-md);
     padding: 6px 12px;
@@ -138,7 +139,7 @@
 }
 
 .btn-secondary:hover {
-    background: #e5e7eb;
+    background: var(--neutral-200);
 }
 
 /* Stats Grid */
@@ -148,7 +149,7 @@
     gap: 8px;
     margin-top: 12px;
     padding-top: 12px;
-    border-top: 1px solid #e5e7eb;
+    border-top: 1px solid var(--border-light);
 }
 
 .stat-card {
@@ -186,11 +187,11 @@
 
 /* Error Banner */
 .error-banner {
-    background: #fee2e2;
-    border: 1px solid #fecaca;
+    background: var(--error-light);
+    border: 1px solid var(--error-red);
     border-radius: var(--radius-md);
     padding: 12px;
-    color: #991b1b;
+    color: var(--error-red);
     display: flex;
     align-items: center;
     gap: 10px;
@@ -328,7 +329,7 @@
 .instance-list::-webkit-scrollbar-track,
 .tag-list::-webkit-scrollbar-track,
 .left-sidebar::-webkit-scrollbar-track {
-    background: #f1f5f9;
+    background: var(--neutral-100);
     border-radius: 4px;
 }
 
@@ -353,8 +354,8 @@
 .study-card,
 .series-card,
 .instance-card {
-    background: #f9fafb;
-    border: 1px solid #e5e7eb;
+    background: var(--neutral-50);
+    border: 1px solid var(--border-light);
     border-radius: var(--radius-md);
     padding: 12px;
     margin-bottom: 8px;
@@ -365,7 +366,7 @@
 .study-card:hover,
 .series-card:hover,
 .instance-card:hover {
-    background: #f3f4f6;
+    background: var(--neutral-100);
     border-color: var(--primary-blue);
     transform: translateX(4px);
 }
@@ -373,7 +374,7 @@
 .study-card.selected,
 .series-card.selected,
 .instance-card.selected {
-    background: #e3f2fd;
+    background: var(--accent-blue);
     border-color: var(--primary-blue);
     box-shadow: 0 2px 4px rgba(0, 102, 204, 0.2);
 }

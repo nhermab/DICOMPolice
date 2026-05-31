@@ -297,7 +297,7 @@
 }
 
 .data-table td.date-cell {
-    font-family: 'Courier New', monospace;
+    font-family: var(--font-mono);
     font-size: 12px;
 }
 
@@ -741,7 +741,7 @@
 
 .modal-body.json-body {
     padding: 0;
-    background: #1e1e1e;
+    background: var(--code-bg);
 }
 
 .modal-footer {
@@ -896,11 +896,11 @@
 .json-viewer {
     margin: 0;
     padding: 16px 20px;
-    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-family: var(--font-mono);
     font-size: 13px;
     line-height: 1.5;
-    color: #d4d4d4;
-    background: #1e1e1e;
+    color: var(--code-fg);
+    background: var(--code-bg);
     overflow: auto;
     min-height: 300px;
     max-height: 60vh;

@@ -19,7 +19,7 @@
     --diff-changed-color: #e5c07b;
     --diff-unchanged-bg: transparent;
 
-    --code-font: 'JetBrains Mono', 'Fira Code', 'Consolas', 'Monaco', monospace;
+    --code-font: var(--font-mono);
 }
 
 /* =========================
@@ -266,7 +266,7 @@
    Result Content Display
    ========================= */
 .result-content {
-    background: #1e1e1e;
+    background: var(--code-bg);
     border-radius: var(--radius-md);
     overflow: hidden;
     max-height: 600px;
@@ -279,7 +279,7 @@
     font-family: var(--code-font);
     font-size: 13px;
     line-height: 1.6;
-    color: #d4d4d4;
+    color: var(--code-fg);
     white-space: pre-wrap;
     word-wrap: break-word;
 }

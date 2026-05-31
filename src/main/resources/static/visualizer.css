@@ -170,14 +170,14 @@
 .tag-header:hover { background: var(--viz-surface-hover); }
 
 .tag-id {
-    font-family: 'Courier New', monospace;
+    font-family: var(--font-mono);
     font-size: 13px;
     color: var(--primary-blue);
     font-weight: 600;
 }
 
 .tag-vr {
-    font-family: 'Courier New', monospace;
+    font-family: var(--font-mono);
     font-size: 13px;
     padding: 2px 6px;
     background: var(--info-blue);
@@ -190,7 +190,7 @@
 .tag-name { font-weight: 500; font-size: 14px; }
 
 .tag-value {
-    font-family: 'Courier New', monospace;
+    font-family: var(--font-mono);
     font-size: 13px;
     color: var(--text-secondary);
     white-space: nowrap;
@@ -226,7 +226,7 @@
     font-size: 13px;
 }
 
-.tag-detail-value { font-family: 'Courier New', monospace; font-size: 13px; word-break: break-all; }
+.tag-detail-value { font-family: var(--font-mono); font-size: 13px; word-break: break-all; }
 
 .sequence-container { margin-top: 12px; padding-left: 20px; border-left: 3px solid var(--primary-blue-light); }
 .sequence-item { margin-bottom: 16px; }
@@ -280,7 +280,7 @@
     font-size: 13px;
 }
 
-.code-value { font-family: 'Courier New', monospace; color: var(--primary-blue); font-weight: 500; }
+.code-value { font-family: var(--font-mono); color: var(--primary-blue); font-weight: 500; }
 
 /* =========================
    Evidence
@@ -307,7 +307,7 @@
 .evidence-series-header { font-weight: 500; margin-bottom: 8px; font-size: 14px; }
 
 .evidence-instance {
-    font-family: 'Courier New', monospace;
+    font-family: var(--font-mono);
     font-size: 12px;
     color: var(--text-secondary);
     padding: 4px 8px;
@@ -403,7 +403,7 @@
 .validation-message-path {
     font-size: 12px;
     color: var(--text-secondary);
-    font-family: 'Courier New', monospace;
+    font-family: var(--font-mono);
 }
 
 .validation-section-header {

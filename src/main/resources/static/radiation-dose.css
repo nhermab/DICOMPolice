@@ -1,0 +1,508 @@
+/* ==========================================================================
+   Radiation Dose Passport
+   Responsive two-column layout (sidebar + content) consistent with the
+   other DICOM Police apps.
+   ========================================================================== */
+
+.radiation-dose-page .main-content {
+    padding: 1.5rem 0 3rem;
+}
+
+.dose-container {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 1.5rem;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 1.25rem;
+    align-items: start;
+}
+
+/* --------------------------------------------------------------------------
+   Sidebar
+   -------------------------------------------------------------------------- */
+
+.dose-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    position: sticky;
+    top: 1rem;
+}
+
+.input-panel,
+.safety-panel,
+.result-panel,
+.progress-panel {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 1.25rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.panel-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #111827;
+    margin: 0 0 1rem;
+}
+
+.form-group {
+    margin-bottom: 0.9rem;
+}
+
+.form-group label {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 0.35rem;
+}
+
+.form-group label small {
+    font-weight: 400;
+    color: #9ca3af;
+}
+
+.form-input {
+    width: 100%;
+    padding: 0.55rem 0.7rem;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    box-sizing: border-box;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.form-input:focus {
+    outline: none;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+
+.form-hint {
+    display: block;
+    margin-top: 0.35rem;
+    font-size: 0.72rem;
+    color: #6b7280;
+}
+
+.endpoint-badge {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    background: #eef2ff;
+    color: #4338ca;
+    padding: 0.1rem 0.4rem;
+    border-radius: 5px;
+    font-size: 0.7rem;
+}
+
+.action-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.action-row .btn {
+    flex: 1 1 auto;
+}
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 0.6rem 0.9rem;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.05s;
+}
+
+.btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.btn-primary { background: #6366f1; color: #fff; }
+.btn-primary:hover:not(:disabled) { background: #4f46e5; }
+.btn-secondary { background: #f3f4f6; color: #374151; }
+.btn-secondary:hover { background: #e5e7eb; }
+.btn-danger { background: #ef4444; color: #fff; }
+.btn-danger:hover { background: #dc2626; }
+
+/* Source hierarchy */
+.source-list {
+    margin: 0;
+    padding-left: 1.1rem;
+    font-size: 0.82rem;
+    color: #374151;
+    line-height: 1.9;
+}
+
+.src-pill {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    padding: 0.05rem 0.35rem;
+    border-radius: 4px;
+    margin-left: 0.25rem;
+}
+
+.src-pill.high { background: #dcfce7; color: #15803d; }
+.src-pill.low { background: #fef3c7; color: #b45309; }
+
+.hierarchy-note {
+    font-size: 0.75rem;
+    color: #6b7280;
+    margin: 0.75rem 0 0;
+}
+
+/* Safety */
+.safety-panel {
+    background: #fffbeb;
+    border-color: #fde68a;
+}
+
+.safety-panel p {
+    font-size: 0.78rem;
+    color: #78350f;
+    margin: 0 0 0.6rem;
+    line-height: 1.5;
+}
+.safety-panel p:last-child { margin-bottom: 0; }
+
+/* --------------------------------------------------------------------------
+   Content
+   -------------------------------------------------------------------------- */
+
+.dose-content {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    min-width: 0;
+}
+
+.panel-header {
+    margin-bottom: 1rem;
+}
+
+.panel-title-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1rem;
+    font-weight: 700;
+    color: #111827;
+}
+
+.error-banner {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #b91c1c;
+    padding: 0.85rem 1rem;
+    border-radius: 10px;
+    font-size: 0.9rem;
+}
+
+/* Progress */
+.progress-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.25rem;
+    margin-bottom: 0.9rem;
+}
+
+.progress-stat {
+    display: flex;
+    flex-direction: column;
+}
+
+.progress-stat-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: #9ca3af;
+}
+
+.progress-stat-value {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #111827;
+}
+
+.progress-bar-container {
+    height: 10px;
+    background: #e5e7eb;
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #6366f1, #8b5cf6);
+    transition: width 0.25s ease;
+}
+
+.progress-current {
+    margin-top: 0.6rem;
+    font-size: 0.82rem;
+    color: #4b5563;
+}
+
+.progress-log {
+    margin-top: 0.85rem;
+    max-height: 220px;
+    overflow-y: auto;
+    background: #0f172a;
+    border-radius: 8px;
+    padding: 0.6rem 0.75rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.72rem;
+    line-height: 1.6;
+}
+
+.log-entry { color: #cbd5e1; }
+.log-time { color: #64748b; margin-right: 0.4rem; }
+.log-info { color: #cbd5e1; }
+.log-success { color: #4ade80; }
+.log-warn { color: #fbbf24; }
+.log-error { color: #f87171; }
+.log-muted { color: #64748b; }
+
+/* Alert banner */
+.dose-alert-banner {
+    display: flex;
+    gap: 1rem;
+    background: #fff7ed;
+    border: 1px solid #fdba74;
+    border-left: 5px solid #f97316;
+    border-radius: 12px;
+    padding: 1.1rem 1.25rem;
+}
+
+.dose-alert-banner .alert-icon {
+    font-size: 1.75rem;
+    line-height: 1;
+}
+
+.alert-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #9a3412;
+    margin-bottom: 0.4rem;
+}
+
+.alert-body p {
+    margin: 0 0 0.4rem;
+    font-size: 0.88rem;
+    color: #7c2d12;
+    line-height: 1.5;
+}
+
+.alert-disclaimer {
+    font-style: italic;
+    color: #9a3412 !important;
+}
+
+/* Summary cards */
+.dose-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 1rem;
+}
+
+.dose-summary-card {
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 1.1rem;
+    text-align: center;
+}
+
+.dose-summary-value {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: #111827;
+    line-height: 1.1;
+}
+
+.dose-summary-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #4b5563;
+    margin-top: 0.35rem;
+}
+
+.dose-summary-hint {
+    font-size: 0.7rem;
+    color: #9ca3af;
+    margin-top: 0.25rem;
+}
+
+.dose-summary-card.dose-moderate { background: #fffbeb; border-color: #fde68a; }
+.dose-summary-card.dose-moderate .dose-summary-value { color: #b45309; }
+.dose-summary-card.dose-elevated { background: #fff7ed; border-color: #fdba74; }
+.dose-summary-card.dose-elevated .dose-summary-value { color: #c2410c; }
+.dose-summary-card.dose-high { background: #fef2f2; border-color: #fecaca; }
+.dose-summary-card.dose-high .dose-summary-value { color: #b91c1c; }
+
+/* Modality breakdown */
+.modality-breakdown {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.modality-row {
+    display: grid;
+    grid-template-columns: 160px 1fr 110px;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.modality-name {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #374151;
+}
+
+.modality-count {
+    display: inline-block;
+    background: #e5e7eb;
+    color: #4b5563;
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 0.05rem 0.4rem;
+    border-radius: 999px;
+    margin-left: 0.25rem;
+}
+
+.modality-bar-track {
+    height: 12px;
+    background: #f1f5f9;
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.modality-bar { height: 100%; border-radius: 999px; }
+.modality-ct { background: #6366f1; }
+.modality-fluoro { background: #ec4899; }
+.modality-nm { background: #10b981; }
+.modality-pet { background: #f59e0b; }
+.modality-other { background: #94a3b8; }
+
+.modality-value {
+    text-align: right;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #111827;
+}
+
+/* Table */
+.table-scroll { overflow-x: auto; }
+
+.dose-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.83rem;
+}
+
+.dose-table thead th {
+    text-align: left;
+    padding: 0.6rem 0.7rem;
+    background: #f8fafc;
+    color: #6b7280;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    border-bottom: 2px solid #e5e7eb;
+    white-space: nowrap;
+}
+
+.dose-table tbody td {
+    padding: 0.6rem 0.7rem;
+    border-bottom: 1px solid #f1f5f9;
+    vertical-align: top;
+    color: #374151;
+}
+
+.dose-table td.num { white-space: nowrap; }
+
+.dose-table .method-row td {
+    padding-top: 0;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.muted { color: #9ca3af; }
+
+.family-badge,
+.src-badge,
+.conf-badge {
+    display: inline-block;
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 0.1rem 0.45rem;
+    border-radius: 5px;
+    white-space: nowrap;
+}
+
+.family-ct { background: #e0e7ff; color: #4338ca; }
+.family-fluoro { background: #fce7f3; color: #be185d; }
+.family-nm { background: #d1fae5; color: #047857; }
+.family-pet { background: #fef3c7; color: #b45309; }
+.family-other { background: #f1f5f9; color: #475569; }
+
+.src-rdsr { background: #dcfce7; color: #15803d; }
+.src-rrdsr { background: #dbeafe; color: #1d4ed8; }
+.src-p_rdsr { background: #ede9fe; color: #6d28d9; }
+.src-pixel_est { background: #ffedd5; color: #c2410c; }
+
+.conf-high { background: #dcfce7; color: #15803d; }
+.conf-medium { background: #fef3c7; color: #b45309; }
+.conf-low { background: #fee2e2; color: #b91c1c; }
+
+/* Empty state */
+.empty-state {
+    text-align: center;
+    padding: 3.5rem 1.5rem;
+    background: #fff;
+    border: 1px dashed #d1d5db;
+    border-radius: 12px;
+}
+
+.empty-state-icon { font-size: 3rem; }
+
+.empty-state-title {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #374151;
+    margin: 0.75rem 0 0.4rem;
+}
+
+.empty-text { color: #6b7280; font-size: 0.9rem; }
+
+/* --------------------------------------------------------------------------
+   Responsive
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 1024px) {
+    .dose-container {
+        grid-template-columns: 1fr;
+    }
+    .dose-sidebar {
+        position: static;
+    }
+}
+
+@media (max-width: 640px) {
+    .modality-row {
+        grid-template-columns: 1fr;
+        gap: 0.3rem;
+    }
+    .modality-value { text-align: left; }
+    .dose-summary-value { font-size: 1.3rem; }
+    .header-nav { flex-wrap: wrap; }
+}
+

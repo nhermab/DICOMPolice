@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Clinical Context Prefetcher - The DICOM Police</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="clinical-prefetcher.css">
+</head>
+<body class="prefetcher-page">
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <div class="logo-section">
+                    <div class="logo-placeholder">
+                        <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <rect width="40" height="40" rx="8" fill="white" opacity="0.2"/>
+                            <path d="M20 10L30 15V25L20 30L10 25V15L20 10Z" stroke="white" stroke-width="2" stroke-linejoin="round"/>
+                            <circle cx="20" cy="20" r="3" fill="white"/>
+                        </svg>
+                    </div>
+                    <div class="logo-text">
+                        <h1>The DICOM Police - Smart Prefetcher</h1>
+                        <p class="subtitle">UZ Leuven - Universitaire Ziekenhuizen Leuven</p>
+                    </div>
+                </div>
+                <div class="header-nav">
+                    <a href="./xtehdsMADO" class="nav-link">MADO on XDS / MHD</a>
+                    <a href="./" class="nav-link">MADO Validator</a>
+                    <a href="./imaging-timeline" class="nav-link">Imaging Timeline</a>
+                    <a href="./clinical-prefetcher" class="nav-link active">Smart Prefetcher</a>
+                    <a href="./device-finder" class="nav-link">Device Finder</a>
+                    <a href="./qido-explorer" class="nav-link">QIDO-RS Explorer</a>
+                    <a href="./dicom-downloader" class="nav-link">DICOM Downloader</a>
+                    <a href="./radiation-dose" class="nav-link">Radiation Dose</a>
+                    <a href="./converter" class="nav-link">DICOM↔FHIR Bridge</a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="prefetcher-container">
+            <!-- Left Sidebar: Triage request -->
+            <aside class="prefetcher-sidebar">
+                <section class="panel">
+                    <div class="panel-head">
+                        <h2 class="panel-title">🧠 Clinical Triage Request</h2>
+                        <button type="button" class="btn-icon" id="settingsBtn" title="Settings (FHIR &amp; Ollama)">⚙️</button>
+                    </div>
+
+                    <!-- Ollama status -->
+                    <div class="ollama-status" id="ollamaStatus" title="Local Ollama status">
+                        <span class="status-dot status-unknown" id="ollamaDot"></span>
+                        <span class="status-text" id="ollamaStatusText">Checking Ollama…</span>
+                        <button type="button" class="btn-link" id="recheckBtn" title="Re-check">↻</button>
+                    </div>
+
+                    <div class="field">
+                        <label for="modelSelect">LLM Model (Ollama)</label>
+                        <select id="modelSelect">
+                            <option value="">Loading models…</option>
+                        </select>
+                    </div>
+
+                    <div class="field">
+                        <label for="patientId">Patient ID</label>
+                        <input type="text" id="patientId" placeholder="e.g., 64.08.12-205.33">
+                    </div>
+
+                    <div class="field">
+                        <label for="reasonForVisit">Reason for Visit</label>
+                        <textarea id="reasonForVisit" rows="3"
+                            placeholder="e.g., Right hip pain, rule out fracture"></textarea>
+                    </div>
+
+                    <div class="actions">
+                        <button type="button" class="btn-secondary" id="loadDemoBtn">📚 Load Demo</button>
+                        <button type="button" class="btn btn-primary" id="analyzeBtn">
+                            <span>⚡ Fetch &amp; Rank</span>
+                        </button>
+                    </div>
+
+                    <div class="hint-box">
+                        <strong>How it works</strong>
+                        <ol>
+                            <li>Queries the MHD <code>DocumentReference</code> registry for the patient's imaging priors.</li>
+                            <li>Slims the FHIR metadata and sends it to your local Qwen model on Ollama.</li>
+                            <li>Sorts studies into clinical relevance Tiers 1–3 with reasoning.</li>
+                            <li>One click hands the MADO manifest off for image retrieval.</li>
+                        </ol>
+                    </div>
+                </section>
+
+                <!-- Tier legend / stats -->
+                <section class="panel stats-panel" id="statsPanel" style="display:none;">
+                    <h3 class="panel-subtitle">Relevance Summary</h3>
+                    <div class="tier-stats">
+                        <div class="tier-stat tier-1"><span class="tier-stat-value" id="tier1Count">0</span><span class="tier-stat-label">Tier 1 · High</span></div>
+                        <div class="tier-stat tier-2"><span class="tier-stat-value" id="tier2Count">0</span><span class="tier-stat-label">Tier 2 · Moderate</span></div>
+                        <div class="tier-stat tier-3"><span class="tier-stat-value" id="tier3Count">0</span><span class="tier-stat-label">Tier 3 · Low</span></div>
+                    </div>
+                </section>
+            </aside>
+
+            <!-- Right: Ranked results -->
+            <section class="prefetcher-results">
+                <div id="errorBanner" class="error-banner" style="display:none;"></div>
+
+                <div class="results-header">
+                    <div class="results-title">
+                        <span>📊</span>
+                        <span>Ranked Priors</span>
+                        <span class="reason-chip" id="reasonChip" style="display:none;"></span>
+                    </div>
+                    <div class="results-controls">
+                        <label class="toggle-inline">
+                            <input type="checkbox" id="hideTier3"> Hide Tier 3
+                        </label>
+                    </div>
+                </div>
+
+                <div id="resultsContent">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🩻</div>
+                        <div class="empty-state-title">No analysis yet</div>
+                        <div class="empty-state-text">Enter a Patient ID and Reason for Visit, then click <strong>Fetch &amp; Rank</strong>. Or click <strong>Load Demo</strong> to try it offline.</div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="modal" style="display:none;">
+        <div class="modal-backdrop" onclick="ClinicalPrefetcher.closeModal('settingsModal')"></div>
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h3>⚙️ Settings</h3>
+                <button class="modal-close" onclick="ClinicalPrefetcher.closeModal('settingsModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="fhirEndpoint">MHD FHIR Base URL</label>
+                    <input type="text" id="fhirEndpoint" placeholder="e.g., https://your-server/fhir" class="form-input">
+                    <small class="form-hint">Leave empty to use the local <code>./fhir</code> endpoint.</small>
+                </div>
+                <div class="form-group">
+                    <label for="ohifViewerUrl">Viewer URL (MADO handoff)</label>
+                    <input type="text" id="ohifViewerUrl" placeholder="e.g., https://viewer.example.com/ohif/mado" class="form-input">
+                    <small class="form-hint">Where MADO manifests open for visualization.</small>
+                </div>
+                <div class="config-info-box">
+                    <strong>ℹ️ Ollama endpoint</strong>
+                    <p>The LLM endpoint is configured server-side (<code>ollama.base-url</code>, default <code>http://localhost:11434</code>). The model is chosen above.</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="ClinicalPrefetcher.closeModal('settingsModal')">Cancel</button>
+                <button class="btn btn-primary" onclick="ClinicalPrefetcher.saveSettings()">💾 Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Document JSON Modal -->
+    <div id="docJsonModal" class="modal" style="display:none;">
+        <div class="modal-backdrop" onclick="ClinicalPrefetcher.closeModal('docJsonModal')"></div>
+        <div class="modal-content modal-lg">
+            <div class="modal-header">
+                <h3>📄 DocumentReference JSON</h3>
+                <button class="modal-close" onclick="ClinicalPrefetcher.closeModal('docJsonModal')">&times;</button>
+            </div>
+            <div class="modal-body json-body">
+                <pre id="docJsonContent" class="json-viewer"></pre>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <p>&copy; 2026 UZ Leuven - Universitaire Ziekenhuizen Leuven</p>
+                <p class="footer-links">
+                    <span>Smart Clinical Context Prefetcher &amp; Sorter</span>
+                    <span class="separator">•</span>
+                    <span>MHD × Qwen on Ollama</span>
+                </p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="js/clinical-prefetcher.js"></script>
+</body>
+</html>
+

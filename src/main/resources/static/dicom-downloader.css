@@ -502,11 +502,11 @@
     max-height: 200px;
     overflow-y: auto;
     padding: 8px 12px;
-    font-family: 'Consolas', 'Monaco', monospace;
+    font-family: var(--font-mono);
     font-size: 11px;
     line-height: 1.6;
-    background: #1e1e1e;
-    color: #d4d4d4;
+    background: var(--code-bg);
+    color: var(--code-fg);
 }
 
 .log-entry {

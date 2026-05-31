@@ -1,31 +1,60 @@
 :root {
-  --primary-blue: #0066CC;
-  --primary-blue-dark: #004C99;
-  --primary-blue-light: #3385D6;
+  /* =========================================================
+     Medical-grade design system — single source of truth.
+     A calm, clinical blue paired with a neutral gray scale for
+     a professional, high-readability healthcare interface.
+     ========================================================= */
+
+  /* Brand / primary (clinical blue) */
+  --primary-blue: #0A66C2;
+  --primary-blue-dark: #084B91;
+  --primary-blue-light: #3B86D1;
   --secondary-blue: #0080FF;
-  --accent-blue: #E6F2FF;
+  --accent-blue: #EAF3FB;
 
-  --success-green: #00A651;
-  --success-light: #E6F7EF;
-  --warning-orange: #FF8C00;
-  --warning-light: #FFF4E6;
-  --error-red: #DC3545;
-  --error-light: #FFE6E9;
-  --info-blue: #17A2B8;
-  --info-light: #E6F7FA;
+  /* Clinical teal accent (used sparingly) */
+  --accent-teal: #0E7C86;
+  --accent-teal-light: #E4F4F5;
 
-  --text-primary: #1A1A1A;
-  --text-secondary: #666666;
-  --text-light: #999999;
+  /* Semantic status colors (AA-readable on their light backgrounds) */
+  --success-green: #1E8E4E;
+  --success-light: #E8F6EE;
+  --warning-orange: #B8730B;
+  --warning-light: #FBF1E1;
+  --error-red: #C8313C;
+  --error-light: #FBE9EA;
+  --info-blue: #1488A0;
+  --info-light: #E6F4F7;
 
-  --background-primary: #F8F9FA;
+  /* Neutral gray scale (replaces ad-hoc hex grays across pages) */
+  --neutral-50: #F8FAFC;
+  --neutral-100: #F1F5F9;
+  --neutral-200: #E6EBF1;
+  --neutral-300: #D5DCE5;
+  --neutral-400: #B4BECC;
+  --neutral-500: #8A95A5;
+  --neutral-600: #5E6B7E;
+  --neutral-700: #3F4A5A;
+  --neutral-800: #28303C;
+  --neutral-900: #1A2230;
+
+  --text-primary: #1A2230;
+  --text-secondary: #5E6B7E;
+  --text-light: #8A95A5;
+
+  --background-primary: #F4F7FA;
   --background-white: #FFFFFF;
-  --border-color: #E0E0E0;
-  --border-light: #F0F0F0;
+  --border-color: #D5DCE5;
+  --border-light: #E6EBF1;
 
-  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+  /* Code / monospace surfaces */
+  --code-bg: #1E2530;
+  --code-fg: #E2E8F0;
+
+  /* Soft, professional shadows (low spread, cool tint) */
+  --shadow-sm: 0 1px 2px rgba(16, 36, 64, 0.06);
+  --shadow-md: 0 2px 8px rgba(16, 36, 64, 0.08);
+  --shadow-lg: 0 8px 24px rgba(16, 36, 64, 0.12);
 
   --radius-sm: 4px;
   --radius-md: 8px;
@@ -34,6 +63,13 @@
 
   --transition-fast: 0.15s ease;
   --transition-normal: 0.3s ease;
+
+  /* Accessible focus ring (consistent across all interactive elements) */
+  --focus-ring: 0 0 0 3px rgba(10, 102, 194, 0.25);
+
+  /* Typography */
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', 'Cascadia Code', 'Consolas', 'Courier New', monospace;
 
   /* Spacing scale (used lightly to reduce repeated literals) */
   --space-1: 4px;
@@ -56,7 +92,7 @@ html {
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+  font-family: var(--font-sans);
   font-size: 16px;
   line-height: 1.6;
   color: var(--text-primary);
@@ -64,7 +100,25 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
+
+/* Consistent, accessible focus treatment for all interactive elements */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: var(--radius-sm);
+}
+
+/* Shared monospace treatment for any code/data values */
+code, kbd, pre, samp { font-family: var(--font-mono); }
 
 /* =========================
    03. Layout
@@ -76,6 +130,7 @@ body {
   color: #fff;
   padding: 12px 0;
   box-shadow: var(--shadow-md);
+  border-bottom: 3px solid var(--accent-teal);
   position: sticky;
   top: 0;
   z-index: 100;
@@ -106,8 +161,8 @@ body {
   font-family: inherit;
 }
 
-.nav-link:hover { background: rgba(255, 255, 255, 0.1); }
-.nav-link.active { background: rgba(255, 255, 255, 0.2); }
+.nav-link:hover { background: rgba(255, 255, 255, 0.12); }
+.nav-link.active { background: rgba(255, 255, 255, 0.22); box-shadow: inset 0 -2px 0 rgba(255, 255, 255, 0.6); }
 
 .mode-container { animation: fadeIn 0.3s ease; }
 
@@ -119,19 +174,21 @@ body {
 /* Card */
 .card {
   background: var(--background-white);
+  border: 1px solid var(--border-light);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-sm);
   margin-bottom: 32px;
   overflow: hidden;
-  transition: box-shadow var(--transition-normal);
+  transition: box-shadow var(--transition-normal), border-color var(--transition-normal);
   animation: fadeIn 0.4s ease;
 }
 
-.card:hover { box-shadow: var(--shadow-lg); }
+.card:hover { box-shadow: var(--shadow-md); border-color: var(--border-color); }
 
 .card-header {
-  padding: 24px 32px;
-  border-bottom: 2px solid var(--border-light);
+  padding: 20px 32px;
+  border-bottom: 1px solid var(--border-light);
+  background: linear-gradient(180deg, var(--neutral-50) 0%, var(--background-white) 100%);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -139,7 +196,7 @@ body {
   gap: 12px;
 }
 
-.card-header h2 { font-size: 22px; font-weight: 600; color: var(--text-primary); margin: 0; }
+.card-header h2 { font-size: 20px; font-weight: 600; color: var(--text-primary); margin: 0; letter-spacing: -0.2px; }
 
 .card-header .description {
   font-size: 14px;
@@ -194,13 +251,13 @@ body {
 
 /* Upload area */
 .upload-area {
-  border: 3px dashed var(--border-color);
+  border: 2px dashed var(--border-color);
   border-radius: var(--radius-lg);
   padding: 48px 32px;
   text-align: center;
   transition: all var(--transition-normal);
   cursor: pointer;
-  background: var(--background-primary);
+  background: var(--neutral-50);
   margin-bottom: 24px;
 }
 
@@ -209,11 +266,11 @@ body {
 .upload-area.drag-over {
   border-color: var(--primary-blue);
   background: var(--accent-blue);
-  transform: scale(1.02);
+  transform: scale(1.01);
 }
 
 .upload-content { pointer-events: none; }
-.upload-icon { margin-bottom: 20px; animation: float 3s ease-in-out infinite; }
+.upload-icon { margin-bottom: 20px; }
 
 .upload-title { font-size: 20px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px; }
 .upload-text { font-size: 15px; color: var(--text-secondary); margin-bottom: 8px; }
@@ -277,10 +334,11 @@ body {
 
 /* Buttons */
 .btn {
-  padding: 14px 32px;
+  padding: 12px 28px;
   font-size: 15px;
   font-weight: 600;
-  border: none;
+  font-family: inherit;
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
   cursor: pointer;
   transition: all var(--transition-fast);
@@ -288,26 +346,82 @@ body {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  min-height: 48px;
+  min-height: 46px;
   position: relative;
+  white-space: nowrap;
 }
+
+.btn:disabled { cursor: not-allowed; opacity: 0.55; box-shadow: none; }
 
 .btn-primary {
   background: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-blue-dark) 100%);
   color: #fff;
-  box-shadow: 0 4px 12px rgba(0, 102, 204, 0.3);
+  box-shadow: 0 2px 6px rgba(10, 102, 194, 0.25);
 }
 
 .btn-primary:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(0, 102, 204, 0.4);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(10, 102, 194, 0.32);
 }
 
-.btn-primary:active:not(:disabled) { transform: translateY(0); }
+.btn-primary:active:not(:disabled) { transform: translateY(0); box-shadow: 0 1px 4px rgba(10, 102, 194, 0.25); }
 
-.btn-primary:disabled { background: var(--border-color); cursor: not-allowed; box-shadow: none; }
+.btn-primary:disabled { background: var(--neutral-300); color: var(--neutral-600); }
 
-.btn-large { width: 100%; padding: 16px 32px; font-size: 16px; }
+/* Secondary — neutral, outlined clinical button (shared across all pages) */
+.btn-secondary {
+  background: var(--background-white);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--neutral-50);
+  border-color: var(--primary-blue-light);
+  color: var(--primary-blue-dark);
+}
+
+.btn-secondary:active:not(:disabled) { background: var(--neutral-100); }
+
+/* Small button variant (toolbars, inline controls) */
+.btn-small {
+  padding: 7px 14px;
+  min-height: 34px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  background: var(--background-white);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+}
+
+.btn-small:hover:not(:disabled) {
+  background: var(--neutral-50);
+  border-color: var(--primary-blue-light);
+  color: var(--primary-blue-dark);
+}
+
+/* Icon-only button */
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  font-size: 16px;
+  border-radius: var(--radius-md);
+  background: var(--neutral-100);
+  color: var(--text-secondary);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-icon:hover { background: var(--neutral-200); color: var(--text-primary); }
+
+.btn-large { width: 100%; padding: 15px 32px; font-size: 16px; }
 
 .btn-loader {
   width: 20px;
@@ -471,11 +585,10 @@ body {
 
 .report-header:hover {
   background: var(--accent-blue);
-  transform: translateX(4px);
 }
 
 .report-header:active {
-  transform: translateX(2px);
+  background: var(--neutral-100);
 }
 
 .report-title {
@@ -563,7 +676,7 @@ body {
   font-size: 12px;
   color: var(--text-secondary);
   margin-top: 4px;
-  font-family: 'Courier New', monospace;
+  font-family: var(--font-mono);
 }
 
 /* Pagination Controls */
@@ -675,7 +788,7 @@ body {
 .metadata-value {
   font-size: 14px;
   color: var(--text-primary);
-  font-family: 'Courier New', monospace;
+  font-family: var(--font-mono);
 }
 
 /* Error Section */
