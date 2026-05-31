@@ -133,10 +133,15 @@ public class OllamaProxyController {
             model = defaultModel;
         }
 
+        LOGGER.info("Starting clinical prefetch ranking task. Model: '{}', Reason for Visit: '{}', Number of studies: {}",
+                model, reasonForVisit, (studies.isArray() ? studies.size() : "not an array"));
+
         if (reasonForVisit.isEmpty()) {
+            LOGGER.warn("Ranking aborted: reasonForVisit is empty/missing.");
             return errorResponse(HttpStatus.BAD_REQUEST, "reasonForVisit is required");
         }
         if (!studies.isArray() || studies.isEmpty()) {
+            LOGGER.warn("Ranking aborted: studies is not a non-empty array.");
             return errorResponse(HttpStatus.BAD_REQUEST, "studies must be a non-empty array");
         }
 
@@ -149,18 +154,60 @@ public class OllamaProxyController {
                     + "Remember:\n"
                     + "- Every ranked study must have \"id\", \"tier\" (1, 2 or 3), and \"clinical_reasoning\" (MAX 3 to 5 words).\n"
                     + "- DO NOT think, DO NOT output any <think> tags or reasoning steps. Output ONLY raw JSON.";
+            LOGGER.debug("Serialized user prompt generated successfully. Length: {} chars.", userPrompt.length());
         } catch (Exception e) {
+            LOGGER.error("Failed to serialise study metadata to JSON string.", e);
             return errorResponse(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to serialise study metadata: " + e.getMessage());
         }
 
-        // Build the Ollama /api/chat request body (OpenAI-compatible structured output via format=json).
+        // Build the JSON schema for structured output to ensure reliability
+        ObjectNode schema = objectMapper.createObjectNode();
+        schema.put("type", "object");
+        schema.put("additionalProperties", false);
+
+        ObjectNode props = schema.putObject("properties");
+
+        ObjectNode rankedStudiesSchema = props.putObject("ranked_studies");
+        rankedStudiesSchema.put("type", "array");
+
+        ObjectNode itemSchema = rankedStudiesSchema.putObject("items");
+        itemSchema.put("type", "object");
+        itemSchema.put("additionalProperties", false);
+
+        ObjectNode itemProps = itemSchema.putObject("properties");
+
+        ObjectNode idSchema = itemProps.putObject("id");
+        idSchema.put("type", "string");
+
+        ObjectNode tierSchema = itemProps.putObject("tier");
+        tierSchema.put("type", "integer");
+        tierSchema.putArray("enum").add(1).add(2).add(3);
+
+        ObjectNode reasoningSchema = itemProps.putObject("clinical_reasoning");
+        reasoningSchema.put("type", "string");
+        reasoningSchema.put("maxLength", 80);
+
+        itemSchema.putArray("required")
+                .add("id")
+                .add("tier")
+                .add("clinical_reasoning");
+
+        schema.putArray("required").add("ranked_studies");
+
+        // Build the Ollama /api/chat request body with schema-based format and think disabled.
         ObjectNode chatRequest = objectMapper.createObjectNode();
         chatRequest.put("model", model);
         chatRequest.put("stream", false);
-        chatRequest.put("format", "json");
+        chatRequest.put("think", false);
+        chatRequest.set("format", schema);
+
+        // Dynamically size output budget based on studies size
+        int outputBudget = Math.min(8192, Math.max(1024, 128 + studies.size() * 80));
+        LOGGER.info("Calculated dynamic output budget for Ollama (num_predict): {} based on {} studies.", outputBudget, studies.size());
+
         ObjectNode options = chatRequest.putObject("options");
         options.put("temperature", 0.0);
-        options.put("num_predict", 512);
+        options.put("num_predict", outputBudget);
 
         ArrayNode messages = chatRequest.putArray("messages");
         ObjectNode systemMsg = messages.addObject();
@@ -171,42 +218,108 @@ public class OllamaProxyController {
         userMsg.put("content", userPrompt);
 
         try {
+            String requestUrl = trimTrailingSlash(ollamaBaseUrl) + "/api/chat";
+            LOGGER.info("Sending request to Ollama chat endpoint: {} with model: {}", requestUrl, model);
+            LOGGER.debug("Ollama request payload: {}", chatRequest);
+
+            long startTime = System.currentTimeMillis();
             HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(trimTrailingSlash(ollamaBaseUrl) + "/api/chat"))
+                    .uri(URI.create(requestUrl))
                     .timeout(Duration.ofSeconds(timeoutSeconds))
                     .header("Content-Type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(chatRequest)))
                     .build();
 
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            long duration = System.currentTimeMillis() - startTime;
+            LOGGER.info("Ollama responded in {} ms with HTTP status code: {}", duration, response.statusCode());
 
             if (response.statusCode() != 200) {
-                LOGGER.warn("Ollama /api/chat returned HTTP {}: {}", response.statusCode(), response.body());
+                LOGGER.warn("Ollama /api/chat returned HTTP error {}: {}", response.statusCode(), response.body());
                 return errorResponse(HttpStatus.BAD_GATEWAY,
                         "Ollama returned HTTP " + response.statusCode() + ": " + response.body());
             }
 
             JsonNode ollamaResponse = objectMapper.readTree(response.body());
             String content = ollamaResponse.path("message").path("content").asText();
+            LOGGER.info("Model response received. Content character length: {}", (content != null ? content.length() : 0));
+            LOGGER.debug("Model raw content: {}", content);
 
             JsonNode parsed = parseLenientJson(content);
             if (parsed == null) {
+                LOGGER.info("Structured JSON output failed. Retrying with same schema and larger num_predict...");
+                ((ObjectNode) chatRequest.get("options")).put("num_predict", 2048);
+
+                LOGGER.info("Sending retry request to Ollama chat endpoint: {} (num_predict=2048)", requestUrl);
+                long retryStartTime = System.currentTimeMillis();
+                HttpRequest retryRequest = HttpRequest.newBuilder()
+                        .uri(URI.create(requestUrl))
+                        .timeout(Duration.ofSeconds(timeoutSeconds))
+                        .header("Content-Type", "application/json")
+                        .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(chatRequest)))
+                        .build();
+
+                HttpResponse<String> retryResponse = httpClient.send(retryRequest, HttpResponse.BodyHandlers.ofString());
+                long retryDuration = System.currentTimeMillis() - retryStartTime;
+                LOGGER.info("Ollama retry responded in {} ms with HTTP status code: {}", retryDuration, retryResponse.statusCode());
+
+                if (retryResponse.statusCode() == 200) {
+                    JsonNode retryOllamaResponse = objectMapper.readTree(retryResponse.body());
+                    content = retryOllamaResponse.path("message").path("content").asText();
+                    LOGGER.info("Retry response received. Content character length: {}", (content != null ? content.length() : 0));
+                    LOGGER.debug("Retry content: {}", content);
+                    parsed = parseLenientJson(content);
+                } else {
+                    LOGGER.warn("Ollama /api/chat retry returned HTTP error {}: {}", retryResponse.statusCode(), retryResponse.body());
+                }
+            }
+
+            if (parsed == null) {
+                LOGGER.error("Model did not return valid JSON even after retry. Raw response content: {}", content);
                 return errorResponse(HttpStatus.BAD_GATEWAY,
-                        "Model did not return valid JSON. Raw output: " + content);
+                        "Model did not return valid JSON. Raw output: " + (content != null ? content : ""));
             }
 
             ObjectNode result = objectMapper.createObjectNode();
             result.put("model", model);
-            // Pass through the ranked_studies array; tolerate either a bare array or the wrapped object.
-            JsonNode ranked = parsed.has("ranked_studies") ? parsed.get("ranked_studies") : parsed;
+
+            // Stricter schema validation of the parsed content
+            LOGGER.info("Performing post-parsing validation on parsed model response...");
+            JsonNode ranked = parsed.path("ranked_studies");
+
+            if (!ranked.isArray()) {
+                LOGGER.error("Validation failed: Model returned JSON but it is missing the 'ranked_studies' array. parsed content: {}", parsed);
+                return errorResponse(HttpStatus.BAD_GATEWAY,
+                        "Model returned JSON but missing ranked_studies array. Raw output: " + content);
+            }
+
+            for (JsonNode item : ranked) {
+                if (!item.hasNonNull("id")
+                        || !item.hasNonNull("tier")
+                        || !item.hasNonNull("clinical_reasoning")) {
+                    LOGGER.error("Validation failed: 'ranked_studies' item is missing critical fields. Item: {}", item);
+                    return errorResponse(HttpStatus.BAD_GATEWAY,
+                            "Model returned malformed ranked_studies item. Raw output: " + content);
+                }
+
+                int tier = item.path("tier").asInt(-1);
+                if (tier < 1 || tier > 3) {
+                    LOGGER.error("Validation failed: 'ranked_studies' item has an invalid tier hierarchy: {}. Item: {}", tier, item);
+                    return errorResponse(HttpStatus.BAD_GATEWAY,
+                            "Model returned invalid tier. Raw output: " + content);
+                }
+            }
+
+            LOGGER.info("Post-parsing validation passed successfully on all {} ranked studies.", ranked.size());
             result.set("ranked_studies", ranked);
             return ResponseEntity.ok(result);
 
         } catch (java.net.http.HttpTimeoutException e) {
+            LOGGER.error("Ollama HTTP request timed out after {} seconds.", timeoutSeconds, e);
             return errorResponse(HttpStatus.GATEWAY_TIMEOUT,
                     "Ollama timed out after " + timeoutSeconds + "s. Try a smaller model or fewer studies.");
         } catch (Exception e) {
-            LOGGER.error("Ollama ranking failed: {}", e.getMessage(), e);
+            LOGGER.error("Ollama ranking task encountered an exception.", e);
             return errorResponse(HttpStatus.BAD_GATEWAY,
                     "Cannot reach Ollama at " + ollamaBaseUrl + " (" + e.getMessage() + ")");
         }
@@ -221,6 +334,21 @@ public class OllamaProxyController {
             return null;
         }
         String trimmed = content.trim();
+
+        // Strip <think>...</think> blocks from reasoning models to prevent JSON parse errors
+        String temp = trimmed;
+        while (temp.contains("<think>")) {
+            int thinkStart = temp.indexOf("<think>");
+            int thinkEnd = temp.indexOf("</think>");
+            if (thinkEnd > thinkStart) {
+                temp = temp.substring(0, thinkStart) + temp.substring(thinkEnd + 8);
+            } else {
+                temp = temp.substring(0, thinkStart);
+                break;
+            }
+        }
+        trimmed = temp.trim();
+
         try {
             return objectMapper.readTree(trimmed);
         } catch (Exception ignored) {

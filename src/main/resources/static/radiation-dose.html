@@ -87,15 +87,29 @@
                     </div>
                 </section>
 
+                <section class="input-panel">
+                    <h2 class="panel-title">🔧 Demo Options</h2>
+                    <div class="form-group">
+                        <label class="checkbox-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;">
+                            <input type="checkbox" id="averageFallback" checked style="width: 18px; height: 18px;">
+                            <span style="font-weight: 500;">Average Fallback (Dose Mock)</span>
+                        </label>
+                        <small class="form-hint" style="display: block; margin-top: 4px; color: #6b7280;">
+                            When studies lack radiation dose reports or ionizing series (e.g. OT/other), estimate using creative fallback demo values.
+                        </small>
+                    </div>
+                </section>
+
                 <section class="input-panel source-hierarchy">
                     <h2 class="panel-title">📚 Dose Source Hierarchy</h2>
                     <ol class="source-list">
                         <li><strong>Patient Radiation Dose SR</strong> <span class="src-pill high">high</span></li>
                         <li><strong>RDSR / RRDSR</strong> <span class="src-pill high">high</span></li>
                         <li><strong>Image pixels luma-estimator</strong> <span class="src-pill low">fallback</span></li>
+                        <li><strong>Average Fallback (Demo)</strong> <span class="src-pill low">fallback</span></li>
                         <li>Image headers fallback <span class="src-pill low">fallback</span></li>
                     </ol>
-                    <p class="hierarchy-note">This app reads DICOM Radiation Dose Structured Reports, and falls back to a pixel-based attenuation algorithm if reports are absent.</p>
+                    <p class="hierarchy-note">This app reads DICOM Radiation Dose Structured Reports, and falls back to a pixel-based attenuation algorithm or average demo estimates if needed.</p>
                 </section>
 
                 <section class="safety-panel">

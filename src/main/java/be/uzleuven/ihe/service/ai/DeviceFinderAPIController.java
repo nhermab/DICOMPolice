@@ -729,6 +729,9 @@ public class DeviceFinderAPIController {
      * Conducts a real HTTP call to Ollama `/api/chat` with structured prompt rules and contact layout (base64 image optional)
      */
     private Map<String, Object> callLiveOllamaForImplantDiscovery(List<Map<String, Object>> tiles, String model, String mode, String customPrompt) throws Exception {
+        LOGGER.info("Starting live Ollama implant discovery task. Model: '{}', Mode: '{}', Custom prompt: '{}', Number of tiles: {}",
+                model, mode, customPrompt, (tiles != null ? tiles.size() : 0));
+
         // System and User Prompts as requested in Section 8 of spec
         String systemPrompt = "You are assisting with visual identification of medical devices, implants, hardware, catheters, and foreign material on medical images.\n" +
                 "You are not determining MRI safety, making a diagnosis, or replacing clinical review.\n" +
@@ -738,7 +741,7 @@ public class DeviceFinderAPIController {
                 "2. NO <think> tags, NO thinking process, NO chain of thought. If you are a reasoning model like DeepSeek-R1, skip thinking/reasoning and start your response directly with the '{' character. Any extra text or reasoning tags will break the parser.\n" +
                 "3. Keep descriptions very brief (few words) to maximize generation speed.";
 
-        StringBuilder userPromptBuilder = new ObjectMapper().writerWithDefaultPrettyPrinter().writeValueAsString(tiles) == null ? new StringBuilder() : new StringBuilder();
+        StringBuilder userPromptBuilder = new StringBuilder();
         userPromptBuilder.append("Review the provided medical images description list:\n")
                 .append(objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(tiles)).append("\n\n")
                 .append("Each tile has an ID. Identify visible medical devices, implants, hardware, catheters, shunts, clips, coils, stents, prostheses, or foreign metallic material.\n")
@@ -773,13 +776,83 @@ public class DeviceFinderAPIController {
             userPromptBuilder.append("\n\nUser custom guidance: ").append(customPrompt);
         }
 
+        // Build the JSON schema for structured output to ensure reliability
+        ObjectNode schema = objectMapper.createObjectNode();
+        schema.put("type", "object");
+        schema.put("additionalProperties", false);
+
+        ObjectNode props = schema.putObject("properties");
+
+        ObjectNode reviewQualitySchema = props.putObject("review_quality");
+        reviewQualitySchema.put("type", "string");
+
+        // device_candidates array
+        ObjectNode deviceCandidatesSchema = props.putObject("device_candidates");
+        deviceCandidatesSchema.put("type", "array");
+
+        ObjectNode devItemSchema = deviceCandidatesSchema.putObject("items");
+        devItemSchema.put("type", "object");
+        devItemSchema.put("additionalProperties", false);
+
+        ObjectNode devItemProps = devItemSchema.putObject("properties");
+        devItemProps.putObject("tile_id").put("type", "string");
+        devItemProps.putObject("device_category").put("type", "string");
+        devItemProps.putObject("specific_type_if_visible").put("type", "string");
+        devItemProps.putObject("anatomical_location").put("type", "string");
+        devItemProps.putObject("laterality").put("type", "string");
+        devItemProps.putObject("confidence").put("type", "string");
+        devItemProps.putObject("visual_evidence").put("type", "string");
+        devItemProps.putObject("needs_zoom_or_human_review").put("type", "boolean");
+        devItemProps.putObject("reason_for_uncertainty").put("type", "string");
+
+        devItemSchema.putArray("required")
+                .add("tile_id")
+                .add("device_category")
+                .add("specific_type_if_visible")
+                .add("anatomical_location")
+                .add("laterality")
+                .add("confidence")
+                .add("visual_evidence")
+                .add("needs_zoom_or_human_review")
+                .add("reason_for_uncertainty");
+
+        // negative_findings array
+        ObjectNode negativeFindingsSchema = props.putObject("negative_findings");
+        negativeFindingsSchema.put("type", "array");
+
+        ObjectNode negItemSchema = negativeFindingsSchema.putObject("items");
+        negItemSchema.put("type", "object");
+        negItemSchema.put("additionalProperties", false);
+
+        ObjectNode negItemProps = negItemSchema.putObject("properties");
+        negItemProps.putObject("tile_id").put("type", "string");
+        negItemProps.putObject("statement").put("type", "string");
+        negItemProps.putObject("confidence").put("type", "string");
+
+        negItemSchema.putArray("required")
+                .add("tile_id")
+                .add("statement")
+                .add("confidence");
+
+        schema.putArray("required")
+                .add("review_quality")
+                .add("device_candidates")
+                .add("negative_findings");
+
         ObjectNode chatRequest = objectMapper.createObjectNode();
         chatRequest.put("model", model);
         chatRequest.put("stream", false);
-        chatRequest.put("format", "json");
+        chatRequest.put("think", false);
+        chatRequest.set("format", schema);
+
+        // Dynamically compute budget based on tile inputs
+        int tileCount = tiles != null ? tiles.size() : 0;
+        int outputBudget = Math.min(8192, Math.max(1536, 128 + tileCount * 384));
+        LOGGER.info("Calculated dynamic output budget for implant discovery (num_predict): {} based on {} tiles.", outputBudget, tileCount);
+
         ObjectNode options = chatRequest.putObject("options");
         options.put("temperature", 0.0);
-        options.put("num_predict", 1024);
+        options.put("num_predict", outputBudget);
 
         ArrayNode messages = chatRequest.putArray("messages");
         ObjectNode systemMsg = messages.addObject();
@@ -789,25 +862,74 @@ public class DeviceFinderAPIController {
         userMsg.put("role", "user");
         userMsg.put("content", userPromptBuilder.toString());
 
+        String chatUrl = trimTrailingSlash(ollamaBaseUrl) + "/api/chat";
+        LOGGER.info("Sending request to Ollama chat endpoint: {} (model: {})", chatUrl, model);
+
+        long startTime = System.currentTimeMillis();
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(trimTrailingSlash(ollamaBaseUrl) + "/api/chat"))
+                .uri(URI.create(chatUrl))
                 .timeout(Duration.ofSeconds(timeoutSeconds))
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(chatRequest)))
                 .build();
 
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        long elapsed = System.currentTimeMillis() - startTime;
+        LOGGER.info("Ollama responded in {} ms with HTTP status code: {}", elapsed, response.statusCode());
+
         if (response.statusCode() != 200) {
-            throw new RuntimeException("Ollama returned " + response.statusCode());
+            LOGGER.error("Ollama /api/chat returned dynamic failure HTTP {}: {}", response.statusCode(), response.body());
+            throw new RuntimeException("Ollama returned HTTP " + response.statusCode());
         }
 
         JsonNode resNode = objectMapper.readTree(response.body());
         String textOutput = resNode.path("message").path("content").asText();
+        LOGGER.info("Model discovery output retrieved successfully. Content characters: {}", (textOutput != null ? textOutput.length() : 0));
 
         JsonNode parsed = parseLenientJson(textOutput);
+        if (parsed == null) {
+            int retryPredict = Math.min(8192, outputBudget * 2);
+            LOGGER.info("Device finder: Structured JSON output failed/empty. Retrying with same schema and larger num_predict: {}...", retryPredict);
+            ((ObjectNode) chatRequest.get("options")).put("num_predict", retryPredict);
+
+            long retryStart = System.currentTimeMillis();
+            HttpRequest retryRequest = HttpRequest.newBuilder()
+                    .uri(URI.create(chatUrl))
+                    .timeout(Duration.ofSeconds(timeoutSeconds))
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(chatRequest)))
+                    .build();
+
+            HttpResponse<String> retryResponse = httpClient.send(retryRequest, HttpResponse.BodyHandlers.ofString());
+            long retryElapsed = System.currentTimeMillis() - retryStart;
+            LOGGER.info("Ollama retry responded in {} ms with HTTP status code: {}", retryElapsed, retryResponse.statusCode());
+
+            if (retryResponse.statusCode() == 200) {
+                JsonNode retryResNode = objectMapper.readTree(retryResponse.body());
+                textOutput = retryResNode.path("message").path("content").asText();
+                LOGGER.info("Model discovery retry output retrieved successfully. Content characters: {}", (textOutput != null ? textOutput.length() : 0));
+                parsed = parseLenientJson(textOutput);
+            } else {
+                LOGGER.error("Ollama retry endpoint failed with HTTP {}: {}", retryResponse.statusCode(), retryResponse.body());
+            }
+        }
+
         if (parsed != null) {
+            LOGGER.info("Successfully parsed model JSON output for implant discovery. Validating schema properties...");
+            JsonNode deviceCandidates = parsed.path("device_candidates");
+            JsonNode negativeFindings = parsed.path("negative_findings");
+
+            if (!deviceCandidates.isArray() || !negativeFindings.isArray()) {
+                LOGGER.error("Validation failed: missing required arrays 'device_candidates' or 'negative_findings'. Content: {}", parsed);
+                throw new RuntimeException("Validation failed: missing required arrays 'device_candidates' or 'negative_findings'. Raw response: " + textOutput);
+            }
+
+            LOGGER.info("Discovery schema validation successful. Implants candidate count: {}, Negative findings count: {}.",
+                    deviceCandidates.size(), negativeFindings.size());
             return objectMapper.convertValue(parsed, Map.class);
         }
+
+        LOGGER.error("Failed to parse Ollama JSON response after retry attempts. Content: {}", textOutput);
         throw new RuntimeException("Failed to parse Ollama JSON response: " + textOutput);
     }
 
@@ -816,6 +938,21 @@ public class DeviceFinderAPIController {
             return null;
         }
         String trimmed = content.trim();
+
+        // Strip <think>...</think> blocks from reasoning models to prevent JSON parse errors
+        String temp = trimmed;
+        while (temp.contains("<think>")) {
+            int thinkStart = temp.indexOf("<think>");
+            int thinkEnd = temp.indexOf("</think>");
+            if (thinkEnd > thinkStart) {
+                temp = temp.substring(0, thinkStart) + temp.substring(thinkEnd + 8);
+            } else {
+                temp = temp.substring(0, thinkStart);
+                break;
+            }
+        }
+        trimmed = temp.trim();
+
         try {
             return objectMapper.readTree(trimmed);
         } catch (Exception ignored) {}

@@ -458,6 +458,7 @@
 .src-rrdsr { background: #dbeafe; color: #1d4ed8; }
 .src-p_rdsr { background: #ede9fe; color: #6d28d9; }
 .src-pixel_est { background: #ffedd5; color: #c2410c; }
+.src-demo_fallback { background: #fdf2f8; color: #db2777; }
 
 .conf-high { background: #dcfce7; color: #15803d; }
 .conf-medium { background: #fef3c7; color: #b45309; }
