@@ -1,6 +1,7 @@
 package be.uzleuven.ihe.service.MHD.fhir;
 
 import be.uzleuven.ihe.service.MHD.config.MHDConfiguration;
+import be.uzleuven.ihe.service.MHD.fhir.interceptor.BaseUrlInterceptor;
 import be.uzleuven.ihe.service.MHD.fhir.interceptor.BinaryContentDispositionInterceptor;
 import be.uzleuven.ihe.service.MHD.fhir.provider.BinaryProvider;
 import be.uzleuven.ihe.service.MHD.fhir.provider.BundleProvider;
@@ -8,7 +9,7 @@ import be.uzleuven.ihe.service.MHD.fhir.provider.CapabilityStatementProvider;
 import be.uzleuven.ihe.service.MHD.fhir.provider.DocumentReferenceProvider;
 import be.uzleuven.ihe.service.MHD.fhir.provider.ListProvider;
 import ca.uhn.fhir.context.FhirContext;
-import ca.uhn.fhir.rest.server.RestfulServer;
+import ca.uhn.fhir.rest.api.EncodingEnum;
 import ca.uhn.fhir.rest.server.interceptor.CorsInterceptor;
 import ca.uhn.fhir.rest.server.interceptor.ResponseHighlighterInterceptor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -65,8 +66,17 @@ public class MHDFhirRestfulServer extends ca.uhn.fhir.rest.server.RestfulServer 
         setServerVersion(config.getSoftwareVersion());
         setImplementationDescription("IHE MHD Document Responder facade for DICOM MADO manifests");
 
-        // Add response highlighter for browser testing
-        registerInterceptor(new ResponseHighlighterInterceptor());
+        // Default to JSON encoding so errors and responses are always JSON
+        setDefaultResponseEncoding(EncodingEnum.JSON);
+        setDefaultPrettyPrint(true);
+
+        // Add response highlighter for browser testing (only when _format is not explicitly set)
+        ResponseHighlighterInterceptor responseHighlighter = new ResponseHighlighterInterceptor();
+        responseHighlighter.setShowResponseHeaders(false);
+        registerInterceptor(responseHighlighter);
+
+        // Add interceptor to handle base URL requests (return CapabilityStatement as JSON)
+        registerInterceptor(new BaseUrlInterceptor(capabilityStatementProvider, getFhirContext()));
 
         // Add interceptor to set Content-Disposition for Binary resources (avoids servlet types)
         registerInterceptor(new BinaryContentDispositionInterceptor());
