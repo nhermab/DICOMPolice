@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lab Observations Explorer - The DICOM Police</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="lab-observations.css">
+</head>
+<body class="lab-obs-page">
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <div class="logo-section">
+                    <div class="logo-placeholder">
+                        <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <rect width="40" height="40" rx="8" fill="white" opacity="0.2"/>
+                            <path d="M20 10L30 15V25L20 30L10 25V15L20 10Z" stroke="white" stroke-width="2" stroke-linejoin="round"/>
+                            <circle cx="20" cy="20" r="3" fill="white"/>
+                        </svg>
+                    </div>
+                    <div class="logo-text">
+                        <h1>The DICOM Police - Lab Observations</h1>
+                        <p class="subtitle">UZ Leuven - Universitaire Ziekenhuizen Leuven</p>
+                    </div>
+                </div>
+                <div class="header-nav">
+                    <a href="./xtehdsMADO" class="nav-link">MADO on XDS / MHD</a>
+                    <a href="./" class="nav-link">MADO Validator</a>
+                    <a href="./imaging-timeline" class="nav-link">Imaging Timeline</a>
+                    <a href="./clinical-prefetcher" class="nav-link">Smart Prefetcher</a>
+                    <a href="./lab-observations" class="nav-link active">Lab Observations</a>
+                    <a href="./device-finder" class="nav-link">Device Finder</a>
+                    <a href="./qido-explorer" class="nav-link">QIDO-RS Explorer</a>
+                    <a href="./dicom-downloader" class="nav-link">DICOM Downloader</a>
+                    <a href="./radiation-dose" class="nav-link">Radiation Dose</a>
+                    <a href="./converter" class="nav-link">DICOM↔FHIR Bridge</a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="container">
+            <!-- Search Panel -->
+            <section class="card">
+                <div class="card-header">
+                    <div class="header-title-row">
+                        <h2>🧪 Search FHIR Observations (LOINC)</h2>
+                        <span class="endpoint-badge" id="endpointBadge" title="Configured MHD endpoint">Local</span>
+                    </div>
+                    <p class="description">
+                        Query the configured MHD endpoint for <code>Observation</code> resources by LOINC code.
+                        Settings are shared with the <strong>MADO Viewer</strong>.
+                    </p>
+                </div>
+                <div class="card-body">
+                    <div class="search-grid">
+                        <div class="search-field search-field-wide">
+                            <label for="loincCodes">LOINC code(s)</label>
+                            <input type="text" id="loincCodes" placeholder="e.g. 2951-2, 2823-3">
+                            <small class="field-hint">Comma-separated. System <code>http://loinc.org</code> is added automatically.</small>
+                        </div>
+                        <div class="search-field">
+                            <label for="patientId">Patient ID <span class="req">*</span></label>
+                            <input type="text" id="patientId" placeholder="e.g. 64.08.12-205.33" required>
+                            <small class="field-hint">Required — sent as <code>patient.identifier</code>.</small>
+                        </div>
+                        <div class="search-field">
+                            <label for="category">Category</label>
+                            <select id="category">
+                                <option value="">Any</option>
+                                <option value="laboratory" selected>laboratory</option>
+                                <option value="vital-signs">vital-signs</option>
+                                <option value="imaging">imaging</option>
+                            </select>
+                        </div>
+                        <div class="search-field">
+                            <label for="dateFrom">Date from</label>
+                            <input type="date" id="dateFrom">
+                        </div>
+                        <div class="search-field">
+                            <label for="dateTo">Date to</label>
+                            <input type="date" id="dateTo">
+                        </div>
+                    </div>
+
+                    <div class="quick-pick-row">
+                        <span class="quick-pick-label">Quick add:</span>
+                        <div class="quick-pick" id="quickPick"></div>
+                    </div>
+
+                    <div class="action-buttons">
+                        <button id="searchBtn" class="btn btn-primary"><span class="btn-icon">🔍</span> Search</button>
+                        <button id="clearBtn" class="btn btn-secondary">Clear</button>
+                        <button id="demoBtn" class="btn btn-secondary">📚 Load Demo</button>
+                        <button id="inspectJsonBtn" class="btn btn-secondary">{ } Bundle JSON</button>
+                        <button id="configBtn" class="btn btn-secondary">⚙️ Settings</button>
+                    </div>
+                </div>
+            </section>
+
+            <div id="errorBanner" class="error-banner" style="display:none;"></div>
+
+            <!-- Stats -->
+            <div class="stats-grid" id="statsGrid" style="display:none;"></div>
+
+            <!-- Results -->
+            <section class="card">
+                <div class="card-header">
+                    <h2>📊 Results</h2>
+                </div>
+                <div class="card-body">
+                    <div id="resultsContent" class="obs-results"></div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Settings Modal (shared with MADO Viewer config) -->
+    <div id="configModal" class="modal" style="display:none;">
+        <div class="modal-backdrop" onclick="LabObservations.closeModal('configModal')"></div>
+        <div class="modal-content modal-md">
+            <div class="modal-header">
+                <h3>⚙️ Endpoint Settings <span class="shared-note">(shared with MADO Viewer)</span></h3>
+                <button class="modal-close" onclick="LabObservations.closeModal('configModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="preset-row">
+                    <span>Presets:</span>
+                    <button class="btn-secondary btn-small" onclick="LabObservations.applyPreset('local')">Local</button>
+                    <button class="btn-secondary btn-small" onclick="LabObservations.applyPreset('ihe')">IHE Belgium</button>
+                    <button class="btn-secondary btn-small" onclick="LabObservations.applyPreset('abrumet')">Abrumet+</button>
+                </div>
+                <div class="form-group">
+                    <label for="fhirEndpoint">MHD FHIR Base URL</label>
+                    <input type="text" id="fhirEndpoint" class="form-input" placeholder="e.g. https://your-server/fhir">
+                    <small class="form-hint">Leave empty to use the local <code>./fhir</code> endpoint.</small>
+                </div>
+                <div class="form-group checkbox-group">
+                    <label><input type="checkbox" id="authEnabled"> Enable OAuth2 (client credentials)</label>
+                </div>
+                <div id="authFields" style="display:none;">
+                    <div class="form-group">
+                        <label for="tokenUrl">Token URL</label>
+                        <input type="text" id="tokenUrl" class="form-input" placeholder="https://.../token">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="clientId">Client ID</label>
+                            <input type="text" id="clientId" class="form-input">
+                        </div>
+                        <div class="form-group">
+                            <label for="clientSecret">Client Secret</label>
+                            <input type="password" id="clientSecret" class="form-input">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="authScope">Scope</label>
+                            <input type="text" id="authScope" class="form-input">
+                        </div>
+                        <div class="form-group">
+                            <label for="providerId">Provider ID (X-Provider)</label>
+                            <input type="text" id="providerId" class="form-input">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="authAudience">Audience</label>
+                            <input type="text" id="authAudience" class="form-input">
+                        </div>
+                        <div class="form-group">
+                            <label for="authResource">Resource</label>
+                            <input type="text" id="authResource" class="form-input">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="LabObservations.closeModal('configModal')">Cancel</button>
+                <button class="btn btn-primary" onclick="LabObservations.saveConfig()">💾 Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bundle JSON Modal -->
+    <div id="jsonModal" class="modal" style="display:none;">
+        <div class="modal-backdrop" onclick="LabObservations.closeModal('jsonModal')"></div>
+        <div class="modal-content modal-lg">
+            <div class="modal-header">
+                <h3>📦 Search Bundle JSON</h3>
+                <button class="modal-close" onclick="LabObservations.closeModal('jsonModal')">&times;</button>
+            </div>
+            <div class="modal-body json-body">
+                <pre id="jsonContent" class="json-viewer"></pre>
+            </div>
+        </div>
+    </div>
+
+    <!-- Single Observation JSON Modal -->
+    <div id="obsJsonModal" class="modal" style="display:none;">
+        <div class="modal-backdrop" onclick="LabObservations.closeModal('obsJsonModal')"></div>
+        <div class="modal-content modal-lg">
+            <div class="modal-header">
+                <h3>🔬 Observation JSON</h3>
+                <button class="modal-close" onclick="LabObservations.closeModal('obsJsonModal')">&times;</button>
+            </div>
+            <div class="modal-body json-body">
+                <pre id="obsJsonContent" class="json-viewer"></pre>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <p>&copy; 2026 UZ Leuven - Universitaire Ziekenhuizen Leuven</p>
+                <p class="footer-links">
+                    <span>Lab Observations Explorer</span>
+                    <span class="separator">•</span>
+                    <span>FHIR Observation × LOINC</span>
+                </p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="js/lab-observations.js"></script>
+</body>
+</html>
+
