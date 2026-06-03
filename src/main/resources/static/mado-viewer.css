@@ -1172,6 +1172,12 @@
     border: 1px solid #90caf9;
 }
 
+.format-other {
+    background: linear-gradient(135deg, #f3e5f5, #e1bee7);
+    color: #6a1b9a;
+    border: 1px solid #ce93d8;
+}
+
 .linked-badge {
     display: inline-flex;
     align-items: center;
@@ -1185,9 +1191,13 @@
     opacity: 1;
 }
 
-/* Row styling for KOS vs FHIR */
+/* Row styling for KOS vs FHIR vs Other */
 .kos-row {
     background-color: rgba(227, 242, 253, 0.15);
+}
+
+.other-row {
+    background-color: rgba(243, 229, 245, 0.15);
 }
 
 .fhir-row:hover {
@@ -1196,6 +1206,10 @@
 
 .kos-row:hover {
     background-color: rgba(227, 242, 253, 0.3);
+}
+
+.other-row:hover {
+    background-color: rgba(243, 229, 245, 0.3);
 }
 
 /* ==============================

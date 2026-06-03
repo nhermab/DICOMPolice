@@ -6,6 +6,8 @@ import be.uzleuven.ihe.service.MHD.fhir.DicomToFhirMapper;
 import ca.uhn.fhir.rest.annotation.*;
 import ca.uhn.fhir.rest.api.server.IBundleProvider;
 import ca.uhn.fhir.rest.param.DateRangeParam;
+import ca.uhn.fhir.rest.param.ReferenceAndListParam;
+import ca.uhn.fhir.rest.param.ReferenceOrListParam;
 import ca.uhn.fhir.rest.param.ReferenceParam;
 import ca.uhn.fhir.rest.param.TokenParam;
 import ca.uhn.fhir.rest.server.IResourceProvider;
@@ -92,8 +94,7 @@ public class ListProvider implements IResourceProvider {
      * Search for Lists (SubmissionSets).
      * Implements ITI-66 (Find Document Lists) search parameters.
      *
-     * @param patient Patient reference or identifier
-     * @param patientIdentifier Patient identifier token
+     * @param patient Patient reference or identifier (supports chaining with patient.identifier)
      * @param status List status
      * @param code List type code (should be "submissionset")
      * @param date Submission date range
@@ -102,14 +103,13 @@ public class ListProvider implements IResourceProvider {
      */
     @Search
     public IBundleProvider search(
-            @OptionalParam(name = ListResource.SP_PATIENT) ReferenceParam patient,
-            @OptionalParam(name = "patient.identifier") TokenParam patientIdentifier,
+            @OptionalParam(name = ListResource.SP_PATIENT, chainWhitelist = {"", "identifier"}) ReferenceAndListParam patient,
             @OptionalParam(name = ListResource.SP_STATUS) TokenParam status,
             @OptionalParam(name = ListResource.SP_CODE) TokenParam code,
             @OptionalParam(name = ListResource.SP_DATE) DateRangeParam date,
             @OptionalParam(name = "source.identifier") TokenParam sourceId) {
 
-        LOG.info("Searching Lists (SubmissionSets) - patient: {}", patientIdentifier);
+        LOG.info("Searching Lists (SubmissionSets) - patient: {}", patient);
 
         // Verify this is a submissionset query if code is provided
         if (code != null && !"submissionset".equals(code.getValue())) {
@@ -119,7 +119,7 @@ public class ListProvider implements IResourceProvider {
 
         try {
             // Extract search parameters
-            String patientId = extractPatientId(patient, patientIdentifier);
+            String patientId = extractPatientId(patient);
 
             // Extract date range
             String dateFrom = null;
@@ -162,26 +162,41 @@ public class ListProvider implements IResourceProvider {
     }
 
     /**
-     * Extract patient ID from various FHIR reference/identifier formats.
+     * Extract patient ID from ReferenceAndListParam which supports both plain references
+     * and chained identifier searches (patient.identifier=system|value).
      * The identifier system is intentionally ignored; only the value part is used.
-     * Supports both plain values and system|value token format.
+     * When multiple patient values are provided (AND/OR), the first non-null value is used.
      */
-    private String extractPatientId(ReferenceParam patient, TokenParam patientIdentifier) {
-        if (patientIdentifier != null) {
-            // getValue() returns only the value portion of a system|value token, ignoring the system
-            String value = patientIdentifier.getValue();
-            if (value != null && !value.isEmpty()) {
-                return value;
-            }
+    private String extractPatientId(ReferenceAndListParam patient) {
+        if (patient == null) {
+            return null;
         }
 
-        if (patient != null) {
-            String reference = patient.getValue();
-            if (reference != null) {
-                if (reference.startsWith("Patient/")) {
-                    return reference.substring(8);
+        for (ReferenceOrListParam orList : patient.getValuesAsQueryTokens()) {
+            for (ReferenceParam ref : orList.getValuesAsQueryTokens()) {
+                // Chained search: patient.identifier=system|value
+                if ("identifier".equals(ref.getChain())) {
+                    String value = ref.getValue();
+                    if (value != null && !value.isEmpty()) {
+                        // Handle system|value format - extract only the value part
+                        int pipeIndex = value.indexOf('|');
+                        if (pipeIndex >= 0) {
+                            value = value.substring(pipeIndex + 1);
+                        }
+                        if (!value.isEmpty()) {
+                            return value;
+                        }
+                    }
+                } else {
+                    // Plain reference: patient=Patient/123 or patient=123
+                    String reference = ref.getValue();
+                    if (reference != null && !reference.isEmpty()) {
+                        if (reference.startsWith("Patient/")) {
+                            return reference.substring(8);
+                        }
+                        return reference;
+                    }
                 }
-                return reference;
             }
         }
 

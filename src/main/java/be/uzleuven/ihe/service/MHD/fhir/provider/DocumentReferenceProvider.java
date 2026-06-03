@@ -6,6 +6,8 @@ import be.uzleuven.ihe.service.MHD.fhir.DicomToFhirMapper;
 import ca.uhn.fhir.rest.annotation.*;
 import ca.uhn.fhir.rest.api.server.IBundleProvider;
 import ca.uhn.fhir.rest.param.DateRangeParam;
+import ca.uhn.fhir.rest.param.ReferenceAndListParam;
+import ca.uhn.fhir.rest.param.ReferenceOrListParam;
 import ca.uhn.fhir.rest.param.ReferenceParam;
 import ca.uhn.fhir.rest.param.TokenParam;
 import ca.uhn.fhir.rest.server.IResourceProvider;
@@ -84,8 +86,7 @@ public class DocumentReferenceProvider implements IResourceProvider {
      * POST (/fhir/DocumentReference/_search with application/x-www-form-urlencoded body).
      * Implements ITI-67 (Find Document References) search parameters with MADO IG R4 extensions.
      *
-     * @param patient Patient reference or identifier
-     * @param patientIdentifier Patient identifier token (system|value or plain value; system is ignored)
+     * @param patient Patient reference or identifier (supports chaining with patient.identifier)
      * @param status Document status
      * @param date Creation date range
      * @param studyInstanceUid MADO-specific: Study Instance UID (custom search parameter, token type)
@@ -98,8 +99,7 @@ public class DocumentReferenceProvider implements IResourceProvider {
      */
     @Search
     public IBundleProvider search(
-            @OptionalParam(name = DocumentReference.SP_PATIENT) ReferenceParam patient,
-            @OptionalParam(name = "patient.identifier") TokenParam patientIdentifier,
+            @OptionalParam(name = DocumentReference.SP_PATIENT, chainWhitelist = {"", "identifier"}) ReferenceAndListParam patient,
             @OptionalParam(name = DocumentReference.SP_STATUS) TokenParam status,
             @OptionalParam(name = DocumentReference.SP_DATE) DateRangeParam date,
             @OptionalParam(name = "study-instance-uid") TokenParam studyInstanceUid,
@@ -110,11 +110,11 @@ public class DocumentReferenceProvider implements IResourceProvider {
             @OptionalParam(name = "related:identifier") TokenParam relatedIdentifier) {
 
         LOG.info("Searching DocumentReferences - patient: {}, studyUid: {}, accession: {}, format: {}",
-            patientIdentifier, studyInstanceUid, accessionNumber, format);
+            patient, studyInstanceUid, accessionNumber, format);
 
         try {
             // Extract search parameters
-            String patientId = extractPatientId(patient, patientIdentifier);
+            String patientId = extractPatientId(patient);
             String studyUid = studyInstanceUid != null ? stripUrnOidPrefix(studyInstanceUid.getValue()) : null;
             String accession = accessionNumber != null ? accessionNumber.getValue() : null;
             String modalityValue = modality != null ? modality.getValue() : null;
@@ -177,28 +177,41 @@ public class DocumentReferenceProvider implements IResourceProvider {
     }
 
     /**
-     * Extract patient ID from various FHIR reference/identifier formats.
-     * The identifier system (e.g. https://www.ehealth.fgov.be/standards/fhir/core/NamingSystem/ssin)
-     * is intentionally ignored; only the value part is used for DICOM QIDO-RS queries.
-     * Supports both plain values and system|value token format.
+     * Extract patient ID from ReferenceAndListParam which supports both plain references
+     * and chained identifier searches (patient.identifier=system|value).
+     * The identifier system is intentionally ignored; only the value part is used for DICOM QIDO-RS queries.
+     * When multiple patient values are provided (AND/OR), the first non-null value is used.
      */
-    private String extractPatientId(ReferenceParam patient, TokenParam patientIdentifier) {
-        if (patientIdentifier != null) {
-            // getValue() returns only the value portion of a system|value token, ignoring the system
-            String value = patientIdentifier.getValue();
-            if (value != null && !value.isEmpty()) {
-                return value;
-            }
+    private String extractPatientId(ReferenceAndListParam patient) {
+        if (patient == null) {
+            return null;
         }
 
-        if (patient != null) {
-            String reference = patient.getValue();
-            // Could be "Patient/123" or just "123"
-            if (reference != null) {
-                if (reference.startsWith("Patient/")) {
-                    return reference.substring(8);
+        for (ReferenceOrListParam orList : patient.getValuesAsQueryTokens()) {
+            for (ReferenceParam ref : orList.getValuesAsQueryTokens()) {
+                // Chained search: patient.identifier=system|value
+                if ("identifier".equals(ref.getChain())) {
+                    String value = ref.getValue();
+                    if (value != null && !value.isEmpty()) {
+                        // Handle system|value format - extract only the value part
+                        int pipeIndex = value.indexOf('|');
+                        if (pipeIndex >= 0) {
+                            value = value.substring(pipeIndex + 1);
+                        }
+                        if (!value.isEmpty()) {
+                            return value;
+                        }
+                    }
+                } else {
+                    // Plain reference: patient=Patient/123 or patient=123
+                    String reference = ref.getValue();
+                    if (reference != null && !reference.isEmpty()) {
+                        if (reference.startsWith("Patient/")) {
+                            return reference.substring(8);
+                        }
+                        return reference;
+                    }
                 }
-                return reference;
             }
         }
 
