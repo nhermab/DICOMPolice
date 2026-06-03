@@ -460,7 +460,7 @@ const MadoViewer = (function() {
     }
 
     function closeAllModals() {
-        ['configModal', 'jsonModal', 'actionsModal', 'docJsonModal', 'columnsModal'].forEach(closeModal);
+        ['configModal', 'jsonModal', 'actionsModal', 'docJsonModal', 'columnsModal', 'labViewerModal'].forEach(closeModal);
     }
 
     // ==============================
@@ -645,6 +645,23 @@ const MadoViewer = (function() {
             .filter(a => a.url || a.data);
     }
 
+    /**
+     * Heuristically decide whether a non-MADO DocumentReference is a laboratory
+     * report (a FHIR document Bundle containing a DiagnosticReport). We look at the
+     * LOINC type/category codes and require JSON content.
+     */
+    function isLabDocument(doc, contentType) {
+        const isJson = (contentType || '').includes('json');
+        if (!isJson) return false;
+        const codings = []
+            .concat((doc.type?.coding) || [])
+            .concat(...((doc.category || []).map(c => c.coding || [])));
+        // LOINC 11502-2 = Laboratory report, 26436-6 = Laboratory Studies (set),
+        // 18719-5 = Chemistry studies, plus generic v2-0074 LAB category.
+        const labCodes = new Set(['11502-2', '26436-6', '18719-5', 'LAB']);
+        return codings.some(c => labCodes.has(c.code));
+    }
+
     function parseSingleEntry(doc) {
         const patientId = doc.subject?.identifier?.value ||
                          doc.subject?.reference?.split('/').pop() || 'Unknown';
@@ -734,6 +751,9 @@ const MadoViewer = (function() {
 
         const binaryUrl = primaryAttachment.url || '';
 
+        // Detect laboratory reports (FHIR lab Bundle) so they can be opened in the Lab Viewer.
+        const isLab = documentCategory === 'other' && isLabDocument(doc, contentType);
+
         let author = 'Unknown';
         if (doc.author && doc.author.length > 0) {
             const authorParts = doc.author.map(a => a.display).filter(Boolean);
@@ -755,6 +775,7 @@ const MadoViewer = (function() {
             institutionName, binaryUrl, manifestFormat, documentCategory,
             contentType, relatesToRef,
             attachments,
+            isLab,
             size: attachments.reduce((sum, a) => sum + (a.size || 0), 0) || doc.content?.[0]?.attachment?.size || 0,
             rawResource: doc
         };
@@ -843,7 +864,8 @@ const MadoViewer = (function() {
             rawOtherResource: entry.rawResource,
             documentCategory: 'other',
             contentType: entry.contentType || '',
-            attachments: entry.attachments || []
+            attachments: entry.attachments || [],
+            isLab: !!entry.isLab
         };
     }
 
@@ -967,6 +989,7 @@ const MadoViewer = (function() {
                 bodyHTML += `<td class="action-cell">
                     <div class="action-buttons">
                         <button class="action-btn download" onclick="MadoViewer.quickAction('download-other', ${globalIdx}, event)" title="Download Document">💾</button>
+                        ${(doc.isLab || isJsonInspectable(doc)) ? `<button class="action-btn view" onclick="MadoViewer.quickAction('view-lab', ${globalIdx}, event)" title="Open Lab Report Viewer">🧪</button>` : ''}
                         ${isJsonInspectable(doc) ? `<button class="action-btn view" onclick="MadoViewer.quickAction('inspect-other', ${globalIdx}, event)" title="Inspect JSON">📋</button>` : ''}
                         <button class="action-btn more" onclick="MadoViewer.quickAction('inspect-docref', ${globalIdx}, event)" title="Inspect DocumentReference">🔍</button>
                     </div>
@@ -1149,6 +1172,9 @@ const MadoViewer = (function() {
                     ? `Download ${attCount} attachments (${doc.manifestFormat})`
                     : `Download ${doc.manifestFormat} document`;
                 h += actionCard('download-other', '💾', attCount > 1 ? 'Download Documents' : 'Download Document', dlDesc);
+                if (doc.isLab || isJsonInspectable(doc)) {
+                    h += actionCard('view-lab', '🧪', 'Open Lab Report Viewer', 'Render the lab report (DiagnosticReport) in a readable view');
+                }
                 h += actionCard('inspect-docref', '🔍', 'Inspect DocumentReference', 'View raw FHIR DocumentReference JSON');
                 if (isJsonInspectable(doc)) {
                     h += actionCard('inspect-other', '📋', 'Inspect Content JSON', 'View the JSON content of the document');
@@ -1200,6 +1226,7 @@ const MadoViewer = (function() {
             case 'inspect-kos':   openDocJsonInspector(doc.rawKosResource); break;
             case 'download-other': downloadOtherDocument(doc); break;
             case 'inspect-other':  inspectOtherContent(doc); break;
+            case 'view-lab':       openLabViewer(doc); break;
             case 'inspect-docref': openDocJsonInspector(doc.rawOtherResource || doc.rawFhirResource || doc.rawKosResource); break;
             default: showToast(`Unknown action: "${action}"`, 'error');
         }
@@ -1366,49 +1393,344 @@ const MadoViewer = (function() {
         return ctMap[contentType] || '';
     }
 
-    async function inspectOtherContent(doc) {
+    async function loadOtherJson(doc) {
         const attachments = (doc.attachments && doc.attachments.length)
             ? doc.attachments
             : (doc.binaryUrl ? [{ url: doc.binaryUrl, contentType: doc.contentType }] : []);
 
         // Prefer a JSON attachment when several are present.
         const jsonAtt = attachments.find(a => (a.contentType || '').includes('json')) || attachments[0];
-        if (!jsonAtt) {
-            showToast('No content available for this document', 'error');
-            return;
-        }
+        if (!jsonAtt) throw new Error('No content available for this document');
 
         // Inline base64-encoded JSON.
         if (jsonAtt.data) {
-            try {
-                const json = JSON.parse(decodeBase64Text(jsonAtt.data));
-                renderJsonContent(json, 'docJsonContent');
-                openModal('docJsonModal');
-            } catch (err) {
-                showToast(`Failed to parse inline JSON content: ${err.message}`, 'error');
-            }
-            return;
+            return JSON.parse(decodeBase64Text(jsonAtt.data));
         }
 
-        if (!jsonAtt.url) {
-            showToast('No content URL available for this document', 'error');
-            return;
-        }
+        if (!jsonAtt.url) throw new Error('No content URL available for this document');
 
+        const fullUrl = makeFullUrl(jsonAtt.url);
+        const headers = { 'Accept': 'application/json, application/fhir+json' };
+        if (state.config.authEnabled && doc.patientId) headers['X-Patient'] = doc.patientId;
+        const resp = await fhirFetch(fullUrl, { headers });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        return await resp.json();
+    }
+
+    async function inspectOtherContent(doc) {
         try {
-            const fullUrl = makeFullUrl(jsonAtt.url);
-            const inspectHeaders = { 'Accept': 'application/json, application/fhir+json' };
-            if (state.config.authEnabled && doc.patientId) inspectHeaders['X-Patient'] = doc.patientId;
-            const resp = await fhirFetch(fullUrl, {
-                headers: inspectHeaders
-            });
-            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-            const json = await resp.json();
+            const json = await loadOtherJson(doc);
             renderJsonContent(json, 'docJsonContent');
             openModal('docJsonModal');
         } catch (err) {
             showToast(`Failed to load JSON content: ${err.message}`, 'error');
         }
+    }
+
+    // ==============================
+    // Lab Report Viewer (FHIR DiagnosticReport bundles)
+    // ==============================
+
+    async function openLabViewer(doc) {
+        let json;
+        try {
+            json = await loadOtherJson(doc);
+        } catch (err) {
+            showToast(`Failed to load lab report: ${err.message}`, 'error');
+            return;
+        }
+
+        if (!isLabBundle(json)) {
+            showToast('No lab report found in content; showing JSON instead', 'info');
+            renderJsonContent(json, 'docJsonContent');
+            openModal('docJsonModal');
+            return;
+        }
+
+        state.currentLabBundle = json;
+        try {
+            renderLabReport(json);
+            openModal('labViewerModal');
+        } catch (err) {
+            console.error('Lab render failed:', err);
+            showToast(`Failed to render lab report: ${err.message}`, 'error');
+            renderJsonContent(json, 'docJsonContent');
+            openModal('docJsonModal');
+        }
+    }
+
+    function isLabBundle(json) {
+        if (!json || json.resourceType !== 'Bundle' || !Array.isArray(json.entry)) return false;
+        return json.entry.some(e => e.resource && e.resource.resourceType === 'DiagnosticReport');
+    }
+
+    function buildResourceIndex(bundle) {
+        const byFullUrl = new Map();
+        const byTypeId = new Map();
+        (bundle.entry || []).forEach(e => {
+            const r = e.resource;
+            if (!r) return;
+            if (e.fullUrl) byFullUrl.set(e.fullUrl, r);
+            if (r.resourceType && r.id) byTypeId.set(r.resourceType + '/' + r.id, r);
+        });
+        return { byFullUrl, byTypeId };
+    }
+
+    function resolveRef(ref, index) {
+        if (!ref) return null;
+        const s = typeof ref === 'string' ? ref : ref.reference;
+        if (!s) return null;
+        if (index.byFullUrl.has(s)) return index.byFullUrl.get(s);
+        if (index.byTypeId.has(s)) return index.byTypeId.get(s);
+        const id = s.split('/').pop().replace(/^#/, '');
+        for (const [k, v] of index.byTypeId) { if (k.endsWith('/' + id)) return v; }
+        for (const [k, v] of index.byFullUrl) { if (k.endsWith(id)) return v; }
+        return null;
+    }
+
+    function formatHumanName(res) {
+        if (!res) return '';
+        if (res.resourceType === 'Organization') return res.name || '';
+        const n = Array.isArray(res.name) ? res.name[0] : res.name;
+        if (!n) return res.name || '';
+        const prefix = (n.prefix || []).join(' ');
+        const given = (n.given || []).join(' ');
+        return [prefix, given, n.family].filter(Boolean).join(' ').trim();
+    }
+
+    function codeText(cc) {
+        if (!cc) return '';
+        return cc.text || cc.coding?.[0]?.display || cc.coding?.[0]?.code || '';
+    }
+
+    function formatLabDateTime(s) {
+        if (!s) return '';
+        const d = new Date(s);
+        if (isNaN(d.getTime())) return s;
+        return d.toLocaleString();
+    }
+
+    function interpretationCode(obs) {
+        return obs.interpretation?.[0]?.coding?.[0]?.code || '';
+    }
+
+    function interpretationClass(code) {
+        const c = (code || '').toUpperCase();
+        if (c === 'HH') return 'lab-flag-critical-high';
+        if (c === 'LL') return 'lab-flag-critical-low';
+        if (c === 'H') return 'lab-flag-high';
+        if (c === 'L') return 'lab-flag-low';
+        if (c === 'A' || c === 'AA') return 'lab-flag-abnormal';
+        return '';
+    }
+
+    function formatObsValue(obs) {
+        const q = obs.valueQuantity;
+        if (q) {
+            const cmp = q.comparator || '';
+            const val = (q.value !== undefined && q.value !== null) ? q.value : '';
+            return `${cmp}${val}`.trim();
+        }
+        if (obs.valueString !== undefined && obs.valueString !== null) return obs.valueString;
+        if (obs.valueCodeableConcept) return codeText(obs.valueCodeableConcept);
+        if (obs.valueBoolean !== undefined) return String(obs.valueBoolean);
+        return '';
+    }
+
+    function formatObsUnit(obs) {
+        return obs.valueQuantity?.unit || '';
+    }
+
+    function formatRefRange(obs) {
+        const rr = obs.referenceRange?.[0];
+        if (!rr) return '';
+        const low = rr.low?.value;
+        const high = rr.high?.value;
+        const unit = rr.high?.unit || rr.low?.unit || '';
+        if (low !== undefined && high !== undefined) return `${low} - ${high}`;
+        if (high !== undefined) return `< ${high}`;
+        if (low !== undefined) return `> ${low}`;
+        return rr.text || '';
+    }
+
+    function obsNotes(obs) {
+        return (obs.note || []).map(n => n.text).filter(Boolean);
+    }
+
+    function obsName(obs) {
+        return codeText(obs.code) || 'Observation';
+    }
+
+    function renderObservationRows(obs, index, depth, rows, seen) {
+        if (!obs || seen.has(obs)) return;
+        seen.add(obs);
+        const members = (obs.hasMember || []).map(m => resolveRef(m, index)).filter(Boolean);
+
+        if (members.length > 0) {
+            rows.push(`<tr class="lab-group lab-depth-${Math.min(depth, 3)}">
+                <td colspan="4">${escapeHtml(obsName(obs))}</td>
+            </tr>`);
+            members.forEach(m => renderObservationRows(m, index, depth + 1, rows, seen));
+            return;
+        }
+
+        // Leaf observation
+        const value = formatObsValue(obs);
+        const unit = formatObsUnit(obs);
+        const ref = formatRefRange(obs);
+        const flagCode = interpretationCode(obs);
+        const flagClass = interpretationClass(flagCode);
+        const notes = obsNotes(obs);
+
+        rows.push(`<tr class="lab-leaf lab-depth-${Math.min(depth, 3)}">
+            <td class="lab-analyte">${escapeHtml(obsName(obs))}</td>
+            <td class="lab-value ${flagClass}">${escapeHtml(value)}${flagCode ? ` <span class="lab-flag">${escapeHtml(flagCode)}</span>` : ''}</td>
+            <td class="lab-unit">${escapeHtml(unit)}</td>
+            <td class="lab-ref">${escapeHtml(ref)}</td>
+        </tr>`);
+
+        if (notes.length > 0) {
+            rows.push(`<tr class="lab-note-row lab-depth-${Math.min(depth, 3)}">
+                <td colspan="4"><div class="lab-note">${notes.map(n => escapeHtml(n)).join('<br>')}</div></td>
+            </tr>`);
+        }
+    }
+
+    function renderLabReport(bundle) {
+        const container = document.getElementById('labViewerContent');
+        if (!container) return;
+        const index = buildResourceIndex(bundle);
+
+        const report = (bundle.entry || []).map(e => e.resource)
+            .find(r => r && r.resourceType === 'DiagnosticReport');
+        const composition = (bundle.entry || []).map(e => e.resource)
+            .find(r => r && r.resourceType === 'Composition');
+
+        const patient = resolveRef(report.subject, index);
+        const performer = (report.performer || []).map(p => resolveRef(p, index)).filter(Boolean);
+        const interpreters = (report.resultsInterpreter || []).map(p => resolveRef(p, index)).filter(Boolean);
+        const specimens = (report.specimen || []).map(s => resolveRef(s, index)).filter(Boolean);
+
+        const title = composition?.title || codeText(report.code) || 'Laboratory Report';
+        const reportId = report.identifier?.[0]?.value || report.id || '';
+        const effective = report.effectiveDateTime || composition?.date || '';
+        const issued = report.issued || '';
+
+        // Report-level notes (be-ext-note extensions and report.note).
+        const extNotes = (report.extension || [])
+            .filter(x => (x.url || '').includes('ext-note') && x.valueAnnotation?.text)
+            .map(x => x.valueAnnotation.text);
+        const reportNotes = (report.note || []).map(n => n.text).filter(Boolean);
+        const allReportNotes = extNotes.concat(reportNotes);
+
+        // Patient details
+        const patientName = formatHumanName(patient) || report.subject?.display || 'Unknown';
+        const ssin = patient?.identifier?.find(i => (i.system || '').includes('ssin'))?.value
+            || patient?.identifier?.[0]?.value || '';
+        const gender = patient?.gender || '';
+        const birthDate = patient?.birthDate || '';
+
+        // Presented PDF forms
+        const forms = (report.presentedForm || []).filter(f => f.data);
+        state.currentLabPresentedForms = forms;
+
+        let pdfHtml = '';
+        if (forms.length > 0) {
+            pdfHtml = `<div class="lab-pdf-bar">
+                ${forms.map((f, i) => `
+                    <span class="lab-pdf-label">📄 ${escapeHtml(f.title || (f.contentType || 'application/pdf'))}</span>
+                    <button class="btn-secondary lab-pdf-btn" onclick="MadoViewer.openLabPdf(${i})">👁️ View PDF</button>
+                    <button class="btn-secondary lab-pdf-btn" onclick="MadoViewer.downloadLabPdf(${i})">💾 Download PDF</button>
+                `).join('')}
+            </div>`;
+        }
+
+        const metaItem = (label, value) => value
+            ? `<div class="lab-meta-item"><span class="lab-meta-label">${label}</span><span class="lab-meta-value">${escapeHtml(value)}</span></div>`
+            : '';
+
+        const headerHtml = `
+            <div class="lab-header">
+                <div class="lab-title-row">
+                    <h2 class="lab-title">🧪 ${escapeHtml(title)}</h2>
+                    <span class="lab-status lab-status-${escapeHtml((report.status || '').toLowerCase())}">${escapeHtml(report.status || '')}</span>
+                </div>
+                <div class="lab-meta-grid">
+                    ${metaItem('Patient', patientName)}
+                    ${metaItem('National No.', ssin)}
+                    ${metaItem('Gender', gender)}
+                    ${metaItem('Birth date', birthDate)}
+                    ${metaItem('Report ID', reportId)}
+                    ${metaItem('Effective', formatLabDateTime(effective))}
+                    ${metaItem('Issued', formatLabDateTime(issued))}
+                    ${metaItem('Performer', performer.map(formatHumanName).filter(Boolean).join(', '))}
+                    ${metaItem('Interpreter', interpreters.map(formatHumanName).filter(Boolean).join(', '))}
+                    ${metaItem('Specimen(s)', specimens.map(s => codeText(s.type)).filter(Boolean).join(', '))}
+                </div>
+            </div>`;
+
+        // Build observation table from the report results (panel tree).
+        const rows = [];
+        const seen = new Set();
+        const results = (report.result || []).map(r => resolveRef(r, index)).filter(Boolean);
+        results.forEach(o => renderObservationRows(o, index, 0, rows, seen));
+
+        const resultsHtml = rows.length > 0 ? `
+            <div class="lab-section">
+                <table class="lab-table">
+                    <thead>
+                        <tr>
+                            <th>Analysis</th>
+                            <th>Result</th>
+                            <th>Unit</th>
+                            <th>Reference</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rows.join('')}</tbody>
+                </table>
+            </div>` : '<p class="lab-empty">No observations found in this report.</p>';
+
+        const notesHtml = allReportNotes.length > 0 ? `
+            <div class="lab-section">
+                <h3 class="lab-section-title">Notes</h3>
+                <div class="lab-report-notes">${allReportNotes.map(n => `<div class="lab-note">${escapeHtml(n)}</div>`).join('')}</div>
+            </div>` : '';
+
+        container.innerHTML = headerHtml + pdfHtml + resultsHtml + notesHtml;
+    }
+
+    function openLabPdf(idx) {
+        const forms = state.currentLabPresentedForms || [];
+        const f = forms[idx];
+        if (!f || !f.data) { showToast('No PDF data available', 'error'); return; }
+        try {
+            const blob = base64ToBlob(f.data, f.contentType || 'application/pdf');
+            const url = URL.createObjectURL(blob);
+            window.open(url, '_blank');
+            setTimeout(() => URL.revokeObjectURL(url), 60000);
+        } catch (e) {
+            showToast('Failed to open PDF', 'error');
+        }
+    }
+
+    function downloadLabPdf(idx) {
+        const forms = state.currentLabPresentedForms || [];
+        const f = forms[idx];
+        if (!f || !f.data) { showToast('No PDF data available', 'error'); return; }
+        try {
+            const blob = base64ToBlob(f.data, f.contentType || 'application/pdf');
+            triggerBlobDownload(blob, (f.title || 'lab-report').replace(/\s+/g, '_') + '.pdf');
+            showToast('Downloaded lab report PDF', 'success');
+        } catch (e) {
+            showToast('Failed to download PDF', 'error');
+        }
+    }
+
+    function viewLabBundleJson() {
+        if (!state.currentLabBundle) return;
+        renderJsonContent(state.currentLabBundle, 'docJsonContent');
+        closeModal('labViewerModal');
+        openModal('docJsonModal');
     }
 
     // ==============================
@@ -1609,6 +1931,8 @@ const MadoViewer = (function() {
         saveConfig, applyPreset,
         quickAction, openActionsModal, executeAction,
         setJsonView, copyJson, downloadJson, copyDocJson, downloadDocJson,
+        // Lab report viewer
+        openLabViewer, openLabPdf, downloadLabPdf, viewLabBundleJson,
         // Column configuration
         saveColumnsConfig, resetColumns
     };

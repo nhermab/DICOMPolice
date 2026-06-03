@@ -228,8 +228,29 @@
         </div>
     </main>
 
-    <!-- Configuration Modal -->
-    <div id="configModal" class="modal" style="display: none;">
+    <!-- Lab Report Viewer Modal -->
+    <div id="labViewerModal" class="modal" style="display: none;">
+        <div class="modal-backdrop" onclick="MadoViewer.closeModal('labViewerModal')"></div>
+        <div class="modal-content modal-lg">
+            <div class="modal-header">
+                <h3>🧪 Lab Report Viewer</h3>
+                <button class="modal-close" onclick="MadoViewer.closeModal('labViewerModal')">&times;</button>
+            </div>
+            <div class="modal-toolbar">
+                <div class="toolbar-group">
+                    <button class="toolbar-btn" onclick="MadoViewer.viewLabBundleJson()">
+                        📋 View JSON
+                    </button>
+                </div>
+            </div>
+            <div class="modal-body">
+                <div id="labViewerContent" class="lab-viewer-content"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Column Configuration Modal -->
+    <div id="columnsModal" class="modal" style="display: none;">
         <div class="modal-backdrop" onclick="MadoViewer.closeModal('configModal')"></div>
         <div class="modal-content modal-sm">
             <div class="modal-header">
@@ -398,7 +419,6 @@
     </div>
 
     <!-- Column Configuration Modal -->
-    <div id="columnsModal" class="modal" style="display: none;">
         <div class="modal-backdrop" onclick="MadoViewer.closeModal('columnsModal')"></div>
         <div class="modal-content modal-sm">
             <div class="modal-header">
