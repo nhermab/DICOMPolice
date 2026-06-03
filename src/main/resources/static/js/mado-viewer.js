@@ -9,7 +9,18 @@ const MadoViewer = (function() {
     const COLUMNS_KEY = 'madoViewerColumns';
     const DEFAULT_CONFIG = {
         fhirEndpoint: '',  // Empty means use local
-        ohifViewerUrl: 'https://ihebelgium.ehealthhub.be/ohif/mado'
+        ohifViewerUrl: 'https://ihebelgium.ehealthhub.be/ohif/mado',
+        // OAuth2 client_credentials authentication (browser-only).
+        // When authEnabled is false, requests are sent without an Authorization header
+        // (keeps the existing local/no-auth backend working).
+        authEnabled: false,
+        tokenUrl: '',
+        clientId: '',
+        clientSecret: '',
+        scope: '',
+        audience: '',
+        resource: '',
+        providerId: ''  // sent as the fixed X-Provider header on authenticated requests
     };
 
     // ==============================
@@ -47,7 +58,8 @@ const MadoViewer = (function() {
         selectedDocument: null,
         jsonViewMode: 'formatted',
         config: { ...DEFAULT_CONFIG },
-        visibleColumns: [...DEFAULT_COLUMNS]  // ordered list of column keys
+        visibleColumns: [...DEFAULT_COLUMNS],  // ordered list of column keys
+        tokenCache: null  // { token, expiresAt } for OAuth2 access token caching
     };
 
     // DOM Elements
@@ -80,6 +92,15 @@ const MadoViewer = (function() {
             dateTo: document.getElementById('dateTo'),
             fhirEndpoint: document.getElementById('fhirEndpoint'),
             ohifViewerUrl: document.getElementById('ohifViewerUrl'),
+            authEnabled: document.getElementById('authEnabled'),
+            tokenUrl: document.getElementById('tokenUrl'),
+            clientId: document.getElementById('clientId'),
+            clientSecret: document.getElementById('clientSecret'),
+            authScope: document.getElementById('authScope'),
+            authAudience: document.getElementById('authAudience'),
+            authResource: document.getElementById('authResource'),
+            providerId: document.getElementById('providerId'),
+            authFields: document.getElementById('authFields'),
             jsonContent: document.getElementById('jsonContent'),
             docJsonContent: document.getElementById('docJsonContent')
         };
@@ -97,6 +118,7 @@ const MadoViewer = (function() {
         if (elements.inspectJsonBtn) elements.inspectJsonBtn.addEventListener('click', openJsonInspector);
         if (elements.columnsBtn) elements.columnsBtn.addEventListener('click', openColumnsModal);
         if (elements.quickSearch) elements.quickSearch.addEventListener('input', handleQuickFilter);
+        if (elements.authEnabled) elements.authEnabled.addEventListener('change', toggleAuthFields);
 
         document.querySelectorAll('.search-field input, .search-field select').forEach(field => {
             field.addEventListener('keypress', (e) => {
@@ -318,8 +340,21 @@ const MadoViewer = (function() {
     function saveConfig() {
         const fhirEndpoint = elements.fhirEndpoint?.value.trim() || '';
         const ohifViewerUrl = elements.ohifViewerUrl?.value.trim() || DEFAULT_CONFIG.ohifViewerUrl;
+        const authEnabled = !!elements.authEnabled?.checked;
+        const tokenUrl = elements.tokenUrl?.value.trim() || '';
+        const clientId = elements.clientId?.value.trim() || '';
+        const clientSecret = elements.clientSecret?.value.trim() || '';
+        const scope = elements.authScope?.value.trim() || '';
+        const audience = elements.authAudience?.value.trim() || '';
+        const resource = elements.authResource?.value.trim() || '';
+        const providerId = elements.providerId?.value.trim() || '';
 
-        state.config = { fhirEndpoint, ohifViewerUrl };
+        state.config = {
+            fhirEndpoint, ohifViewerUrl,
+            authEnabled, tokenUrl, clientId, clientSecret, scope, audience, resource, providerId
+        };
+        // Invalidate any cached token when the config changes.
+        state.tokenCache = null;
 
         try {
             localStorage.setItem(CONFIG_KEY, JSON.stringify(state.config));
@@ -337,31 +372,65 @@ const MadoViewer = (function() {
             case 'local':
                 elements.fhirEndpoint.value = '';
                 elements.ohifViewerUrl.value = 'https://ihebelgium.ehealthhub.be/ohif/mado';
+                setAuthEnabled(false);
                 break;
             case 'ihe':
                 elements.fhirEndpoint.value = 'https://ihebelgium.ehealthhub.be/TheDICOMPolice/fhir';
                 elements.ohifViewerUrl.value = 'https://ihebelgium.ehealthhub.be/ohif/mado';
+                setAuthEnabled(false);
+                break;
+            case 'abrumet':
+                elements.fhirEndpoint.value = 'https://fhir-qa.abrumet.plus/fhirstation-rest/api/fhir/';
+                elements.tokenUrl.value = 'https://fhir-qa.abrumet.plus/auth/realms/fhir-station/protocol/openid-connect/token';
+                elements.clientId.value = 'vzn-viewer-abrumet-acc';
+                elements.clientSecret.value = '5MNRpkv1xWDhGagaDivuvt53ZhFGAWGt';
+                elements.authScope.value = 'fhir-station-application';
+                elements.authAudience.value = '';
+                elements.authResource.value = '';
+                if (elements.providerId) elements.providerId.value = '87082839962';
+                setAuthEnabled(true);
                 break;
         }
         showToast(`Applied ${preset} preset`, 'info');
     }
 
+    function setAuthEnabled(enabled) {
+        if (elements.authEnabled) elements.authEnabled.checked = enabled;
+        toggleAuthFields();
+    }
+
+    function toggleAuthFields() {
+        if (elements.authFields) {
+            elements.authFields.style.display = elements.authEnabled?.checked ? 'block' : 'none';
+        }
+    }
+
     function openConfigModal() {
         elements.fhirEndpoint.value = state.config.fhirEndpoint || '';
         elements.ohifViewerUrl.value = state.config.ohifViewerUrl || DEFAULT_CONFIG.ohifViewerUrl;
+        if (elements.authEnabled) elements.authEnabled.checked = !!state.config.authEnabled;
+        if (elements.tokenUrl) elements.tokenUrl.value = state.config.tokenUrl || '';
+        if (elements.clientId) elements.clientId.value = state.config.clientId || '';
+        if (elements.clientSecret) elements.clientSecret.value = state.config.clientSecret || '';
+        if (elements.authScope) elements.authScope.value = state.config.scope || '';
+        if (elements.authAudience) elements.authAudience.value = state.config.audience || '';
+        if (elements.authResource) elements.authResource.value = state.config.resource || '';
+        if (elements.providerId) elements.providerId.value = state.config.providerId || '';
+        toggleAuthFields();
         openModal('configModal');
     }
 
     function updateEndpointBadge() {
         if (elements.endpointBadge) {
             const endpoint = state.config.fhirEndpoint;
+            const lock = state.config.authEnabled ? '🔐 ' : '';
             if (endpoint) {
                 try {
                     const url = new URL(endpoint);
-                    elements.endpointBadge.textContent = url.hostname;
-                    elements.endpointBadge.title = endpoint;
+                    elements.endpointBadge.textContent = lock + url.hostname;
+                    elements.endpointBadge.title = (state.config.authEnabled ? 'Authenticated • ' : '') + endpoint;
                 } catch {
-                    elements.endpointBadge.textContent = endpoint;
+                    elements.endpointBadge.textContent = lock + endpoint;
                 }
             } else {
                 elements.endpointBadge.textContent = 'Local';
@@ -395,6 +464,78 @@ const MadoViewer = (function() {
     }
 
     // ==============================
+    // Authentication (OAuth2 client_credentials)
+    // ==============================
+
+    // Server-side reverse proxy endpoints (avoid browser CORS against the
+    // secured FHIR endpoint and its Keycloak token endpoint).
+    const PROXY_TOKEN_URL = './api/mhd-proxy/token';
+    const PROXY_FHIR_URL = './api/mhd-proxy/fhir';
+
+    /**
+     * Obtain (and cache) an OAuth2 access token using the client_credentials grant.
+     * The request is routed through the local server-side proxy so the browser is
+     * never blocked by CORS. Returns null when authentication is disabled. The token
+     * is cached until shortly before it expires to avoid a request on every FHIR call.
+     */
+    async function getAccessToken() {
+        const cfg = state.config;
+        if (!cfg.authEnabled || !cfg.tokenUrl) return null;
+
+        const now = Date.now();
+        if (state.tokenCache && state.tokenCache.token && state.tokenCache.expiresAt - 60000 > now) {
+            return state.tokenCache.token;
+        }
+
+        const resp = await fetch(PROXY_TOKEN_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                tokenUrl: cfg.tokenUrl,
+                clientId: cfg.clientId || '',
+                clientSecret: cfg.clientSecret || '',
+                scope: cfg.scope || '',
+                audience: cfg.audience || '',
+                resource: cfg.resource || ''
+            })
+        });
+
+        if (!resp.ok) {
+            const text = await resp.text().catch(() => '');
+            throw new Error(`Token request failed (HTTP ${resp.status})${text ? ': ' + text : ''}`);
+        }
+
+        const data = await resp.json();
+        if (!data.access_token) {
+            throw new Error('Token response did not contain an access_token');
+        }
+        const expiresInMs = (data.expires_in || 300) * 1000;
+        state.tokenCache = { token: data.access_token, expiresAt: now + expiresInMs };
+        return state.tokenCache.token;
+    }
+
+    /**
+     * fetch() wrapper for FHIR endpoint calls. When OAuth2 auth is enabled, the request
+     * is routed through the local server-side proxy (which forwards it to the secured
+     * FHIR endpoint), and a Bearer token plus the fixed X-Provider header are attached.
+     * When auth is disabled it behaves like a plain fetch, preserving the existing
+     * local / no-auth backend behaviour.
+     */
+    async function fhirFetch(url, options = {}) {
+        const headers = Object.assign({}, options.headers || {});
+        if (state.config.authEnabled) {
+            const token = await getAccessToken();
+            if (token) headers['Authorization'] = 'Bearer ' + token;
+            // Fixed provider header required by the secured FHIR endpoint.
+            if (state.config.providerId) headers['X-Provider'] = state.config.providerId;
+            // Route the call through the server-side proxy to avoid CORS.
+            const proxiedUrl = `${PROXY_FHIR_URL}?target=${encodeURIComponent(url)}`;
+            return fetch(proxiedUrl, Object.assign({}, options, { headers }));
+        }
+        return fetch(url, Object.assign({}, options, { headers }));
+    }
+
+    // ==============================
     // Search
     // ==============================
 
@@ -407,6 +548,17 @@ const MadoViewer = (function() {
 
             const patientId = elements.patientId.value.trim();
             if (patientId) params.append('patient.identifier', patientId);
+
+            // The secured FHIR endpoint always requires a patient identifier (sent as X-Patient).
+            if (state.config.authEnabled && !patientId) {
+                hideError();
+                showLoading();
+                renderEmptyState('Patient ID required');
+                elements.statsGrid.style.display = 'none';
+                elements.pagination.style.display = 'none';
+                showToast('A Patient ID is required when querying the authenticated FHIR endpoint', 'error');
+                return;
+            }
 
             const studyUid = elements.studyUid.value.trim();
             if (studyUid) params.append('study-instance-uid', studyUid);
@@ -424,12 +576,14 @@ const MadoViewer = (function() {
 
             console.log('Search params:', params.toString());
 
-            const baseUrl = state.config.fhirEndpoint || './fhir';
+            const baseUrl = (state.config.fhirEndpoint || './fhir').replace(/\/+$/, '');
             const url = `${baseUrl}/DocumentReference${params.toString() ? '?' + params.toString() : ''}`;
 
-            const response = await fetch(url, {
-                headers: { 'Accept': 'application/fhir+json' }
-            });
+            const headers = { 'Accept': 'application/fhir+json' };
+            // The secured FHIR endpoint requires the patient identifier on every request.
+            if (state.config.authEnabled && patientId) headers['X-Patient'] = patientId;
+
+            const response = await fhirFetch(url, { headers });
 
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -1060,7 +1214,9 @@ const MadoViewer = (function() {
         const filename = `document-${doc.studyUid || doc.description || 'unknown'}${ext}`;
 
         // Try fetching and downloading as blob
-        fetch(fullUrl)
+        const fetchOpts = {};
+        if (state.config.authEnabled && doc.patientId) fetchOpts.headers = { 'X-Patient': doc.patientId };
+        fhirFetch(fullUrl, fetchOpts)
             .then(resp => {
                 if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
                 return resp.blob();
@@ -1104,8 +1260,10 @@ const MadoViewer = (function() {
         }
         try {
             const fullUrl = makeFullUrl(url);
-            const resp = await fetch(fullUrl, {
-                headers: { 'Accept': 'application/json, application/fhir+json' }
+            const inspectHeaders = { 'Accept': 'application/json, application/fhir+json' };
+            if (state.config.authEnabled && doc.patientId) inspectHeaders['X-Patient'] = doc.patientId;
+            const resp = await fhirFetch(fullUrl, {
+                headers: inspectHeaders
             });
             if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
             const json = await resp.json();

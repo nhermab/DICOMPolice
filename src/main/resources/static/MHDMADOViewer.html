@@ -247,6 +247,46 @@
                     <input type="text" id="ohifViewerUrl" placeholder="e.g., https://viewer.example.com/ohif/mado" class="form-input">
                     <small class="form-hint">Base URL for the OHIF MADO viewer</small>
                 </div>
+                <div class="form-group">
+                    <label class="auth-toggle">
+                        <input type="checkbox" id="authEnabled">
+                        <span>🔐 Require authentication (OAuth2 client credentials)</span>
+                    </label>
+                    <small class="form-hint">Enable to authenticate against a secured FHIR endpoint. Requests are routed through the server-side proxy (<code>/api/mhd-proxy</code>) to avoid browser CORS. Leave off for the local / no-auth backend.</small>
+                </div>
+                <div id="authFields" class="auth-fields" style="display: none;">
+                    <div class="form-group">
+                        <label for="tokenUrl">Token URL</label>
+                        <input type="text" id="tokenUrl" placeholder="e.g., https://.../protocol/openid-connect/token" class="form-input">
+                        <small class="form-hint">OAuth2 token endpoint (grant_type=client_credentials)</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="clientId">Client ID</label>
+                        <input type="text" id="clientId" placeholder="e.g., vzn-viewer-abrumet-acc" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label for="clientSecret">Client Secret</label>
+                        <input type="password" id="clientSecret" placeholder="Client secret" class="form-input" autocomplete="off">
+                        <small class="form-hint">Stored in this browser's local storage only.</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="authScope">Scope</label>
+                        <input type="text" id="authScope" placeholder="e.g., fhir-station-application" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label for="authAudience">Audience <small>(optional)</small></label>
+                        <input type="text" id="authAudience" placeholder="Optional audience" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label for="authResource">Resource <small>(optional)</small></label>
+                        <input type="text" id="authResource" placeholder="Optional resource" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label for="providerId">Provider ID <small>(X-Provider header)</small></label>
+                        <input type="text" id="providerId" placeholder="e.g., 87082839962" class="form-input">
+                        <small class="form-hint">Fixed value sent as the <code>X-Provider</code> header. The patient ID from the search field is sent as <code>X-Patient</code>.</small>
+                    </div>
+                </div>
                 <div class="endpoint-presets">
                     <label>Quick Presets:</label>
                     <div class="preset-buttons">
@@ -256,11 +296,14 @@
                         <button type="button" class="preset-btn" onclick="MadoViewer.applyPreset('ihe')">
                             🌐 IHE Belgium
                         </button>
+                        <button type="button" class="preset-btn" onclick="MadoViewer.applyPreset('abrumet')">
+                            🔐 Abrumet+ (ACC)
+                        </button>
                     </div>
                 </div>
                 <div class="config-info-box">
                     <strong>ℹ️ About Configuration</strong>
-                    <p>Configure the FHIR MHD endpoint to connect to different document registries. The OHIF Viewer URL determines where MADO manifests will be opened for visualization.</p>
+                    <p>Configure the FHIR MHD endpoint to connect to different document registries. The OHIF Viewer URL determines where MADO manifests will be opened for visualization. Enable authentication to connect to a secured FHIR endpoint that requires an OAuth2 token (client credentials).</p>
                 </div>
             </div>
             <div class="modal-footer">

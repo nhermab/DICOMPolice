@@ -831,6 +831,34 @@
     margin-top: 4px;
 }
 
+.auth-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    color: var(--text-primary);
+}
+
+.auth-toggle input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+.auth-fields {
+    margin-top: 12px;
+    padding: 12px 14px;
+    background: var(--background-secondary, #f7f9fc);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+}
+
+.auth-fields .form-group:last-child {
+    margin-bottom: 0;
+}
+
 .endpoint-presets {
     margin-top: 20px;
     padding-top: 16px;
