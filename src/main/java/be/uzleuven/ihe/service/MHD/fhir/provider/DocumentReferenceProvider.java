@@ -9,6 +9,7 @@ import ca.uhn.fhir.rest.param.DateRangeParam;
 import ca.uhn.fhir.rest.param.ReferenceAndListParam;
 import ca.uhn.fhir.rest.param.ReferenceOrListParam;
 import ca.uhn.fhir.rest.param.ReferenceParam;
+import ca.uhn.fhir.rest.param.TokenAndListParam;
 import ca.uhn.fhir.rest.param.TokenParam;
 import ca.uhn.fhir.rest.server.IResourceProvider;
 import ca.uhn.fhir.rest.server.SimpleBundleProvider;
@@ -86,6 +87,7 @@ public class DocumentReferenceProvider implements IResourceProvider {
      * POST (/fhir/DocumentReference/_search with application/x-www-form-urlencoded body).
      * Implements ITI-67 (Find Document References) search parameters with MADO IG R4 extensions.
      *
+     * @param id Standard _id search parameter – enables POST _search by resource ID
      * @param patient Patient reference or identifier (supports chaining with patient.identifier)
      * @param status Document status
      * @param date Creation date range
@@ -99,6 +101,7 @@ public class DocumentReferenceProvider implements IResourceProvider {
      */
     @Search
     public IBundleProvider search(
+            @OptionalParam(name = "_id") TokenAndListParam id,
             @OptionalParam(name = DocumentReference.SP_PATIENT, chainWhitelist = {"", "identifier"}) ReferenceAndListParam patient,
             @OptionalParam(name = DocumentReference.SP_STATUS) TokenParam status,
             @OptionalParam(name = DocumentReference.SP_DATE) DateRangeParam date,
@@ -109,10 +112,34 @@ public class DocumentReferenceProvider implements IResourceProvider {
             @OptionalParam(name = "format") TokenParam format,
             @OptionalParam(name = "related:identifier") TokenParam relatedIdentifier) {
 
-        LOG.info("Searching DocumentReferences - patient: {}, studyUid: {}, accession: {}, format: {}",
-            patient, studyInstanceUid, accessionNumber, format);
+        LOG.info("Searching DocumentReferences - id: {}, patient: {}, studyUid: {}, accession: {}, format: {}",
+            id, patient, studyInstanceUid, accessionNumber, format);
 
         try {
+            // If _id is provided, resolve each requested ID and return matching DocumentReferences
+            if (id != null) {
+                List<IBaseResource> idResults = new ArrayList<>();
+                for (ca.uhn.fhir.rest.param.TokenOrListParam orList : id.getValuesAsQueryTokens()) {
+                    for (TokenParam token : orList.getValuesAsQueryTokens()) {
+                        String rawId = token.getValue();
+                        if (rawId == null || rawId.isEmpty()) continue;
+                        String studyInstanceUidForId = DicomToFhirMapper.decodeStudyUidFromFhirId(rawId);
+                        try {
+                            Attributes study = dicomService.getStudyMetadata(studyInstanceUidForId);
+                            if (study != null) {
+                                byte[] manifestBytes = dicomService.createMADOManifestAsBytes(
+                                    studyInstanceUidForId, study.getString(Tag.PatientID));
+                                idResults.add(DicomToFhirMapper.mapStudyToDocumentReference(study, config, manifestBytes));
+                            }
+                        } catch (Exception e) {
+                            LOG.warn("Error resolving DocumentReference by _id {}: {}", rawId, e.getMessage());
+                        }
+                    }
+                }
+                LOG.info("POST _search by _id returned {} DocumentReferences", idResults.size());
+                return new SimpleBundleProvider(idResults);
+            }
+
             // Extract search parameters
             String patientId = extractPatientId(patient);
             String studyUid = studyInstanceUid != null ? stripUrnOidPrefix(studyInstanceUid.getValue()) : null;
