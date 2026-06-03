@@ -625,6 +625,26 @@ const MadoViewer = (function() {
     // Document Parsing
     // ==============================
 
+    /**
+     * Extract every usable attachment from a DocumentReference.
+     * A single DocumentReference may expose multiple `content` entries, each with
+     * either a `url` (external/relative reference) or inline base64 `data`.
+     */
+    function parseAttachments(doc) {
+        const contents = Array.isArray(doc.content) ? doc.content : [];
+        return contents
+            .map(c => c?.attachment)
+            .filter(Boolean)
+            .map(att => ({
+                contentType: att.contentType || '',
+                url: att.url || '',
+                data: att.data || '',   // base64-encoded inline payload
+                size: att.size || 0,
+                title: att.title || ''
+            }))
+            .filter(a => a.url || a.data);
+    }
+
     function parseSingleEntry(doc) {
         const patientId = doc.subject?.identifier?.value ||
                          doc.subject?.reference?.split('/').pop() || 'Unknown';
@@ -671,8 +691,13 @@ const MadoViewer = (function() {
             if (studyUidRelated?.identifier?.value) studyUid = studyUidRelated.identifier.value;
         }
 
+        // Collect ALL attachments (a single DocumentReference may carry several
+        // content entries, each with either a `url` or inline base64 `data`).
+        const attachments = parseAttachments(doc);
+        const primaryAttachment = attachments[0] || {};
+
         const formatCode = doc.content?.[0]?.format?.code || '';
-        const contentType = doc.content?.[0]?.attachment?.contentType || '';
+        const contentType = primaryAttachment.contentType || '';
         const profiles = doc.meta?.profile || [];
         let manifestFormat = 'FHIR';
         let documentCategory = 'mado'; // 'mado' | 'other'
@@ -707,7 +732,7 @@ const MadoViewer = (function() {
             }
         }
 
-        const binaryUrl = doc.content?.[0]?.attachment?.url || '';
+        const binaryUrl = primaryAttachment.url || '';
 
         let author = 'Unknown';
         if (doc.author && doc.author.length > 0) {
@@ -729,7 +754,8 @@ const MadoViewer = (function() {
             modalities, bodySite, description, accessionNumber, author,
             institutionName, binaryUrl, manifestFormat, documentCategory,
             contentType, relatesToRef,
-            size: doc.content?.[0]?.attachment?.size || 0,
+            attachments,
+            size: attachments.reduce((sum, a) => sum + (a.size || 0), 0) || doc.content?.[0]?.attachment?.size || 0,
             rawResource: doc
         };
     }
@@ -816,7 +842,8 @@ const MadoViewer = (function() {
             rawFhirResource: null, rawKosResource: null,
             rawOtherResource: entry.rawResource,
             documentCategory: 'other',
-            contentType: entry.contentType || ''
+            contentType: entry.contentType || '',
+            attachments: entry.attachments || []
         };
     }
 
@@ -1068,7 +1095,7 @@ const MadoViewer = (function() {
     function openMADOViewer(binaryUrl, event) {
         if (event) event.stopPropagation();
         if (!binaryUrl) { showToast('No manifest URL available for this document', 'error'); return; }
-        const fullBinaryUrl = binaryUrl.startsWith('http') ? binaryUrl : window.location.origin + '/' + binaryUrl.replace(/^\.\//, '');
+        const fullBinaryUrl = makeFullUrl(binaryUrl);
         const ohifBaseUrl = state.config.ohifViewerUrl || DEFAULT_CONFIG.ohifViewerUrl;
         window.open(`${ohifBaseUrl}?manifestUrl=${encodeURIComponent(fullBinaryUrl)}`, '_blank');
     }
@@ -1117,7 +1144,11 @@ const MadoViewer = (function() {
             let h = '';
             if (doc.documentCategory === 'other') {
                 // Non-MADO document actions
-                h += actionCard('download-other', '💾', 'Download Document', `Download ${doc.manifestFormat} document`);
+                const attCount = (doc.attachments && doc.attachments.length) || 0;
+                const dlDesc = attCount > 1
+                    ? `Download ${attCount} attachments (${doc.manifestFormat})`
+                    : `Download ${doc.manifestFormat} document`;
+                h += actionCard('download-other', '💾', attCount > 1 ? 'Download Documents' : 'Download Document', dlDesc);
                 h += actionCard('inspect-docref', '🔍', 'Inspect DocumentReference', 'View raw FHIR DocumentReference JSON');
                 if (isJsonInspectable(doc)) {
                     h += actionCard('inspect-other', '📋', 'Inspect Content JSON', 'View the JSON content of the document');
@@ -1175,7 +1206,18 @@ const MadoViewer = (function() {
     }
 
     function makeFullUrl(url) {
-        return url.startsWith('http') ? url : window.location.origin + '/' + url.replace(/^\.\//, '');
+        if (!url) return url;
+        // Absolute URLs and inline data URLs are used as-is.
+        if (/^https?:\/\//i.test(url) || url.startsWith('data:')) return url;
+        // Relative URLs (e.g. "Binary/123") are resolved against the configured
+        // FHIR endpoint from the MHD viewer config, falling back to the local origin.
+        const base = (state.config.fhirEndpoint || '').trim();
+        if (base) {
+            try {
+                return new URL(url.replace(/^\.?\//, ''), base.replace(/\/?$/, '/')).href;
+            } catch (e) { /* fall through to origin-based resolution */ }
+        }
+        return window.location.origin + '/' + url.replace(/^\.\//, '');
     }
 
     function navigateToValidator(doc, url) {
@@ -1204,16 +1246,38 @@ const MadoViewer = (function() {
     // ==============================
 
     function downloadOtherDocument(doc) {
-        const url = doc.binaryUrl;
-        if (!url) {
-            showToast('No download URL available for this document', 'error');
+        const attachments = (doc.attachments && doc.attachments.length)
+            ? doc.attachments
+            : (doc.binaryUrl ? [{ url: doc.binaryUrl, contentType: doc.contentType }] : []);
+
+        if (attachments.length === 0) {
+            showToast('No download URL or data available for this document', 'error');
             return;
         }
-        const fullUrl = makeFullUrl(url);
-        const ext = getFileExtension(doc.manifestFormat, doc.contentType);
-        const filename = `document-${doc.studyUid || doc.description || 'unknown'}${ext}`;
 
-        // Try fetching and downloading as blob
+        attachments.forEach((att, idx) => downloadAttachment(doc, att, idx, attachments.length));
+    }
+
+    function downloadAttachment(doc, att, idx, total) {
+        const ext = getFileExtension(doc.manifestFormat, att.contentType || doc.contentType);
+        const suffix = total > 1 ? `-${idx + 1}` : '';
+        const baseName = doc.studyUid || doc.description || 'unknown';
+        const filename = `document-${baseName}${suffix}${ext}`;
+
+        // Inline base64-encoded data (no URL to fetch).
+        if (att.data) {
+            try {
+                const blob = base64ToBlob(att.data, att.contentType || 'application/octet-stream');
+                triggerBlobDownload(blob, filename);
+                showToast(`Downloaded ${att.contentType || doc.manifestFormat} document`, 'success');
+            } catch (e) {
+                showToast('Failed to decode inline document data', 'error');
+            }
+            return;
+        }
+
+        // URL-based attachment (absolute or relative).
+        const fullUrl = makeFullUrl(att.url);
         const fetchOpts = {};
         if (state.config.authEnabled && doc.patientId) fetchOpts.headers = { 'X-Patient': doc.patientId };
         fhirFetch(fullUrl, fetchOpts)
@@ -1222,18 +1286,59 @@ const MadoViewer = (function() {
                 return resp.blob();
             })
             .then(blob => {
-                const link = document.createElement('a');
-                link.href = URL.createObjectURL(blob);
-                link.download = filename;
-                link.click();
-                URL.revokeObjectURL(link.href);
+                triggerBlobDownload(blob, filename);
                 showToast(`Downloaded ${doc.manifestFormat} document`, 'success');
             })
-            .catch(err => {
+            .catch(() => {
                 // Fallback: open in new tab
                 window.open(fullUrl, '_blank');
                 showToast('Opening document in new tab...', 'info');
             });
+    }
+
+    function triggerBlobDownload(blob, filename) {
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = filename;
+        link.click();
+        URL.revokeObjectURL(link.href);
+    }
+
+    /** Decode a (possibly data-URL-prefixed / whitespace-padded) base64 string into a Blob. */
+    function base64ToBlob(base64, contentType) {
+        let b64 = String(base64).trim();
+        if (b64.startsWith('data:')) {
+            const comma = b64.indexOf(',');
+            if (comma !== -1) b64 = b64.slice(comma + 1);
+        }
+        b64 = b64.replace(/\s/g, '');
+        const byteChars = atob(b64);
+        const byteArrays = [];
+        for (let offset = 0; offset < byteChars.length; offset += 512) {
+            const slice = byteChars.slice(offset, offset + 512);
+            const byteNumbers = new Array(slice.length);
+            for (let i = 0; i < slice.length; i++) byteNumbers[i] = slice.charCodeAt(i);
+            byteArrays.push(new Uint8Array(byteNumbers));
+        }
+        return new Blob(byteArrays, { type: contentType });
+    }
+
+    /** Decode base64 inline data into a UTF-8 text string. */
+    function decodeBase64Text(base64) {
+        let b64 = String(base64).trim();
+        if (b64.startsWith('data:')) {
+            const comma = b64.indexOf(',');
+            if (comma !== -1) b64 = b64.slice(comma + 1);
+        }
+        b64 = b64.replace(/\s/g, '');
+        const binary = atob(b64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        try {
+            return new TextDecoder('utf-8').decode(bytes);
+        } catch (e) {
+            return binary;
+        }
     }
 
     function getFileExtension(format, contentType) {
@@ -1253,13 +1358,36 @@ const MadoViewer = (function() {
     }
 
     async function inspectOtherContent(doc) {
-        const url = doc.binaryUrl;
-        if (!url) {
+        const attachments = (doc.attachments && doc.attachments.length)
+            ? doc.attachments
+            : (doc.binaryUrl ? [{ url: doc.binaryUrl, contentType: doc.contentType }] : []);
+
+        // Prefer a JSON attachment when several are present.
+        const jsonAtt = attachments.find(a => (a.contentType || '').includes('json')) || attachments[0];
+        if (!jsonAtt) {
+            showToast('No content available for this document', 'error');
+            return;
+        }
+
+        // Inline base64-encoded JSON.
+        if (jsonAtt.data) {
+            try {
+                const json = JSON.parse(decodeBase64Text(jsonAtt.data));
+                renderJsonContent(json, 'docJsonContent');
+                openModal('docJsonModal');
+            } catch (err) {
+                showToast(`Failed to parse inline JSON content: ${err.message}`, 'error');
+            }
+            return;
+        }
+
+        if (!jsonAtt.url) {
             showToast('No content URL available for this document', 'error');
             return;
         }
+
         try {
-            const fullUrl = makeFullUrl(url);
+            const fullUrl = makeFullUrl(jsonAtt.url);
             const inspectHeaders = { 'Accept': 'application/json, application/fhir+json' };
             if (state.config.authEnabled && doc.patientId) inspectHeaders['X-Patient'] = doc.patientId;
             const resp = await fhirFetch(fullUrl, {
@@ -1455,6 +1583,8 @@ const MadoViewer = (function() {
     }
 
     function isJsonInspectable(doc) {
+        const attachments = doc.attachments || [];
+        if (attachments.some(a => (a.contentType || '').includes('json'))) return true;
         return doc.contentType === 'application/json' ||
                doc.contentType === 'application/fhir+json' ||
                doc.manifestFormat === 'FHIR JSON';
