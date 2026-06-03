@@ -1297,11 +1297,20 @@ const MadoViewer = (function() {
     }
 
     function triggerBlobDownload(blob, filename) {
+        const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
+        link.href = url;
         link.download = filename;
+        link.rel = 'noopener';
+        link.style.display = 'none';
+        document.body.appendChild(link);
         link.click();
-        URL.revokeObjectURL(link.href);
+        // Defer cleanup so the browser has time to start the download.
+        // Revoking immediately can cancel downloads of large blobs (e.g. PDFs).
+        setTimeout(() => {
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }, 1500);
     }
 
     /** Decode a (possibly data-URL-prefixed / whitespace-padded) base64 string into a Blob. */
