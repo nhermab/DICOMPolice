@@ -650,16 +650,23 @@ const MadoViewer = (function() {
      * report (a FHIR document Bundle containing a DiagnosticReport). We look at the
      * LOINC type/category codes and require JSON content.
      */
-    function isLabDocument(doc, contentType) {
-        const isJson = (contentType || '').includes('json');
-        if (!isJson) return false;
+    function isLabDocument(doc) {
         const codings = []
             .concat((doc.type?.coding) || [])
             .concat(...((doc.category || []).map(c => c.coding || [])));
         // LOINC 11502-2 = Laboratory report, 26436-6 = Laboratory Studies (set),
         // 18719-5 = Chemistry studies, plus generic v2-0074 LAB category.
         const labCodes = new Set(['11502-2', '26436-6', '18719-5', 'LAB']);
-        return codings.some(c => labCodes.has(c.code));
+        if (!codings.some(c => labCodes.has(c.code))) return false;
+        // A lab report is renderable when it carries either a structured FHIR
+        // bundle (JSON) or an inline/linked PDF presented form. The relevant
+        // attachment is frequently NOT the primary one (e.g. PDF first, JSON
+        // reference second), so inspect every attachment here.
+        const atts = Array.isArray(doc.content)
+            ? doc.content.map(c => c?.attachment).filter(Boolean)
+            : [];
+        return atts.some(a => (a.contentType || '').includes('json') ||
+                              (a.contentType || '').includes('pdf'));
     }
 
     function parseSingleEntry(doc) {
@@ -752,7 +759,7 @@ const MadoViewer = (function() {
         const binaryUrl = primaryAttachment.url || '';
 
         // Detect laboratory reports (FHIR lab Bundle) so they can be opened in the Lab Viewer.
-        const isLab = documentCategory === 'other' && isLabDocument(doc, contentType);
+        const isLab = documentCategory === 'other' && isLabDocument(doc);
 
         let author = 'Unknown';
         if (doc.author && doc.author.length > 0) {
@@ -1432,30 +1439,47 @@ const MadoViewer = (function() {
     // ==============================
 
     async function openLabViewer(doc) {
-        let json;
+        const docRef = doc.rawOtherResource || doc.rawResource || null;
+
+        // Try to load a referenced/inline FHIR document bundle that may contain a
+        // structured DiagnosticReport. This can legitimately fail when the bundle
+        // is only available behind an external URL that we cannot reach, so we
+        // tolerate the error and fall back to the DocumentReference itself.
+        let json = null;
         try {
             json = await loadOtherJson(doc);
         } catch (err) {
-            showToast(`Failed to load lab report: ${err.message}`, 'error');
-            return;
+            console.warn('Lab bundle could not be loaded, falling back to DocumentReference:', err.message);
         }
 
-        if (!isLabBundle(json)) {
-            showToast('No lab report found in content; showing JSON instead', 'info');
-            renderJsonContent(json, 'docJsonContent');
-            openModal('docJsonModal');
-            return;
+        // Preferred path: a real DiagnosticReport bundle.
+        if (json && isLabBundle(json)) {
+            state.currentLabBundle = json;
+            try {
+                renderLabReport(json);
+                openModal('labViewerModal');
+                return;
+            } catch (err) {
+                console.error('Lab render failed:', err);
+            }
         }
 
-        state.currentLabBundle = json;
-        try {
-            renderLabReport(json);
+        // Fallback path: render straight from the DocumentReference (report
+        // metadata + inline PDF presented form). This covers search responses
+        // where the structured results live in an externally referenced bundle.
+        if (docRef && renderLabReportFromDocRef(docRef)) {
+            state.currentLabBundle = json;
             openModal('labViewerModal');
-        } catch (err) {
-            console.error('Lab render failed:', err);
-            showToast(`Failed to render lab report: ${err.message}`, 'error');
+            return;
+        }
+
+        // Last resort: surface whatever JSON we managed to load.
+        if (json) {
+            showToast('No structured lab results found; showing JSON instead', 'info');
             renderJsonContent(json, 'docJsonContent');
             openModal('docJsonModal');
+        } else {
+            showToast('No lab report content available for this document', 'error');
         }
     }
 
@@ -1697,6 +1721,101 @@ const MadoViewer = (function() {
             </div>` : '';
 
         container.innerHTML = headerHtml + pdfHtml + resultsHtml + notesHtml;
+    }
+
+    /**
+     * Render the lab viewer directly from a DocumentReference when no structured
+     * DiagnosticReport bundle is available (e.g. search responses where the
+     * structured results are only reachable through an external Bundle URL while
+     * the human-readable report ships as an inline PDF). Returns true when it was
+     * able to produce a meaningful view, false otherwise.
+     */
+    function renderLabReportFromDocRef(docRef) {
+        const container = document.getElementById('labViewerContent');
+        if (!container || !docRef) return false;
+
+        // Inline PDF presented forms are the readable lab report.
+        const forms = (docRef.content || [])
+            .map(c => c?.attachment)
+            .filter(a => a && a.data && (a.contentType || '').includes('pdf'))
+            .map(a => ({ data: a.data, contentType: a.contentType || 'application/pdf', title: a.title || '' }));
+
+        // Without an inline PDF there is nothing extra to show beyond raw JSON.
+        if (forms.length === 0) return false;
+        state.currentLabPresentedForms = forms;
+
+        // Build an index over contained resources so references (#id) resolve.
+        const containedBundle = {
+            entry: (docRef.contained || []).map(r => ({ resource: r, fullUrl: '#' + r.id }))
+        };
+        const index = buildResourceIndex(containedBundle);
+
+        const patient = resolveRef(docRef.context?.sourcePatientInfo, index)
+            || resolveRef(docRef.subject, index);
+
+        const title = codeText(docRef.type) || codeText((docRef.category || [])[0]) || 'Laboratory Report';
+        const reportId = docRef.identifier?.[0]?.value || docRef.masterIdentifier?.value || docRef.id || '';
+        const effective = docRef.date || docRef.context?.period?.end || '';
+        const status = docRef.docStatus || docRef.status || '';
+
+        const patientName = formatHumanName(patient)
+            || docRef.context?.sourcePatientInfo?.display
+            || docRef.subject?.display || 'Unknown';
+        const ssin = patient?.identifier?.find(i => (i.system || '').includes('ssin'))?.value
+            || patient?.identifier?.[0]?.value || '';
+        const gender = patient?.gender || '';
+        const birthDate = patient?.birthDate || '';
+        const authors = (docRef.author || []).map(a => a.display).filter(Boolean);
+
+        // context.event codes describe the panels included in the report.
+        const events = (docRef.context?.event || []).map(e => codeText(e)).filter(Boolean);
+
+        const metaItem = (label, value) => value
+            ? `<div class="lab-meta-item"><span class="lab-meta-label">${label}</span><span class="lab-meta-value">${escapeHtml(value)}</span></div>`
+            : '';
+
+        const headerHtml = `
+            <div class="lab-header">
+                <div class="lab-title-row">
+                    <h2 class="lab-title">🧪 ${escapeHtml(title)}</h2>
+                    <span class="lab-status lab-status-${escapeHtml((status || '').toLowerCase())}">${escapeHtml(status || '')}</span>
+                </div>
+                <div class="lab-meta-grid">
+                    ${metaItem('Patient', patientName)}
+                    ${metaItem('National No.', ssin)}
+                    ${metaItem('Gender', gender)}
+                    ${metaItem('Birth date', birthDate)}
+                    ${metaItem('Report ID', reportId)}
+                    ${metaItem('Date', formatLabDateTime(effective))}
+                    ${metaItem('Author', authors.join(', '))}
+                </div>
+            </div>`;
+
+        let pdfHtml = '';
+        if (forms.length > 0) {
+            pdfHtml = `<div class="lab-pdf-bar">
+                ${forms.map((f, i) => `
+                    <span class="lab-pdf-label">📄 ${escapeHtml(f.title || (f.contentType || 'application/pdf'))}</span>
+                    <button class="btn-secondary lab-pdf-btn" onclick="MadoViewer.openLabPdf(${i})">👁️ View PDF</button>
+                    <button class="btn-secondary lab-pdf-btn" onclick="MadoViewer.downloadLabPdf(${i})">💾 Download PDF</button>
+                `).join('')}
+            </div>`;
+        }
+
+        const panelsHtml = events.length > 0 ? `
+            <div class="lab-section">
+                <h3 class="lab-section-title">Included panels</h3>
+                <div class="lab-report-notes">${events.map(e => `<div class="lab-note">${escapeHtml(e)}</div>`).join('')}</div>
+            </div>` : '';
+
+        const infoHtml = `
+            <div class="lab-section">
+                <p class="lab-empty">Structured results (DiagnosticReport / Observations) are not embedded in this
+                response. The human-readable report is shown above as a PDF. Use “Inspect DocumentReference” to view the raw FHIR.</p>
+            </div>`;
+
+        container.innerHTML = headerHtml + pdfHtml + panelsHtml + infoHtml;
+        return true;
     }
 
     function openLabPdf(idx) {
