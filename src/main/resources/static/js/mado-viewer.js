@@ -7,6 +7,7 @@ const MadoViewer = (function() {
     // Configuration defaults
     const CONFIG_KEY = 'madoViewerConfig';
     const COLUMNS_KEY = 'madoViewerColumns';
+    const SAVED_CONFIGS_KEY = 'madoViewerSavedConfigs';
     const DEFAULT_CONFIG = {
         fhirEndpoint: '',  // Empty means use local
         ohifViewerUrl: 'https://ihebelgium.ehealthhub.be/ohif/mado',
@@ -101,6 +102,7 @@ const MadoViewer = (function() {
             authResource: document.getElementById('authResource'),
             providerId: document.getElementById('providerId'),
             authFields: document.getElementById('authFields'),
+            savedConfigSelect: document.getElementById('savedConfigSelect'),
             jsonContent: document.getElementById('jsonContent'),
             docJsonContent: document.getElementById('docJsonContent')
         };
@@ -338,21 +340,7 @@ const MadoViewer = (function() {
     }
 
     function saveConfig() {
-        const fhirEndpoint = elements.fhirEndpoint?.value.trim() || '';
-        const ohifViewerUrl = elements.ohifViewerUrl?.value.trim() || DEFAULT_CONFIG.ohifViewerUrl;
-        const authEnabled = !!elements.authEnabled?.checked;
-        const tokenUrl = elements.tokenUrl?.value.trim() || '';
-        const clientId = elements.clientId?.value.trim() || '';
-        const clientSecret = elements.clientSecret?.value.trim() || '';
-        const scope = elements.authScope?.value.trim() || '';
-        const audience = elements.authAudience?.value.trim() || '';
-        const resource = elements.authResource?.value.trim() || '';
-        const providerId = elements.providerId?.value.trim() || '';
-
-        state.config = {
-            fhirEndpoint, ohifViewerUrl,
-            authEnabled, tokenUrl, clientId, clientSecret, scope, audience, resource, providerId
-        };
+        state.config = readConfigFromForm();
         // Invalidate any cached token when the config changes.
         state.tokenCache = null;
 
@@ -365,6 +353,126 @@ const MadoViewer = (function() {
 
         closeModal('configModal');
         updateEndpointBadge();
+    }
+
+    // Read the current values from the configuration form into a config object.
+    function readConfigFromForm() {
+        return {
+            fhirEndpoint: elements.fhirEndpoint?.value.trim() || '',
+            ohifViewerUrl: elements.ohifViewerUrl?.value.trim() || DEFAULT_CONFIG.ohifViewerUrl,
+            authEnabled: !!elements.authEnabled?.checked,
+            tokenUrl: elements.tokenUrl?.value.trim() || '',
+            clientId: elements.clientId?.value.trim() || '',
+            clientSecret: elements.clientSecret?.value.trim() || '',
+            scope: elements.authScope?.value.trim() || '',
+            audience: elements.authAudience?.value.trim() || '',
+            resource: elements.authResource?.value.trim() || '',
+            providerId: elements.providerId?.value.trim() || ''
+        };
+    }
+
+    // Populate the configuration form from a config object.
+    function applyConfigToForm(config) {
+        const c = { ...DEFAULT_CONFIG, ...(config || {}) };
+        if (elements.fhirEndpoint) elements.fhirEndpoint.value = c.fhirEndpoint || '';
+        if (elements.ohifViewerUrl) elements.ohifViewerUrl.value = c.ohifViewerUrl || DEFAULT_CONFIG.ohifViewerUrl;
+        if (elements.authEnabled) elements.authEnabled.checked = !!c.authEnabled;
+        if (elements.tokenUrl) elements.tokenUrl.value = c.tokenUrl || '';
+        if (elements.clientId) elements.clientId.value = c.clientId || '';
+        if (elements.clientSecret) elements.clientSecret.value = c.clientSecret || '';
+        if (elements.authScope) elements.authScope.value = c.scope || '';
+        if (elements.authAudience) elements.authAudience.value = c.audience || '';
+        if (elements.authResource) elements.authResource.value = c.resource || '';
+        if (elements.providerId) elements.providerId.value = c.providerId || '';
+        toggleAuthFields();
+    }
+
+    // ==============================
+    // Saved (named) Configuration Profiles
+    // ==============================
+
+    function getSavedConfigs() {
+        try {
+            const saved = localStorage.getItem(SAVED_CONFIGS_KEY);
+            return saved ? JSON.parse(saved) : {};
+        } catch (e) {
+            console.warn('Failed to load saved configurations:', e);
+            return {};
+        }
+    }
+
+    function persistSavedConfigs(configs) {
+        try {
+            localStorage.setItem(SAVED_CONFIGS_KEY, JSON.stringify(configs));
+            return true;
+        } catch (e) {
+            showToast('Failed to save configurations', 'error');
+            return false;
+        }
+    }
+
+    function refreshSavedConfigSelect(selectedName) {
+        const sel = elements.savedConfigSelect;
+        if (!sel) return;
+        const configs = getSavedConfigs();
+        const names = Object.keys(configs).sort((a, b) => a.localeCompare(b));
+
+        sel.innerHTML = '';
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = names.length
+            ? '— Select a saved configuration —'
+            : '— No saved configurations —';
+        sel.appendChild(placeholder);
+
+        names.forEach(name => {
+            const opt = document.createElement('option');
+            opt.value = name;
+            opt.textContent = name;
+            sel.appendChild(opt);
+        });
+        sel.value = selectedName || '';
+    }
+
+    function saveCurrentConfigAs() {
+        const name = (prompt('Enter a name for this MHD configuration:') || '').trim();
+        if (!name) return;
+        const configs = getSavedConfigs();
+        if (configs[name] && !confirm(`A configuration named "${name}" already exists. Overwrite it?`)) {
+            return;
+        }
+        configs[name] = readConfigFromForm();
+        if (persistSavedConfigs(configs)) {
+            refreshSavedConfigSelect(name);
+            showToast(`Saved configuration "${name}"`, 'success');
+        }
+    }
+
+    function loadSavedConfig(name) {
+        if (!name) return;
+        const configs = getSavedConfigs();
+        const config = configs[name];
+        if (!config) {
+            showToast('Configuration not found', 'error');
+            return;
+        }
+        applyConfigToForm(config);
+        showToast(`Loaded configuration "${name}". Click Save to apply.`, 'info');
+    }
+
+    function deleteSavedConfig() {
+        const name = elements.savedConfigSelect?.value;
+        if (!name) {
+            showToast('Select a saved configuration to delete', 'info');
+            return;
+        }
+        if (!confirm(`Delete configuration "${name}"? This cannot be undone.`)) return;
+        const configs = getSavedConfigs();
+        delete configs[name];
+        if (persistSavedConfigs(configs)) {
+            refreshSavedConfigSelect();
+            showToast(`Deleted configuration "${name}"`, 'info');
+        }
     }
 
     function applyPreset(preset) {
@@ -406,17 +514,8 @@ const MadoViewer = (function() {
     }
 
     function openConfigModal() {
-        elements.fhirEndpoint.value = state.config.fhirEndpoint || '';
-        elements.ohifViewerUrl.value = state.config.ohifViewerUrl || DEFAULT_CONFIG.ohifViewerUrl;
-        if (elements.authEnabled) elements.authEnabled.checked = !!state.config.authEnabled;
-        if (elements.tokenUrl) elements.tokenUrl.value = state.config.tokenUrl || '';
-        if (elements.clientId) elements.clientId.value = state.config.clientId || '';
-        if (elements.clientSecret) elements.clientSecret.value = state.config.clientSecret || '';
-        if (elements.authScope) elements.authScope.value = state.config.scope || '';
-        if (elements.authAudience) elements.authAudience.value = state.config.audience || '';
-        if (elements.authResource) elements.authResource.value = state.config.resource || '';
-        if (elements.providerId) elements.providerId.value = state.config.providerId || '';
-        toggleAuthFields();
+        applyConfigToForm(state.config);
+        refreshSavedConfigSelect();
         openModal('configModal');
     }
 
@@ -2048,6 +2147,7 @@ const MadoViewer = (function() {
         init, openMADOViewer, goToPage,
         openModal, closeModal,
         saveConfig, applyPreset,
+        saveCurrentConfigAs, loadSavedConfig, deleteSavedConfig,
         quickAction, openActionsModal, executeAction,
         setJsonView, copyJson, downloadJson, copyDocJson, downloadDocJson,
         // Lab report viewer

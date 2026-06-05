@@ -865,12 +865,30 @@
     border-top: 1px solid var(--border-light);
 }
 
-.endpoint-presets label {
+.saved-configs {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border-light);
+}
+
+.endpoint-presets label,
+.saved-configs label {
     display: block;
     font-size: 12px;
     font-weight: 600;
     color: var(--text-secondary);
     margin-bottom: 10px;
+}
+
+.saved-config-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.saved-config-row select {
+    flex: 1;
+    min-width: 0;
 }
 
 .preset-buttons {

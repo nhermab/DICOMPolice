@@ -52,15 +52,15 @@
                     <div class="search-grid">
                         <div class="search-field">
                             <label for="patientId">Patient ID</label>
-                            <input type="text" id="patientId" placeholder="Enter patient ID">
+                            <input type="text" id="patientId" name="madoPatientId" placeholder="Enter patient ID" autocomplete="off" data-lpignore="true" data-1p-ignore data-form-type="other">
                         </div>
                         <div class="search-field">
                             <label for="studyUid">Study Instance UID</label>
-                            <input type="text" id="studyUid" placeholder="Enter study UID">
+                            <input type="text" id="studyUid" name="madoStudyUid" placeholder="Enter study UID" autocomplete="off" data-lpignore="true" data-1p-ignore data-form-type="other">
                         </div>
                         <div class="search-field">
                             <label for="accessionNumber">Accession Number</label>
-                            <input type="text" id="accessionNumber" placeholder="Enter accession">
+                            <input type="text" id="accessionNumber" name="madoAccessionNumber" placeholder="Enter accession" autocomplete="off" data-lpignore="true" data-1p-ignore data-form-type="other">
                         </div>
                         <div class="search-field">
                             <label for="modality">Modality</label>
@@ -284,11 +284,11 @@
                     </div>
                     <div class="form-group">
                         <label for="clientId">Client ID</label>
-                        <input type="text" id="clientId" placeholder="e.g., vzn-viewer-abrumet-acc" class="form-input">
+                        <input type="text" id="clientId" placeholder="e.g., vzn-viewer-abrumet-acc" class="form-input" autocomplete="off" data-lpignore="true" data-1p-ignore data-form-type="other">
                     </div>
                     <div class="form-group">
                         <label for="clientSecret">Client Secret</label>
-                        <input type="password" id="clientSecret" placeholder="Client secret" class="form-input" autocomplete="off">
+                        <input type="password" id="clientSecret" placeholder="Client secret" class="form-input" autocomplete="new-password" data-lpignore="true" data-1p-ignore data-form-type="other">
                         <small class="form-hint">Stored in this browser's local storage only.</small>
                     </div>
                     <div class="form-group">
@@ -308,6 +308,17 @@
                         <input type="text" id="providerId" placeholder="e.g., 87082839962" class="form-input">
                         <small class="form-hint">Fixed value sent as the <code>X-Provider</code> header. The patient ID from the search field is sent as <code>X-Patient</code>.</small>
                     </div>
+                </div>
+                <div class="saved-configs">
+                    <label for="savedConfigSelect">Saved Configurations:</label>
+                    <div class="saved-config-row">
+                        <select id="savedConfigSelect" class="form-input" onchange="MadoViewer.loadSavedConfig(this.value)" autocomplete="off">
+                            <option value="">— No saved configurations —</option>
+                        </select>
+                        <button type="button" class="btn-small" onclick="MadoViewer.saveCurrentConfigAs()" title="Save current settings as a named configuration">💾 Save As…</button>
+                        <button type="button" class="btn-small" onclick="MadoViewer.deleteSavedConfig()" title="Delete the selected configuration">🗑️ Delete</button>
+                    </div>
+                    <small class="form-hint">Save multiple MHD connection profiles and switch between them. Stored in this browser only.</small>
                 </div>
                 <div class="endpoint-presets">
                     <label>Quick Presets:</label>
