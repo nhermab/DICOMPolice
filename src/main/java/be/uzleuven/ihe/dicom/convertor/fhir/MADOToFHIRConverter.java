@@ -139,7 +139,8 @@ public class MADOToFHIRConverter {
         // Generate UUIDs for cross-referencing
         ResourceUUIDs uuids = new ResourceUUIDs(metadata, useDeterministicUuids);
 
-        // Create the FHIR Collection Bundle (MADO IG R4: type=collection)
+        // Create the FHIR document Bundle. MADO 0.1.0 requires type=document and
+        // a Composition as the first entry.
         Bundle bundle = createDocumentBundle(metadata);
 
         // Create resources
@@ -185,24 +186,33 @@ public class MADOToFHIRConverter {
             }
         }
 
-        // Add entries in MADO IG R4 compliant order
+        // Create Composition after ImagingStudy so its sections can summarize the final series.
+        Composition composition = createComposition(metadata, uuids, organizationUuid, imagingStudy);
+        composition.setId(uuids.compositionUuid);
+
+        // Add entries in MADO document order
         // All fullUrl values use urn:uuid: format for proper intra-bundle resolution
-        // 1. ImagingStudy (main resource)
+        // 1. Composition (document header; required first resource for Bundle.type=document)
+        bundle.addEntry()
+            .setFullUrl("urn:uuid:" + uuids.compositionUuid)
+            .setResource(composition);
+
+        // 2. ImagingStudy (main resource)
         bundle.addEntry()
             .setFullUrl("urn:uuid:" + uuids.studyUuid)
             .setResource(imagingStudy);
 
-        // 2. Organization (MadoCreatorOrganization)
+        // 3. Organization (MadoCreatorOrganization)
         bundle.addEntry()
             .setFullUrl("urn:uuid:" + organizationUuid)
             .setResource(organization);
 
-        // 3. Patient
+        // 4. Patient
         bundle.addEntry()
             .setFullUrl("urn:uuid:" + uuids.patientUuid)
             .setResource(patient);
 
-        // 4. Endpoints
+        // 5. Endpoints
         for (Endpoint endpoint : endpoints) {
             String uuid = uuids.endpointUuids.get(endpoint.getAddress());
             bundle.addEntry()
@@ -210,17 +220,17 @@ public class MADOToFHIRConverter {
                 .setResource(endpoint);
         }
 
-        // 5. Device (MadoCreator)
+        // 6. Device (MadoCreator)
         bundle.addEntry()
             .setFullUrl("urn:uuid:" + uuids.deviceUuid)
             .setResource(device);
 
-        // 6. ServiceRequest (MadoRequestedProcedure)
+        // 7. ServiceRequest (MadoRequestedProcedure)
         bundle.addEntry()
             .setFullUrl("urn:uuid:" + serviceRequestUuid)
             .setResource(serviceRequest);
 
-        // 7. Provenance (MadoProvenance)
+        // 8. Provenance (MadoProvenance)
         Provenance provenance = createProvenance(metadata, uuids, organizationUuid, serviceRequestUuid, endpoints);
         String provenanceUuid = useDeterministicUuids
             ? DeterministicUuidGenerator.generateProvenanceUuid(metadata.sopInstanceUID)
@@ -238,14 +248,13 @@ public class MADOToFHIRConverter {
     // ============================================================================
 
     /**
-     * Creates the Collection Bundle with mandatory identifiers and timestamp.
-     * MADO IG R4: Bundle type is 'collection' (not 'document').
+     * Creates the document Bundle with mandatory identifiers and timestamp.
+     * MADO 0.1.0: Bundle.type is 'document'.
      */
     private Bundle createDocumentBundle(MADOMetadata metadata) {
         Bundle bundle = new Bundle();
 
-        // MADO IG R4: Bundle type must be 'collection'
-        bundle.setType(Bundle.BundleType.COLLECTION);
+        bundle.setType(Bundle.BundleType.DOCUMENT);
 
         // Add profile
         bundle.getMeta().addProfile(PROFILE_IMAGING_STUDY_MANIFEST);
@@ -274,8 +283,11 @@ public class MADOToFHIRConverter {
      * Creates the Composition resource (document header).
      * MADO requirement: First entry in the document bundle.
      */
-    private Composition createComposition(MADOMetadata metadata, ResourceUUIDs uuids, int selectionCount) {
+    private Composition createComposition(MADOMetadata metadata, ResourceUUIDs uuids,
+                                          String organizationUuid, ImagingStudy imagingStudy) {
         Composition composition = new Composition();
+
+        composition.getMeta().addProfile(PROFILE_MADO_COMPOSITION);
 
         // Identifier from KOS SOP Instance UID (R5: array)
         composition.addIdentifier(new Identifier()
@@ -292,6 +304,13 @@ public class MADOToFHIRConverter {
                 .setCode("18748-4")
                 .setDisplay("Diagnostic imaging study")));
 
+        CodeableConcept category = new CodeableConcept();
+        category.addCoding()
+            .setSystem("http://hl7.eu/fhir/eu-health-data-api/CodeSystem/eehrxf-document-priority-category-cs")
+            .setCode("Medical-Imaging")
+            .setDisplay("Medical-Imaging");
+        composition.addCategory(category);
+
         // Subject - Patient (R5: array)
         composition.addSubject(new Reference("urn:uuid:" + uuids.patientUuid));
 
@@ -305,13 +324,18 @@ public class MADOToFHIRConverter {
             composition.setDate(new Date());
         }
 
-        // Author - Device (always)
-        composition.addAuthor(new Reference("urn:uuid:" + uuids.deviceUuid));
+        // Author slices required by MadoComposition: source organization and source device.
+        composition.addAuthor(new Reference("urn:uuid:" + organizationUuid)
+            .setType("Organization")
+            .setDisplay(metadata.institutionName != null ? metadata.institutionName : ""));
+        composition.addAuthor(new Reference("urn:uuid:" + uuids.deviceUuid)
+            .setType("Device")
+            .setDisplay(metadata.manufacturerModelName != null ? metadata.manufacturerModelName : "MADO Creator"));
 
-        // Author - Practitioner (if available and meaningful)
-        if (metadata.referringPhysicianName != null && !metadata.referringPhysicianName.isEmpty()
-            && !metadata.referringPhysicianName.startsWith("-")) {
-            composition.addAuthor(new Reference("urn:uuid:" + uuids.practitionerUuid));
+        if (organizationUuid != null) {
+            composition.setCustodian(new Reference("urn:uuid:" + organizationUuid)
+                .setType("Organization")
+                .setDisplay(metadata.institutionName != null ? metadata.institutionName : ""));
         }
 
         // Title - with null check for studyDescription
@@ -326,20 +350,20 @@ public class MADOToFHIRConverter {
         composition.setTitle(title);
 
         // Add narrative
-        composition.setText(createNarrative(createCompositionNarrative(metadata)));
+        composition.setText(createNarrative(createCompositionNarrative(metadata, imagingStudy)));
 
-        // Section for ImagingStudy
-        Composition.SectionComponent studySection = composition.addSection();
-        studySection.setTitle("Imaging Study");
-        studySection.addEntry(new Reference("urn:uuid:" + uuids.studyUuid));
+        // Event detail references the ImagingStudy described by the Composition.
+        Composition.CompositionEventComponent event = composition.addEvent();
+        event.addDetail(new CodeableReference()
+            .setReference(new Reference("urn:uuid:" + uuids.studyUuid).setType("ImagingStudy")));
 
-        // Section for ImagingSelections (if any)
-        if (selectionCount > 0) {
-            Composition.SectionComponent selectionsSection = composition.addSection();
-            selectionsSection.setTitle("Key Image Selections");
-            // Entries will be added after ImagingSelection resources are created
-            // Store reference to section for later population
-            uuids.keyImageSelectionSection = selectionsSection;
+        // Optional sections describe individual series using narrative text.
+        if (imagingStudy != null && imagingStudy.hasSeries()) {
+            for (ImagingStudy.ImagingStudySeriesComponent series : imagingStudy.getSeries()) {
+                Composition.SectionComponent section = composition.addSection();
+                section.setTitle(createSeriesSectionTitle(series));
+                section.setText(createNarrative(createSeriesSectionNarrative(series)));
+            }
         }
 
         return composition;
@@ -850,6 +874,7 @@ public class MADOToFHIRConverter {
         provenance.getMeta().addProfile(PROFILE_PROVENANCE);
 
         // Targets - all resources in the bundle (use urn:uuid: for proper intra-bundle resolution)
+        provenance.addTarget(new Reference("urn:uuid:" + uuids.compositionUuid).setType("Composition"));
         provenance.addTarget(new Reference("urn:uuid:" + uuids.patientUuid).setType("Patient"));
         for (Map.Entry<String, String> e : uuids.endpointUuids.entrySet()) {
             provenance.addTarget(new Reference("urn:uuid:" + e.getValue()).setType("Endpoint"));
@@ -1900,16 +1925,154 @@ public class MADOToFHIRConverter {
     /**
      * Creates narrative for Composition resource.
      */
-    private String createCompositionNarrative(MADOMetadata metadata) {
+    private String createCompositionNarrative(MADOMetadata metadata, ImagingStudy imagingStudy) {
         StringBuilder sb = new StringBuilder();
+        Set<String> modalities = collectModalities(imagingStudy);
+        Set<String> bodySites = collectBodySites(imagingStudy);
+
         sb.append("<h2>MADO Imaging Manifest</h2>");
         sb.append("<p><b>Study:</b> ").append(escapeHtml(metadata.studyDescription != null ? metadata.studyDescription : "Imaging Study")).append("</p>");
-        sb.append("<p><b>Patient:</b> ").append(escapeHtml(metadata.patientName != null ? metadata.patientName : "Unknown")).append("</p>");
-        sb.append("<p><b>Study Date:</b> ").append(escapeHtml(metadata.studyDate != null ? metadata.studyDate : "Unknown")).append("</p>");
+        sb.append("<p><b>Patient:</b> ").append(escapeHtml(formatPatientForNarrative(metadata))).append("</p>");
+        sb.append("<p><b>Author Device:</b> ").append(escapeHtml(formatDeviceForNarrative(metadata))).append("</p>");
+        sb.append("<p><b>Author Organization:</b> ").append(escapeHtml(metadata.institutionName != null ? metadata.institutionName : "Unknown")).append("</p>");
+        sb.append("<p><b>Study Instance UID:</b> ").append(escapeHtml(metadata.studyInstanceUID != null ? metadata.studyInstanceUID : "Unknown")).append("</p>");
+        sb.append("<p><b>Manifest Creation Date:</b> ").append(escapeHtml(formatDicomDateTime(metadata.contentDate, metadata.contentTime))).append("</p>");
+        sb.append("<p><b>Type:</b> Diagnostic imaging study</p>");
+        sb.append("<p><b>Category:</b> Medical-Imaging</p>");
+        sb.append("<p><b>Study Date/Time:</b> ").append(escapeHtml(formatDicomDateTime(metadata.studyDate, metadata.studyTime))).append("</p>");
+        if (!modalities.isEmpty()) {
+            sb.append("<p><b>Modalities:</b> ").append(escapeHtml(String.join(", ", modalities))).append("</p>");
+        }
+        if (!bodySites.isEmpty()) {
+            sb.append("<p><b>Anatomical Regions:</b> ").append(escapeHtml(String.join(", ", bodySites))).append("</p>");
+        }
         if (metadata.accessionNumber != null) {
             sb.append("<p><b>Accession Number:</b> ").append(escapeHtml(metadata.accessionNumber)).append("</p>");
         }
+        sb.append("<p><b>Series Count:</b> ").append(imagingStudy != null ? imagingStudy.getSeries().size() : 0).append("</p>");
         return sb.toString();
+    }
+
+    private String createSeriesSectionTitle(ImagingStudy.ImagingStudySeriesComponent series) {
+        StringBuilder title = new StringBuilder("Series");
+        if (series.hasNumber()) {
+            title.append(" ").append(series.getNumber());
+        }
+        if (series.hasModality() && series.getModality().hasCoding()) {
+            title.append(" - ").append(series.getModality().getCodingFirstRep().getCode());
+        }
+        return title.toString();
+    }
+
+    private String createSeriesSectionNarrative(ImagingStudy.ImagingStudySeriesComponent series) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("<p><b>Series Instance UID:</b> ").append(escapeHtml(series.hasUid() ? series.getUid() : "Unknown")).append("</p>");
+        if (series.hasDescription()) {
+            sb.append("<p><b>Series Description:</b> ").append(escapeHtml(series.getDescription())).append("</p>");
+        }
+        if (series.hasNumber()) {
+            sb.append("<p><b>Series Number:</b> ").append(series.getNumber()).append("</p>");
+        }
+        if (series.hasModality()) {
+            sb.append("<p><b>Modality:</b> ").append(escapeHtml(formatCodeableConcept(series.getModality()))).append("</p>");
+        }
+        if (series.hasBodySite() && series.getBodySite().hasConcept()) {
+            sb.append("<p><b>Anatomical Region:</b> ").append(escapeHtml(formatCodeableConcept(series.getBodySite().getConcept()))).append("</p>");
+        }
+        sb.append("<p><b>Instance Count:</b> ").append(series.getInstance().size()).append("</p>");
+        return sb.toString();
+    }
+
+    private String formatPatientForNarrative(MADOMetadata metadata) {
+        StringBuilder value = new StringBuilder();
+        if (metadata.patientName != null && !metadata.patientName.isEmpty()) {
+            value.append(metadata.patientName);
+        } else {
+            value.append("Unknown");
+        }
+        if (metadata.patientId != null && !metadata.patientId.isEmpty()) {
+            value.append(" (").append(metadata.patientId);
+            if (metadata.issuerOfPatientId != null && !metadata.issuerOfPatientId.isEmpty()) {
+                value.append(", ").append(metadata.issuerOfPatientId);
+            }
+            value.append(")");
+        }
+        return value.toString();
+    }
+
+    private String formatDeviceForNarrative(MADOMetadata metadata) {
+        List<String> parts = new ArrayList<>();
+        if (metadata.manufacturer != null && !metadata.manufacturer.isEmpty()) {
+            parts.add(metadata.manufacturer);
+        }
+        if (metadata.manufacturerModelName != null && !metadata.manufacturerModelName.isEmpty()) {
+            parts.add(metadata.manufacturerModelName);
+        }
+        if (metadata.softwareVersions != null && !metadata.softwareVersions.isEmpty()) {
+            parts.add(metadata.softwareVersions);
+        }
+        return parts.isEmpty() ? "Unknown" : String.join(" ", parts);
+    }
+
+    private String formatDicomDateTime(String date, String time) {
+        if ((date == null || date.isEmpty()) && (time == null || time.isEmpty())) {
+            return "Unknown";
+        }
+        if (time == null || time.isEmpty()) {
+            return date;
+        }
+        return (date != null ? date : "") + " " + time;
+    }
+
+    private Set<String> collectModalities(ImagingStudy imagingStudy) {
+        Set<String> modalities = new LinkedHashSet<>();
+        if (imagingStudy == null) {
+            return modalities;
+        }
+        for (ImagingStudy.ImagingStudySeriesComponent series : imagingStudy.getSeries()) {
+            if (series.hasModality()) {
+                String value = formatCodeableConcept(series.getModality());
+                if (!value.isEmpty()) {
+                    modalities.add(value);
+                }
+            }
+        }
+        return modalities;
+    }
+
+    private Set<String> collectBodySites(ImagingStudy imagingStudy) {
+        Set<String> bodySites = new LinkedHashSet<>();
+        if (imagingStudy == null) {
+            return bodySites;
+        }
+        for (ImagingStudy.ImagingStudySeriesComponent series : imagingStudy.getSeries()) {
+            if (series.hasBodySite() && series.getBodySite().hasConcept()) {
+                String value = formatCodeableConcept(series.getBodySite().getConcept());
+                if (!value.isEmpty()) {
+                    bodySites.add(value);
+                }
+            }
+        }
+        return bodySites;
+    }
+
+    private String formatCodeableConcept(CodeableConcept concept) {
+        if (concept == null) {
+            return "";
+        }
+        if (concept.hasText()) {
+            return concept.getText();
+        }
+        if (concept.hasCoding()) {
+            Coding coding = concept.getCodingFirstRep();
+            if (coding.hasDisplay()) {
+                return coding.getDisplay();
+            }
+            if (coding.hasCode()) {
+                return coding.getCode();
+            }
+        }
+        return "";
     }
 
     /**

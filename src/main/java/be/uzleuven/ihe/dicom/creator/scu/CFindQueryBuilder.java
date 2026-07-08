@@ -4,6 +4,8 @@ import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Tag;
 import org.dcm4che3.data.VR;
 
+import java.util.Locale;
+
 /**
  * Builder for creating C-FIND query keys at different query levels.
  */
@@ -37,6 +39,40 @@ public class CFindQueryBuilder {
         keys.setNull(Tag.AccessionNumber, VR.SH);
         keys.setNull(Tag.ReferringPhysicianName, VR.PN);
         keys.setNull(Tag.StudyID, VR.SH);
+
+        return keys;
+    }
+
+    /**
+     * Creates C-FIND keys for a STUDY-level query filtered by one day and one modality.
+     * This is used by the CSV exporter, which performs one query per day per modality.
+     *
+     * @param studyDate DICOM DA value in YYYYMMDD format
+     * @param modality DICOM modality code, e.g. CT, US, CR
+     * @return Attributes containing the query keys
+     */
+    @SuppressWarnings("unused")
+    public static Attributes buildStudyDateModalityQuery(String studyDate, String modality) {
+        Attributes keys = new Attributes();
+        keys.setString(Tag.QueryRetrieveLevel, VR.CS, "STUDY");
+
+        if (studyDate != null && !studyDate.trim().isEmpty()) {
+            keys.setString(Tag.StudyDate, VR.DA, studyDate.trim());
+        } else {
+            keys.setNull(Tag.StudyDate, VR.DA);
+        }
+
+        if (modality != null && !modality.trim().isEmpty()) {
+            keys.setString(Tag.ModalitiesInStudy, VR.CS, modality.trim().toUpperCase(Locale.ROOT));
+        } else {
+            keys.setNull(Tag.ModalitiesInStudy, VR.CS);
+        }
+
+        keys.setNull(Tag.StudyInstanceUID, VR.UI);
+        keys.setNull(Tag.PatientID, VR.LO);
+        keys.setNull(Tag.AccessionNumber, VR.SH);
+        keys.setNull(Tag.NumberOfStudyRelatedInstances, VR.IS);
+        keys.setNull(Tag.NumberOfStudyRelatedSeries, VR.IS);
 
         return keys;
     }

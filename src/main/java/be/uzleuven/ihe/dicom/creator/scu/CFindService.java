@@ -32,6 +32,7 @@ public class CFindService {
      */
     public CFindResult performCFind(Attributes keys) throws IOException {
         CFindResult result = new CFindResult();
+        Association as = null;
 
         Device device = new Device("dicompolice-scu");
         Connection conn = new Connection();
@@ -69,7 +70,7 @@ public class CFindService {
                             org.dcm4che3.data.UID.ImplicitVRLittleEndian));
 
             // Open association
-            Association as = ae.connect(remote, rq);
+            as = ae.connect(remote, rq);
 
             // Perform C-FIND
             DimseRSPHandler rspHandler = new DimseRSPHandler(as.nextMessageID()) {
@@ -96,6 +97,7 @@ public class CFindService {
 
             // Release association
             as.release();
+            as = null;
 
             result.setSuccess(true);
 
@@ -104,6 +106,13 @@ public class CFindService {
             result.setErrorMessage("C-FIND failed: " + e.getMessage());
             throw new IOException("C-FIND operation failed", e);
         } finally {
+            if (as != null) {
+                try {
+                    as.release();
+                } catch (Exception ignore) {
+                    // best effort cleanup
+                }
+            }
             executorService.shutdown();
             scheduledExecutorService.shutdown();
         }

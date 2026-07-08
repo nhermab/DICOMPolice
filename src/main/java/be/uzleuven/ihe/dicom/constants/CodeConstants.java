@@ -301,6 +301,7 @@ public final class CodeConstants {
 
     // MADO IG R4 Profile URLs (https://profiles.ihe.net/RAD/MADO/)
     public static final String PROFILE_IMAGING_STUDY_MANIFEST = "https://profiles.ihe.net/RAD/MADO/StructureDefinition/MadoFhirBundle";
+    public static final String PROFILE_MADO_COMPOSITION = "https://profiles.ihe.net/RAD/MADO/StructureDefinition/MadoComposition";
     public static final String PROFILE_IMAGING_PATIENT = "https://profiles.ihe.net/RAD/MADO/StructureDefinition/MadoPatient";
     public static final String PROFILE_IMAGING_STUDY = "https://profiles.ihe.net/RAD/MADO/StructureDefinition/MadoImagingStudy";
     public static final String PROFILE_IMAGING_SELECTION = "https://profiles.ihe.net/RAD/MADO/StructureDefinition/MadoImagingSelection";

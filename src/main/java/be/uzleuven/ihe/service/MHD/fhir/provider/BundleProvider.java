@@ -11,6 +11,10 @@ import ca.uhn.fhir.rest.annotation.Read;
 import ca.uhn.fhir.rest.server.IResourceProvider;
 import ca.uhn.fhir.rest.server.exceptions.InternalErrorException;
 import ca.uhn.fhir.rest.server.exceptions.ResourceNotFoundException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Tag;
 import org.hl7.fhir.instance.model.api.IBaseResource;
@@ -38,6 +42,7 @@ public class BundleProvider implements IResourceProvider {
 
     private static final Logger LOG = LoggerFactory.getLogger(BundleProvider.class);
     private static final FhirContext FHIR_R4_CONTEXT = FhirContext.forR4();
+    private static final ObjectMapper JSON = new ObjectMapper();
 
     private final DicomBackendService dicomService;
     private final MADOToFHIRConverter madoToFhirConverter = new MADOToFHIRConverter();
@@ -88,6 +93,7 @@ public class BundleProvider implements IResourceProvider {
             r5Parser.setPrettyPrint(false);
             r5Parser.setOverrideResourceIdWithBundleEntryFullUrl(false);
             String bundleJson = r5Parser.encodeResourceToString(r5Bundle);
+            bundleJson = normalizeCompositionEventDetailsForR4(bundleJson);
 
             // Parse as R4 Bundle (R5 → R4 is compatible for document Bundles)
             IParser r4Parser = FHIR_R4_CONTEXT.newJsonParser();
@@ -109,5 +115,45 @@ public class BundleProvider implements IResourceProvider {
             throw new InternalErrorException("Error converting DICOM to FHIR Bundle: " + e.getMessage());
         }
     }
-}
 
+    private String normalizeCompositionEventDetailsForR4(String bundleJson) throws IOException {
+        JsonNode root = JSON.readTree(bundleJson);
+        JsonNode entries = root.path("entry");
+        if (!entries.isArray()) {
+            return bundleJson;
+        }
+
+        for (JsonNode entry : entries) {
+            JsonNode resource = entry.path("resource");
+            if (!"Composition".equals(resource.path("resourceType").asText()) || !(resource instanceof ObjectNode)) {
+                continue;
+            }
+
+            JsonNode events = resource.path("event");
+            if (!events.isArray()) {
+                continue;
+            }
+
+            for (JsonNode event : events) {
+                JsonNode details = event.path("detail");
+                if (!details.isArray()) {
+                    continue;
+                }
+
+                ArrayNode detailArray = (ArrayNode) details;
+                for (int i = 0; i < detailArray.size(); i++) {
+                    JsonNode detail = detailArray.get(i);
+                    JsonNode nestedReference = detail.path("reference");
+                    if (nestedReference.isObject()) {
+                        ObjectNode r4Reference = JSON.createObjectNode();
+                        nestedReference.fields().forEachRemaining(field ->
+                            r4Reference.set(field.getKey(), field.getValue()));
+                        detailArray.set(i, r4Reference);
+                    }
+                }
+            }
+        }
+
+        return JSON.writeValueAsString(root);
+    }
+}
