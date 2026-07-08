@@ -187,7 +187,7 @@ public class MADOToFHIRConverter {
         }
 
         // Create Composition after ImagingStudy so its sections can summarize the final series.
-        Composition composition = createComposition(metadata, uuids, organizationUuid, imagingStudy);
+        Composition composition = createComposition(metadata, uuids, organizationUuid, imagingStudy, endpoints);
         composition.setId(uuids.compositionUuid);
 
         // Add entries in MADO document order
@@ -271,9 +271,7 @@ public class MADOToFHIRConverter {
             .setValue(IHE_UID_PREFIX + metadata.sopInstanceUID));
 
         // MADO requirement: Timestamp
-        Date bundleTime = parseDicomDateTime(
-            metadata.studyDate + (metadata.studyTime != null ? metadata.studyTime : ""),
-            metadata.timezoneOffset);
+        Date bundleTime = parseDicomDateTime(createManifestDateTime(metadata), metadata.timezoneOffset);
         bundle.setTimestamp(bundleTime != null ? bundleTime : new Date());
 
         return bundle;
@@ -284,10 +282,12 @@ public class MADOToFHIRConverter {
      * MADO requirement: First entry in the document bundle.
      */
     private Composition createComposition(MADOMetadata metadata, ResourceUUIDs uuids,
-                                          String organizationUuid, ImagingStudy imagingStudy) {
+                                          String organizationUuid, ImagingStudy imagingStudy,
+                                          List<Endpoint> endpoints) {
         Composition composition = new Composition();
 
         composition.getMeta().addProfile(PROFILE_MADO_COMPOSITION);
+        composition.setLanguage("en");
 
         // Identifier from KOS SOP Instance UID (R5: array)
         composition.addIdentifier(new Identifier()
@@ -315,9 +315,7 @@ public class MADOToFHIRConverter {
         composition.addSubject(new Reference("urn:uuid:" + uuids.patientUuid));
 
         // Date - with timezone
-        Date compositionDate = parseDicomDateTime(
-            metadata.studyDate + (metadata.studyTime != null ? metadata.studyTime : ""),
-            metadata.timezoneOffset);
+        Date compositionDate = parseDicomDateTime(createManifestDateTime(metadata), metadata.timezoneOffset);
         if (compositionDate != null) {
             composition.setDate(compositionDate);
         } else {
@@ -350,7 +348,7 @@ public class MADOToFHIRConverter {
         composition.setTitle(title);
 
         // Add narrative
-        composition.setText(createNarrative(createCompositionNarrative(metadata, imagingStudy)));
+        composition.setText(createNarrative(createCompositionNarrative(metadata, imagingStudy, endpoints)));
 
         // Event detail references the ImagingStudy described by the Composition.
         Composition.CompositionEventComponent event = composition.addEvent();
@@ -1918,38 +1916,58 @@ public class MADOToFHIRConverter {
     private Narrative createNarrative(String divContent) {
         Narrative narrative = new Narrative();
         narrative.setStatus(Narrative.NarrativeStatus.GENERATED);
-        narrative.setDivAsString("<div xmlns=\"http://www.w3.org/1999/xhtml\">" + divContent + "</div>");
+        narrative.setDivAsString("<div xmlns=\"http://www.w3.org/1999/xhtml\" lang=\"en\" xml:lang=\"en\">" + divContent + "</div>");
         return narrative;
     }
 
     /**
      * Creates narrative for Composition resource.
      */
-    private String createCompositionNarrative(MADOMetadata metadata, ImagingStudy imagingStudy) {
+    private String createCompositionNarrative(MADOMetadata metadata, ImagingStudy imagingStudy, List<Endpoint> endpoints) {
         StringBuilder sb = new StringBuilder();
         Set<String> modalities = collectModalities(imagingStudy);
         Set<String> bodySites = collectBodySites(imagingStudy);
+        Set<String> accessionNumbers = collectAccessionNumbers(metadata);
+        List<String> endpointAddresses = collectEndpointAddresses(endpoints);
+        int seriesCount = imagingStudy != null ? imagingStudy.getSeries().size() : 0;
+        int instanceCount = countInstances(imagingStudy);
 
-        sb.append("<h2>MADO Imaging Manifest</h2>");
-        sb.append("<p><b>Study:</b> ").append(escapeHtml(metadata.studyDescription != null ? metadata.studyDescription : "Imaging Study")).append("</p>");
-        sb.append("<p><b>Patient:</b> ").append(escapeHtml(formatPatientForNarrative(metadata))).append("</p>");
-        sb.append("<p><b>Author Device:</b> ").append(escapeHtml(formatDeviceForNarrative(metadata))).append("</p>");
-        sb.append("<p><b>Author Organization:</b> ").append(escapeHtml(metadata.institutionName != null ? metadata.institutionName : "Unknown")).append("</p>");
-        sb.append("<p><b>Study Instance UID:</b> ").append(escapeHtml(metadata.studyInstanceUID != null ? metadata.studyInstanceUID : "Unknown")).append("</p>");
-        sb.append("<p><b>Manifest Creation Date:</b> ").append(escapeHtml(formatDicomDateTime(metadata.contentDate, metadata.contentTime))).append("</p>");
-        sb.append("<p><b>Type:</b> Diagnostic imaging study</p>");
-        sb.append("<p><b>Category:</b> Medical-Imaging</p>");
-        sb.append("<p><b>Study Date/Time:</b> ").append(escapeHtml(formatDicomDateTime(metadata.studyDate, metadata.studyTime))).append("</p>");
-        if (!modalities.isEmpty()) {
-            sb.append("<p><b>Modalities:</b> ").append(escapeHtml(String.join(", ", modalities))).append("</p>");
+        sb.append("<h2>MADO Imaging Study Manifest</h2>");
+        sb.append("<table><tbody>");
+        appendTableRow(sb, "Title", metadata.studyDescription != null && !metadata.studyDescription.isEmpty()
+            ? "MADO Imaging Manifest - " + metadata.studyDescription : "MADO Imaging Manifest");
+        appendTableRow(sb, "Manifest status", "final");
+        appendTableRow(sb, "Language", "en");
+        appendTableRow(sb, "Subject name", formatPatientForNarrative(metadata));
+        appendTableRow(sb, "Subject identifiers", formatPatientIdentifiers(metadata));
+        appendTableRow(sb, "Source organization name", metadata.institutionName != null && !metadata.institutionName.isEmpty() ? metadata.institutionName : "Unknown");
+        appendTableRow(sb, "Source organization identifier", formatOrganizationIdentifier());
+        appendTableRow(sb, "Source device name", formatDeviceName(metadata));
+        appendTableRow(sb, "Source device identifiers", formatDeviceIdentifiers(metadata));
+        appendTableRow(sb, "Custodian", metadata.institutionName != null && !metadata.institutionName.isEmpty() ? metadata.institutionName : "Unknown");
+        appendTableRow(sb, "Composition identifier", metadata.sopInstanceUID != null ? IHE_UID_PREFIX + metadata.sopInstanceUID : "Unknown");
+        appendTableRow(sb, "Manifest creation date", formatDicomDateTime(metadata.contentDate, metadata.contentTime));
+        appendTableRow(sb, "Document type", "Diagnostic imaging study (LOINC 18748-4)");
+        appendTableRow(sb, "Category", "Medical-Imaging");
+        appendTableRow(sb, "Clinical event", "Imaging study");
+        appendTableRow(sb, "Study Instance UID", metadata.studyInstanceUID != null ? IHE_UID_PREFIX + metadata.studyInstanceUID : "Unknown");
+        appendTableRow(sb, "Study description", metadata.studyDescription != null && !metadata.studyDescription.isEmpty() ? metadata.studyDescription : "Not specified");
+        appendTableRow(sb, "Study date/time", formatDicomDateTime(metadata.studyDate, metadata.studyTime));
+        appendTableRow(sb, "Modalities", modalities.isEmpty() ? "Unknown" : String.join(", ", modalities));
+        appendTableRow(sb, "Anatomical regions", bodySites.isEmpty() ? "Not specified" : String.join(", ", bodySites));
+        appendTableRow(sb, "Accession numbers", accessionNumbers.isEmpty() ? "Not specified" : String.join(", ", accessionNumbers));
+        appendTableRow(sb, "Series / instances", seriesCount + " series / " + instanceCount + " instances");
+        sb.append("<tr><th>WADO-RS endpoints</th><td>");
+        if (endpointAddresses.isEmpty()) {
+            sb.append("Not specified");
+        } else {
+            appendEndpointLinks(sb, endpointAddresses);
         }
-        if (!bodySites.isEmpty()) {
-            sb.append("<p><b>Anatomical Regions:</b> ").append(escapeHtml(String.join(", ", bodySites))).append("</p>");
-        }
-        if (metadata.accessionNumber != null) {
-            sb.append("<p><b>Accession Number:</b> ").append(escapeHtml(metadata.accessionNumber)).append("</p>");
-        }
-        sb.append("<p><b>Series Count:</b> ").append(imagingStudy != null ? imagingStudy.getSeries().size() : 0).append("</p>");
+        sb.append("</td></tr>");
+        appendTableRow(sb, "Web viewer endpoint", "Not specified");
+        sb.append("</tbody></table>");
+
+        appendSeriesSummaryTable(sb, imagingStudy);
         return sb.toString();
     }
 
@@ -1958,46 +1976,161 @@ public class MADOToFHIRConverter {
         if (series.hasNumber()) {
             title.append(" ").append(series.getNumber());
         }
-        if (series.hasModality() && series.getModality().hasCoding()) {
-            title.append(" - ").append(series.getModality().getCodingFirstRep().getCode());
+        if (series.hasDescription()) {
+            title.append(": ");
+            title.append(series.getDescription());
         }
+        if (series.hasModality() && series.getModality().hasCoding()) {
+            title.append(" (").append(series.getModality().getCodingFirstRep().getCode()).append(")");
+        }
+        title.append(" - ").append(series.getInstance().size()).append(series.getInstance().size() == 1 ? " instance" : " instances");
         return title.toString();
     }
 
     private String createSeriesSectionNarrative(ImagingStudy.ImagingStudySeriesComponent series) {
         StringBuilder sb = new StringBuilder();
-        sb.append("<p><b>Series Instance UID:</b> ").append(escapeHtml(series.hasUid() ? series.getUid() : "Unknown")).append("</p>");
-        if (series.hasDescription()) {
-            sb.append("<p><b>Series Description:</b> ").append(escapeHtml(series.getDescription())).append("</p>");
-        }
-        if (series.hasNumber()) {
-            sb.append("<p><b>Series Number:</b> ").append(series.getNumber()).append("</p>");
-        }
-        if (series.hasModality()) {
-            sb.append("<p><b>Modality:</b> ").append(escapeHtml(formatCodeableConcept(series.getModality()))).append("</p>");
-        }
-        if (series.hasBodySite() && series.getBodySite().hasConcept()) {
-            sb.append("<p><b>Anatomical Region:</b> ").append(escapeHtml(formatCodeableConcept(series.getBodySite().getConcept()))).append("</p>");
-        }
-        sb.append("<p><b>Instance Count:</b> ").append(series.getInstance().size()).append("</p>");
+        sb.append("<table><tbody>");
+        appendTableRow(sb, "Series Instance UID", series.hasUid() ? IHE_UID_PREFIX + series.getUid() : "Unknown");
+        appendTableRow(sb, "Series description", series.hasDescription() ? series.getDescription() : "Not specified");
+        appendTableRow(sb, "Series number", series.hasNumber() ? Integer.toString(series.getNumber()) : "Not specified");
+        appendTableRow(sb, "Series date/time", formatDicomDateTime(
+            getStringExtension(series, EXT_IMAGING_SERIES_DATE),
+            getStringExtension(series, EXT_IMAGING_SERIES_TIME)));
+        appendTableRow(sb, "Modality", series.hasModality() ? formatCodeableConcept(series.getModality()) : "Unknown");
+        appendTableRow(sb, "Anatomical region", series.hasBodySite() && series.getBodySite().hasConcept()
+            ? formatCodeableConcept(series.getBodySite().getConcept()) : "Not specified");
+        appendTableRow(sb, "Instance count", Integer.toString(series.getInstance().size()));
+        appendTableRow(sb, "Retrieve AE title", getStringExtension(series, EXT_RETRIEVE_AE_TITLE) != null
+            ? getStringExtension(series, EXT_RETRIEVE_AE_TITLE) : "Not specified");
+        sb.append("</tbody></table>");
         return sb.toString();
     }
 
-    private String formatPatientForNarrative(MADOMetadata metadata) {
-        StringBuilder value = new StringBuilder();
-        if (metadata.patientName != null && !metadata.patientName.isEmpty()) {
-            value.append(metadata.patientName);
-        } else {
-            value.append("Unknown");
+    private void appendSeriesSummaryTable(StringBuilder sb, ImagingStudy imagingStudy) {
+        if (imagingStudy == null || !imagingStudy.hasSeries()) {
+            return;
         }
-        if (metadata.patientId != null && !metadata.patientId.isEmpty()) {
-            value.append(" (").append(metadata.patientId);
-            if (metadata.issuerOfPatientId != null && !metadata.issuerOfPatientId.isEmpty()) {
-                value.append(", ").append(metadata.issuerOfPatientId);
+
+        sb.append("<h3>Series summary</h3>");
+        sb.append("<table><thead><tr>");
+        sb.append("<th>#</th><th>Description</th><th>Modality</th><th>Anatomical region</th><th>Instances</th><th>Series Instance UID</th>");
+        sb.append("</tr></thead><tbody>");
+        for (ImagingStudy.ImagingStudySeriesComponent series : imagingStudy.getSeries()) {
+            sb.append("<tr>");
+            sb.append("<td>").append(escapeHtml(series.hasNumber() ? Integer.toString(series.getNumber()) : "")).append("</td>");
+            sb.append("<td>").append(escapeHtml(series.hasDescription() ? series.getDescription() : "Not specified")).append("</td>");
+            sb.append("<td>").append(escapeHtml(series.hasModality() ? formatCodeableConcept(series.getModality()) : "Unknown")).append("</td>");
+            sb.append("<td>").append(escapeHtml(series.hasBodySite() && series.getBodySite().hasConcept()
+                ? formatCodeableConcept(series.getBodySite().getConcept()) : "Not specified")).append("</td>");
+            sb.append("<td>").append(series.getInstance().size()).append("</td>");
+            sb.append("<td>").append(escapeHtml(series.hasUid() ? IHE_UID_PREFIX + series.getUid() : "Unknown")).append("</td>");
+            sb.append("</tr>");
+        }
+        sb.append("</tbody></table>");
+    }
+
+    private void appendTableRow(StringBuilder sb, String label, String value) {
+        sb.append("<tr><th>").append(escapeHtml(label)).append("</th><td>")
+            .append(escapeHtml(value != null && !value.isEmpty() ? value : "Unknown"))
+            .append("</td></tr>");
+    }
+
+    private void appendEndpointLinks(StringBuilder sb, List<String> endpointAddresses) {
+        for (int i = 0; i < endpointAddresses.size(); i++) {
+            if (i > 0) {
+                sb.append("<br/>");
             }
-            value.append(")");
+            String address = endpointAddresses.get(i);
+            if (address.startsWith("http://") || address.startsWith("https://")) {
+                sb.append("<a href=\"").append(escapeHtml(address)).append("\">")
+                    .append(escapeHtml(address)).append("</a>");
+            } else {
+                sb.append(escapeHtml(address));
+            }
         }
-        return value.toString();
+    }
+
+    private String formatPatientForNarrative(MADOMetadata metadata) {
+        if (metadata.patientName != null && !metadata.patientName.isEmpty()) {
+            return formatDicomPersonName(metadata.patientName);
+        }
+        return "Unknown";
+    }
+
+    private String formatDicomPersonName(String dicomName) {
+        if (dicomName == null || dicomName.isEmpty()) {
+            return "Unknown";
+        }
+        String[] parts = dicomName.split("\\^", -1);
+        List<String> nameParts = new ArrayList<>();
+        if (parts.length > 0 && !parts[0].isEmpty() && !"-".equals(parts[0])) {
+            nameParts.add(parts[0]);
+        }
+        List<String> givenParts = new ArrayList<>();
+        for (int i = 1; i <= 2 && i < parts.length; i++) {
+            if (!parts[i].isEmpty() && !"-".equals(parts[i])) {
+                givenParts.add(parts[i]);
+            }
+        }
+        if (!givenParts.isEmpty()) {
+            if (nameParts.isEmpty()) {
+                nameParts.add(String.join(" ", givenParts));
+            } else {
+                nameParts.set(0, nameParts.get(0) + ", " + String.join(" ", givenParts));
+            }
+        }
+        if (parts.length > 3 && !parts[3].isEmpty() && !"-".equals(parts[3])) {
+            nameParts.add(0, parts[3]);
+        }
+        if (parts.length > 4 && !parts[4].isEmpty() && !"-".equals(parts[4])) {
+            nameParts.add(parts[4]);
+        }
+        return nameParts.isEmpty() ? dicomName.replace("^", " ").trim() : String.join(" ", nameParts);
+    }
+
+    private String formatPatientIdentifiers(MADOMetadata metadata) {
+        List<String> identifiers = new ArrayList<>();
+        if (metadata.patientId != null && !metadata.patientId.isEmpty()) {
+            StringBuilder identifier = new StringBuilder(metadata.patientId);
+            if (metadata.issuerOfPatientIdUniversalId != null && !metadata.issuerOfPatientIdUniversalId.isEmpty()) {
+                identifier.append(" [urn:oid:").append(metadata.issuerOfPatientIdUniversalId).append("]");
+            } else if (metadata.issuerOfPatientId != null && !metadata.issuerOfPatientId.isEmpty()) {
+                identifier.append(" [").append(metadata.issuerOfPatientId).append("]");
+            }
+            identifiers.add(identifier.toString());
+        }
+        if (metadata.otherPatientIdsJson != null && !metadata.otherPatientIdsJson.isEmpty()) {
+            identifiers.add("Additional patient identifiers present");
+        }
+        return identifiers.isEmpty() ? "Unknown" : String.join("; ", identifiers);
+    }
+
+    private String formatOrganizationIdentifier() {
+        return "Not specified in source DICOM";
+    }
+
+    private String formatDeviceName(MADOMetadata metadata) {
+        if (metadata.manufacturerModelName != null && !metadata.manufacturerModelName.isEmpty()) {
+            return metadata.manufacturerModelName;
+        }
+        if (metadata.manufacturer != null && !metadata.manufacturer.isEmpty()) {
+            return metadata.manufacturer;
+        }
+        return "MADO Creator";
+    }
+
+    private String formatDeviceIdentifiers(MADOMetadata metadata) {
+        List<String> identifiers = new ArrayList<>();
+        if (metadata.manufacturer != null && !metadata.manufacturer.isEmpty()) {
+            identifiers.add("manufacturer=" + metadata.manufacturer);
+        }
+        if (metadata.manufacturerModelName != null && !metadata.manufacturerModelName.isEmpty()) {
+            identifiers.add("model=" + metadata.manufacturerModelName);
+        }
+        if (metadata.softwareVersions != null && !metadata.softwareVersions.isEmpty()) {
+            identifiers.add("software=" + metadata.softwareVersions);
+        }
+        return identifiers.isEmpty() ? "Not specified in source DICOM" : String.join("; ", identifiers);
     }
 
     private String formatDeviceForNarrative(MADOMetadata metadata) {
@@ -2018,10 +2151,98 @@ public class MADOToFHIRConverter {
         if ((date == null || date.isEmpty()) && (time == null || time.isEmpty())) {
             return "Unknown";
         }
-        if (time == null || time.isEmpty()) {
-            return date;
+
+        String formattedDate = formatDicomDate(date);
+        String formattedTime = formatDicomTime(time);
+        if (formattedTime == null || formattedTime.isEmpty()) {
+            return formattedDate;
         }
-        return (date != null ? date : "") + " " + time;
+        if (formattedDate == null || formattedDate.isEmpty()) {
+            return formattedTime;
+        }
+        return formattedDate + " " + formattedTime;
+    }
+
+    private String createManifestDateTime(MADOMetadata metadata) {
+        if (metadata.contentDate != null && !metadata.contentDate.isEmpty()) {
+            return metadata.contentDate + (metadata.contentTime != null ? metadata.contentTime : "");
+        }
+        if (metadata.studyDate != null && !metadata.studyDate.isEmpty()) {
+            return metadata.studyDate + (metadata.studyTime != null ? metadata.studyTime : "");
+        }
+        return null;
+    }
+
+    private String formatDicomDate(String date) {
+        if (date == null || date.isEmpty()) {
+            return "";
+        }
+        if (date.length() == 8) {
+            return date.substring(0, 4) + "-" + date.substring(4, 6) + "-" + date.substring(6, 8);
+        }
+        return date;
+    }
+
+    private String formatDicomTime(String time) {
+        if (time == null || time.isEmpty()) {
+            return "";
+        }
+        String[] parts = time.split("\\.", 2);
+        String base = parts[0];
+        String fraction = parts.length > 1 ? parts[1] : null;
+        if (base.length() >= 6) {
+            String formatted = base.substring(0, 2) + ":" + base.substring(2, 4) + ":" + base.substring(4, 6);
+            if (fraction != null && !fraction.isEmpty()) {
+                formatted += "." + fraction;
+            }
+            return formatted;
+        }
+        if (base.length() == 4) {
+            return base.substring(0, 2) + ":" + base.substring(2, 4);
+        }
+        if (base.length() == 2) {
+            return base + ":00";
+        }
+        return time;
+    }
+
+    private Set<String> collectAccessionNumbers(MADOMetadata metadata) {
+        Set<String> accessionNumbers = new LinkedHashSet<>();
+        if (metadata.accessionNumber != null && !metadata.accessionNumber.isEmpty()) {
+            accessionNumbers.add(metadata.accessionNumber);
+        }
+        if (metadata.referencedRequests != null) {
+            for (ReferencedRequest request : metadata.referencedRequests) {
+                if (request.accessionNumber != null && !request.accessionNumber.isEmpty()) {
+                    accessionNumbers.add(request.accessionNumber);
+                }
+            }
+        }
+        return accessionNumbers;
+    }
+
+    private List<String> collectEndpointAddresses(List<Endpoint> endpoints) {
+        List<String> addresses = new ArrayList<>();
+        if (endpoints == null) {
+            return addresses;
+        }
+        for (Endpoint endpoint : endpoints) {
+            if (endpoint.hasAddress() && !endpoint.getAddress().isEmpty()) {
+                addresses.add(endpoint.getAddress());
+            }
+        }
+        return addresses;
+    }
+
+    private int countInstances(ImagingStudy imagingStudy) {
+        if (imagingStudy == null) {
+            return 0;
+        }
+        int count = 0;
+        for (ImagingStudy.ImagingStudySeriesComponent series : imagingStudy.getSeries()) {
+            count += series.getInstance().size();
+        }
+        return count;
     }
 
     private Set<String> collectModalities(ImagingStudy imagingStudy) {
@@ -2054,6 +2275,18 @@ public class MADOToFHIRConverter {
             }
         }
         return bodySites;
+    }
+
+    private String getStringExtension(Element element, String url) {
+        if (element == null || url == null) {
+            return null;
+        }
+        for (Extension extension : element.getExtension()) {
+            if (url.equals(extension.getUrl()) && extension.getValue() instanceof StringType) {
+                return ((StringType) extension.getValue()).getValue();
+            }
+        }
+        return null;
     }
 
     private String formatCodeableConcept(CodeableConcept concept) {
