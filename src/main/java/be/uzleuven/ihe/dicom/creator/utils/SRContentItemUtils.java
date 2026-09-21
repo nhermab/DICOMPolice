@@ -24,6 +24,32 @@ public class SRContentItemUtils {
     }
 
     /**
+     * Creates a DATE content item (VR DA, YYYYMMDD).
+     */
+    public static Attributes createDateItem(String relationshipType, String codeValue, String scheme,
+                                            String meaning, String dateValue) {
+        Attributes item = new Attributes();
+        item.setString(Tag.RelationshipType, VR.CS, relationshipType);
+        item.setString(Tag.ValueType, VR.CS, DicomConstants.VALUE_TYPE_DATE);
+        item.newSequence(Tag.ConceptNameCodeSequence, 1).add(code(codeValue, scheme, meaning));
+        item.setString(Tag.Date, VR.DA, dateValue);
+        return item;
+    }
+
+    /**
+     * Creates a TIME content item (VR TM, HHMMSS).
+     */
+    public static Attributes createTimeItem(String relationshipType, String codeValue, String scheme,
+                                            String meaning, String timeValue) {
+        Attributes item = new Attributes();
+        item.setString(Tag.RelationshipType, VR.CS, relationshipType);
+        item.setString(Tag.ValueType, VR.CS, DicomConstants.VALUE_TYPE_TIME);
+        item.newSequence(Tag.ConceptNameCodeSequence, 1).add(code(codeValue, scheme, meaning));
+        item.setString(Tag.Time, VR.TM, timeValue);
+        return item;
+    }
+
+    /**
      * Creates a UIDREF content item.
      */
     public static Attributes createUIDRefItem(String relationshipType, String codeValue, String scheme,

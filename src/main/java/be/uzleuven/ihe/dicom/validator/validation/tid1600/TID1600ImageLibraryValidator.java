@@ -151,12 +151,24 @@ public final class TID1600ImageLibraryValidator {
                 } else if (CODE_SERIES_DATE.equals(codeValue)) {
                     hasSeriesDate = true;
                     TID1600Rules.validateDCMScheme(concept, CODE_SERIES_DATE, result, path);
+                    String vt = item.getString(Tag.ValueType);
+                    if (vt != null && !DicomConstants.VALUE_TYPE_DATE.equals(vt)) {
+                        result.addError(String.format(ValidationMessages.TID1600_GROUP_SERIES_DATE_WRONG_VT, vt), path);
+                    }
                 } else if (CODE_SERIES_TIME.equals(codeValue)) {
                     hasSeriesTime = true;
                     TID1600Rules.validateDCMScheme(concept, CODE_SERIES_TIME, result, path);
+                    String vt = item.getString(Tag.ValueType);
+                    if (vt != null && !DicomConstants.VALUE_TYPE_TIME.equals(vt)) {
+                        result.addError(String.format(ValidationMessages.TID1600_GROUP_SERIES_TIME_WRONG_VT, vt), path);
+                    }
                 } else if (CODE_SERIES_DESCRIPTION.equals(codeValue)) {
                     hasSeriesDescription = true;
                     TID1600Rules.validateDCMScheme(concept, CODE_SERIES_DESCRIPTION, result, path);
+                    String vt = item.getString(Tag.ValueType);
+                    if (vt != null && !(DicomConstants.VALUE_TYPE_TEXT.equals(vt) || "UT".equals(vt))) {
+                        result.addError(String.format(ValidationMessages.TID1600_GROUP_SERIES_DESCRIPTION_WRONG_VT, vt), path);
+                    }
                 } else if (CODE_SERIES_NUMBER.equals(codeValue)) {
                     hasSeriesNumber = true;
                     TID1600Rules.validateSeriesNumberConsistency(item, result, path);

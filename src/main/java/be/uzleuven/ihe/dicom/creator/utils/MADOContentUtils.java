@@ -170,9 +170,9 @@ public class MADOContentUtils {
                 MEANING_SERIES_INSTANCE_UID, series.getSeriesUID()));
         groupSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_SERIES_DESCRIPTION, SCHEME_DCM,
                 MEANING_SERIES_DESCRIPTION, series.getDescription()));
-        groupSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_SERIES_DATE, SCHEME_DCM,
+        groupSeq.add(createDateItem("HAS ACQ CONTEXT", CODE_SERIES_DATE, SCHEME_DCM,
                 MEANING_SERIES_DATE, series.getSeriesDate()));
-        groupSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_SERIES_TIME, SCHEME_DCM,
+        groupSeq.add(createTimeItem("HAS ACQ CONTEXT", CODE_SERIES_TIME, SCHEME_DCM,
                 MEANING_SERIES_TIME, series.getSeriesTime()));
         // KOS TID 2010 forbids NUM, so represent the series number as TEXT.
         groupSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_SERIES_NUMBER, SCHEME_DCM,

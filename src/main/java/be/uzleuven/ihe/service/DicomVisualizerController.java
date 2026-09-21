@@ -499,6 +499,12 @@ public class DicomVisualizerController {
                 case DicomConstants.VALUE_TYPE_TEXT:
                     node.put("textValue", item.getString(Tag.TextValue, ""));
                     break;
+                case DicomConstants.VALUE_TYPE_DATE:
+                    node.put("dateValue", item.getString(Tag.Date, ""));
+                    break;
+                case DicomConstants.VALUE_TYPE_TIME:
+                    node.put("timeValue", item.getString(Tag.Time, ""));
+                    break;
                 case DicomConstants.VALUE_TYPE_NUM:
                     node.put("numericValue", item.getString(Tag.NumericValue, ""));
                     break;

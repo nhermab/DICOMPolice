@@ -169,10 +169,10 @@ class MADOContentBuilder {
         groupSeq.add(createTextItem("HAS ACQ CONTEXT", CodeConstants.CODE_SERIES_DESCRIPTION,
             CodeConstants.SCHEME_DCM, CodeConstants.MEANING_SERIES_DESCRIPTION, seriesDescription));
 
-        groupSeq.add(createTextItem("HAS ACQ CONTEXT", CodeConstants.CODE_SERIES_DATE,
+        groupSeq.add(createDateItem("HAS ACQ CONTEXT", CodeConstants.CODE_SERIES_DATE,
             CodeConstants.SCHEME_DCM, CodeConstants.MEANING_SERIES_DATE, seriesDate));
 
-        groupSeq.add(createTextItem("HAS ACQ CONTEXT", CodeConstants.CODE_SERIES_TIME,
+        groupSeq.add(createTimeItem("HAS ACQ CONTEXT", CodeConstants.CODE_SERIES_TIME,
             CodeConstants.SCHEME_DCM, CodeConstants.MEANING_SERIES_TIME, seriesTime));
 
         groupSeq.add(createTextItem("HAS ACQ CONTEXT", CodeConstants.CODE_SERIES_NUMBER,

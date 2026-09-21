@@ -139,7 +139,14 @@ public final class CodeConstants {
     public static final String SNOMED_CARDIOVASCULAR_SYSTEM =   "113257007";
     public static final String SNOMED_HEART =                   "80891009";
     public static final String SNOMED_BREAST =                  "76752008";
-    public static final String SNOMED_VERTEBRAL_COLUMN =        "737561001";
+    /** Vertebral column (CID IHE-MADO1 Table 6.X.6.4-1, MADO Rev. 1.2) */
+    public static final String SNOMED_VERTEBRAL_COLUMN =        "1141981001";
+    /** @deprecated Replaced by 1141981001 in CID IHE-MADO1 (was bony structure only) */
+    @Deprecated
+    public static final String LEGACY_SNOMED_SPINE =            "421060004";
+    /** @deprecated Provisional code replaced by 1141981001 */
+    @Deprecated
+    public static final String LEGACY_SNOMED_VERTEBRAL_COLUMN = "737561001";
 
     /**
      * Display names for MADO-compliant SNOMED CT body site codes.
@@ -155,7 +162,9 @@ public final class CodeConstants {
             Map.entry(SNOMED_CARDIOVASCULAR_SYSTEM,     "Cardiovascular system"),
             Map.entry(SNOMED_HEART,                     "Heart"),
             Map.entry(SNOMED_BREAST,                    "Breast"),
-            Map.entry(SNOMED_VERTEBRAL_COLUMN,          "Structure of vertebral column and/or spinal cord (body structure)")
+            Map.entry(SNOMED_VERTEBRAL_COLUMN,          "Vertebral column"),
+            Map.entry(LEGACY_SNOMED_SPINE,              "Spine"),
+            Map.entry(LEGACY_SNOMED_VERTEBRAL_COLUMN,   "Structure of vertebral column and/or spinal cord (body structure)")
     );
 
     // ============================================================================

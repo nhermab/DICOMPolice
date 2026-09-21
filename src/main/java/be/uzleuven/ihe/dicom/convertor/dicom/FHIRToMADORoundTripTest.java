@@ -1,6 +1,7 @@
 package be.uzleuven.ihe.dicom.convertor.dicom;
 
 import be.uzleuven.ihe.dicom.constants.CodeConstants;
+import be.uzleuven.ihe.dicom.constants.DicomConstants;
 import be.uzleuven.ihe.dicom.convertor.fhir.MADOToFHIRConverter;
 import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Sequence;
@@ -535,9 +536,15 @@ public class FHIRToMADORoundTripTest {
             if ("112002".equals(code) && "UIDREF".equals(item.getString(Tag.ValueType))) {
                 // Series Instance UID (112002, DCM)
                 seriesUID = item.getString(Tag.UID);
-            } else if (codeValue.equals(code) && "TEXT".equals(item.getString(Tag.ValueType))) {
-                // Series Date or Time
-                dateTimeValue = item.getString(Tag.TextValue);
+            } else if (codeValue.equals(code)) {
+                String vt = item.getString(Tag.ValueType);
+                if (DicomConstants.VALUE_TYPE_DATE.equals(vt)) {
+                    dateTimeValue = item.getString(Tag.Date);
+                } else if (DicomConstants.VALUE_TYPE_TIME.equals(vt)) {
+                    dateTimeValue = item.getString(Tag.Time);
+                } else {
+                    dateTimeValue = item.getString(Tag.TextValue);
+                }
             }
         }
 

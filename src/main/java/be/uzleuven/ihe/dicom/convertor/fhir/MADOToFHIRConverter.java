@@ -1544,10 +1544,26 @@ public class MADOToFHIRConverter {
                 } catch (NumberFormatException e) {
                     // Ignore
                 }
-            } else if ("TEXT".equals(valueType) && CODE_SERIES_DATE.equals(codeValue)) {
-                seriesDate = item.getString(Tag.TextValue);
-            } else if ("TEXT".equals(valueType) && CODE_SERIES_TIME.equals(codeValue)) {
-                seriesTime = item.getString(Tag.TextValue);
+            } else if (CODE_SERIES_DATE.equals(codeValue)) {
+                seriesDate = DicomConstants.VALUE_TYPE_DATE.equals(valueType)
+                        ? item.getString(Tag.Date)
+                        : item.getString(Tag.TextValue);
+                if (seriesDate == null) {
+                    seriesDate = item.getString(Tag.Date);
+                }
+                if (seriesDate == null) {
+                    seriesDate = item.getString(Tag.TextValue);
+                }
+            } else if (CODE_SERIES_TIME.equals(codeValue)) {
+                seriesTime = DicomConstants.VALUE_TYPE_TIME.equals(valueType)
+                        ? item.getString(Tag.Time)
+                        : item.getString(Tag.TextValue);
+                if (seriesTime == null) {
+                    seriesTime = item.getString(Tag.Time);
+                }
+                if (seriesTime == null) {
+                    seriesTime = item.getString(Tag.TextValue);
+                }
             } else if ("IMAGE".equals(valueType)) {
                 // Process IMAGE items to extract instance numbers and frame counts
                 System.out.println("DEBUG MADOToFHIRConverter.processImageLibraryGroup: Found IMAGE item, calling extractInstanceMetadataFromImage");

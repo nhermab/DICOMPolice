@@ -1213,15 +1213,15 @@ public class FHIRToMADOConverter {
         groupSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_SERIES_DESCRIPTION,
             SCHEME_DCM, MEANING_SERIES_DESCRIPTION, seriesDescription));
 
-        // Series Date (131561, DCM) - only if available from extension
+        // Series Date (131561, DCM, VT=DATE) - only if available from extension
         if (seriesDate != null && !seriesDate.isEmpty()) {
-            groupSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_SERIES_DATE,
+            groupSeq.add(createDateItem("HAS ACQ CONTEXT", CODE_SERIES_DATE,
                 SCHEME_DCM, MEANING_SERIES_DATE, seriesDate));
         }
 
-        // Series Time (131562, DCM) - only if available from extension
+        // Series Time (131562, DCM, VT=TIME) - only if available from extension
         if (seriesTime != null && !seriesTime.isEmpty()) {
-            groupSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_SERIES_TIME,
+            groupSeq.add(createTimeItem("HAS ACQ CONTEXT", CODE_SERIES_TIME,
                 SCHEME_DCM, MEANING_SERIES_TIME, seriesTime));
         }
 

@@ -790,11 +790,20 @@ public class ValidationMessages {
     public static final String TID1600_GROUP_MISSING_SERIES_DATE = "TID 1602 Image Library Group missing Series Date (" + CODE_SERIES_DATE + ", " + SCHEME_DCM + ", \"Series Date\"). [" +
             REF_MADO_TABLE_6_X_2_9_2 + ": 'The following content Items shall be present... Series Date (" + CODE_SERIES_DATE + ", " + SCHEME_DCM + ") RC+']";
 
+    public static final String TID1600_GROUP_SERIES_DATE_WRONG_VT = "Series Date content item must use ValueType DATE, found: %s. [" +
+            REF_MADO_TABLE_6_X_2_9_2 + ": 'Series Date (131561, DCM) shall use ValueType DATE.']";
+
     public static final String TID1600_GROUP_MISSING_SERIES_TIME = "TID 1602 Image Library Group missing Series Time (" + CODE_SERIES_TIME + ", " + SCHEME_DCM + ", \"Series Time\"). [" +
             REF_MADO_TABLE_6_X_2_9_2 + ": 'The following content Items shall be present... Series Time (" + CODE_SERIES_TIME + ", " + SCHEME_DCM + ") RC+']";
 
+    public static final String TID1600_GROUP_SERIES_TIME_WRONG_VT = "Series Time content item must use ValueType TIME, found: %s. [" +
+            REF_MADO_TABLE_6_X_2_9_2 + ": 'Series Time (131562, DCM) shall use ValueType TIME.']";
+
     public static final String TID1600_GROUP_MISSING_SERIES_DESCRIPTION = "TID 1602 Image Library Group missing Series Description (" + CODE_SERIES_DESCRIPTION + ", " + SCHEME_DCM + ", \"Series Description\"). [" +
             REF_MADO_TABLE_6_X_2_9_2 + ": 'The following content Items shall be present... Series Description (" + CODE_SERIES_DESCRIPTION + ", " + SCHEME_DCM + ") RC+']";
+
+    public static final String TID1600_GROUP_SERIES_DESCRIPTION_WRONG_VT = "Series Description content item must use ValueType TEXT, found: %s. [" +
+            REF_MADO_TABLE_6_X_2_9_2 + ": 'Series Description (131563, DCM) shall use ValueType TEXT.']";
 
     public static final String TID1600_GROUP_MISSING_SERIES_NUMBER = "TID 1602 Image Library Group missing Series Number (" + CODE_SERIES_NUMBER + ", DCM, \"Series Number\"). [" +
             REF_MADO_TABLE_6_X_2_9_2 + ": 'The following content Items shall be present... Series Number (" + CODE_SERIES_NUMBER + ", DCM) RC+']";
