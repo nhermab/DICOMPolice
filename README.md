@@ -433,9 +433,22 @@ list.
 whose server was used as the reference PACS during development and demonstrations.
 DICOMPolice contains no Orthanc code and does not depend on it. We also thank the
 [dcm4che](https://github.com/dcm4che/dcm4che), [HAPI FHIR](https://hapifhir.io/),
-[OHIF](https://ohif.org/) and PixelMed communities. Finally, we thank the IHE Radiology
-MADO authors and the IHE Belgium community for their feedback during Connectathon and
-Projectathon testing.
+[OHIF](https://ohif.org/) and PixelMed communities.
+
+We are grateful to the IHE Radiology MADO authors, the IHE Belgium community, and the
+organisations whose teams tested against DICOMPolice at the **IHE Europe Connectathon 2026**
+and gave feedback:
+
+- Agfa HealthCare
+- Ericsson Nikola Tesla
+- European Commission (as solution provider)
+- Founda Health
+- GE HealthCare
+- Kereval
+- Nictiz
+- Philips
+- Spanish Ministry of Health (Ministerio de Sanidad)
+- UZ Leuven
 
 ---
 
