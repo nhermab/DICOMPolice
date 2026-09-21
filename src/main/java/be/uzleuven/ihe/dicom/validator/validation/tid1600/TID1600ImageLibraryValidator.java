@@ -6,6 +6,7 @@ import be.uzleuven.ihe.dicom.constants.ValidationMessages;
 import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Sequence;
 import org.dcm4che3.data.Tag;
+import org.dcm4che3.data.UID;
 import be.uzleuven.ihe.dicom.validator.model.ValidationResult;
 import be.uzleuven.ihe.dicom.validator.utils.SRContentTreeUtils;
 
@@ -245,13 +246,7 @@ public final class TID1600ImageLibraryValidator {
      */
     private static void validateImageLibraryEntry(Attributes entry, ValidationResult result,
                                                   String path, boolean verbose) {
-        // Check value type
         String valueType = entry.getString(Tag.ValueType);
-        if ("COMPOSITE".equals(valueType)) {
-            result.addWarning("TID 1601 Image Library Entry uses ValueType 'COMPOSITE'. " +
-                            "MADO profile recommends 'IMAGE' for image references (COMPOSITE is generic KOS style).", path);
-        }
-
         Sequence refSOPSeq = entry.getSequence(Tag.ReferencedSOPSequence);
         if (refSOPSeq == null || refSOPSeq.isEmpty()) {
             result.addError(ValidationMessages.TID1600_ENTRY_NO_REFERENCED_SOP, path);
@@ -270,6 +265,19 @@ public final class TID1600ImageLibraryValidator {
         }
         if (sopInstanceUID == null || sopInstanceUID.trim().isEmpty()) {
             result.addError(ValidationMessages.TID1600_ENTRY_MISSING_SOP_INSTANCE_UID, path);
+        }
+
+        boolean referencesKos = UID.KeyObjectSelectionDocumentStorage.equals(sopClassUID);
+        if (referencesKos) {
+            if (!"COMPOSITE".equals(valueType)) {
+                result.addError("TID 1601 KOS/KIN Image Library Entry must use ValueType COMPOSITE, found: "
+                        + valueType, path);
+            }
+            // TID 1609 requires the KIN's root document title to be exposed on the entry.
+            validateKOSReference(entry, result, path);
+        } else if ("COMPOSITE".equals(valueType)) {
+            result.addWarning("TID 1601 Image Library Entry uses ValueType COMPOSITE for a non-KOS instance; " +
+                    "use IMAGE when the referenced SOP is an image.", path);
         }
 
         // Validate nested instance-level content

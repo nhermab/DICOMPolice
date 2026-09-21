@@ -147,6 +147,29 @@ java -cp target/DICOMPolice-0.1.0-SNAPSHOT.jar be.uzleuven.ihe.dicom.convertor.d
   bundle.json output.dcm
 ```
 
+### 4. Add a synthetic Key Image Note to a MADO
+
+`MadoKinUpgradeCli` reads an existing DICOM MADO, reproducibly selects one referenced
+image, writes a separate KIN/KOS instance, and writes a new MADO revision that advertises
+the KIN in its evidence, root TID 2010 content, and TID 1600 Image Library.
+
+```bash
+java -cp target/DICOMPolice-0.1.0-SNAPSHOT.jar \
+  be.uzleuven.ihe.dicom.creator.kin.MadoKinUpgradeCli \
+  --input mado-original.dcm \
+  --kin-out example-kin.dcm \
+  --mado-out mado-with-kin.dcm \
+  --seed 12345 \
+  --description "Automatically selected test key image"
+```
+
+The KIN is a separate DICOM object, not payload embedded in the MADO. By default the
+example assumes it will be stored by the same Imaging Document Source as the selected
+image and copies that series' Retrieve Location UID and Retrieve URL. When this is not
+true, pass `--retrieve-location-uid` and optionally `--retrieve-url` for the source where
+the KIN will actually be stored. The CLI writes the KIN first and does not overwrite files
+unless `--overwrite` is supplied.
+
 ---
 
 ## Installation
