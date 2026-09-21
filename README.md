@@ -11,6 +11,9 @@ Validator · Test-data generator · Actor simulators · DICOM ↔ FHIR converter
 ![HAPI FHIR 8.2](https://img.shields.io/badge/HAPI%20FHIR-8.2-red.svg)
 
 **Author:** Nick Hermans ([nick.hermans@uzleuven.be](mailto:nick.hermans@uzleuven.be))  
+**Contributors:** Annabel Dompas, Marina Filipovic, Jens Penny (UZ Leuven)  
+**Supervision:** Prof. ir. Erwin Bellon (UZ Leuven)  
+**IHE Belgium co-chairs:** Karlien Erauw (Agoria), vendor co-chair · Pieter Devolder (UZ Gent), user co-chair  
 **Affiliation:** University Hospitals Leuven (UZ Leuven), IHE Belgium  
 **Public instance:** <https://ihebelgium.ehealthhub.be/TheDICOMPolice/>
 
