@@ -145,9 +145,9 @@ public class MADOAttributesUtils {
         d.setString(Tag.ContinuityOfContent, VR.CS, be.uzleuven.ihe.dicom.constants.DicomConstants.CONTINUITY_SEPARATE);
 
         // Root Concept: Manifest with Description (Triggers MADO logic)
-        // CP-2595: (MADOTEMP001, 99IHE, "Manifest with Description")
+        // CID 7010: (131560, DCM, "Manifest with Description")
         d.newSequence(Tag.ConceptNameCodeSequence, 1)
-                .add(code(CODE_MANIFEST_WITH_DESCRIPTION, SCHEME_99IHE, MEANING_MANIFEST_WITH_DESCRIPTION));
+                .add(code(CODE_MANIFEST_WITH_DESCRIPTION, SCHEME_DCM, MEANING_MANIFEST_WITH_DESCRIPTION));
 
         d.newSequence(Tag.ContentTemplateSequence, 1)
                 .add(createTemplateItem("2010"));
@@ -223,8 +223,8 @@ public class MADOAttributesUtils {
                 code(CODE_MODALITY_CT, SCHEME_DCM, MEANING_MODALITY_CT)));
         libContent.add(createCodeItem("HAS ACQ CONTEXT", CODE_TARGET_REGION, SCHEME_DCM, MEANING_TARGET_REGION,
                 code(CODE_REGION_UPPER_TRUNK, SCHEME_SCT, MEANING_REGION_UPPER_TRUNK)));
-        // Number of Study Related Series (MADOTEMP009, 99IHE) - R+
-        libContent.add(createNumericItem("HAS ACQ CONTEXT", CODE_NUM_STUDY_RELATED_SERIES, SCHEME_99IHE,
+        // Number of Study Related Series (131565, DCM) - R+ per MADO spec
+        libContent.add(createNumericItem("HAS ACQ CONTEXT", CODE_NUM_STUDY_RELATED_SERIES, SCHEME_DCM,
                 MEANING_NUM_STUDY_RELATED_SERIES, study.getSeriesList().size(),
                 "{series}", "UCUM", "series"));
 

@@ -168,17 +168,17 @@ public class MADOContentUtils {
                 code(series.getModality(), SCHEME_DCM, series.getModality())));
         groupSeq.add(createUIDRefItem("HAS ACQ CONTEXT", CODE_SERIES_INSTANCE_UID, SCHEME_DCM,
                 MEANING_SERIES_INSTANCE_UID, series.getSeriesUID()));
-        groupSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_SERIES_DESCRIPTION, SCHEME_99IHE,
+        groupSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_SERIES_DESCRIPTION, SCHEME_DCM,
                 MEANING_SERIES_DESCRIPTION, series.getDescription()));
-        groupSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_SERIES_DATE, SCHEME_99IHE,
+        groupSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_SERIES_DATE, SCHEME_DCM,
                 MEANING_SERIES_DATE, series.getSeriesDate()));
-        groupSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_SERIES_TIME, SCHEME_99IHE,
+        groupSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_SERIES_TIME, SCHEME_DCM,
                 MEANING_SERIES_TIME, series.getSeriesTime()));
         // KOS TID 2010 forbids NUM, so represent the series number as TEXT.
         groupSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_SERIES_NUMBER, SCHEME_DCM,
                 MEANING_SERIES_NUMBER, Integer.toString(series.getSeriesNumber())));
         // Number of Series Related Instances (NUM) - Required by MADO TID 1602
-        groupSeq.add(createNumericItem("HAS ACQ CONTEXT", CODE_NUM_SERIES_RELATED_INSTANCES, SCHEME_99IHE,
+        groupSeq.add(createNumericItem("HAS ACQ CONTEXT", CODE_NUM_SERIES_RELATED_INSTANCES, SCHEME_DCM,
                 MEANING_NUM_SERIES_RELATED_INSTANCES, series.getInstances().size(),
                 "{instances}", "UCUM", "instances"));
 

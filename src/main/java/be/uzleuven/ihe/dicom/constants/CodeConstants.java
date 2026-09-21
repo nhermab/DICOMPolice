@@ -50,34 +50,28 @@ public final class CodeConstants {
 
 
     // ============================================================================
-    // MADO Trial Implementation Codes (CP-2595 / 99IHE scheme)
-    // ============================================================================
-    // Per DICOM CP-2595 Trial Implementation: temporary codes using the 99IHE
-    // coding scheme designator. These will be replaced with final DCM codes once
-    // CP-2595 is published. Do NOT use "DCM" as the coding scheme for these codes.
-    //
-    // See also: SCHEME_99IHE constant below.
+    // MADO DICOM Standard Codes (CID 7010 / TID 1600 / TID 1602 per DICOM standard)
+    // Coding Scheme Designator: "DCM" (SCHEME_DCM)
     // ============================================================================
 
-
-    /** Root Node (TID 2010) document title: "Manifest with Description" */
-    public static final String CODE_MANIFEST_WITH_DESCRIPTION = "MADOTEMP001";
-    /** Series Description content item (TID 1602, VT=TEXT) */
-    public static final String CODE_SERIES_DESCRIPTION = "MADOTEMP002";
-    /** Series Date content item (TID 1602, VT=DATE) */
-    public static final String CODE_SERIES_DATE = "MADOTEMP003";
-    /** Series Time content item (TID 1602, VT=TIME) */
-    public static final String CODE_SERIES_TIME = "MADOTEMP004";
-    /** Series Number content item – note: uses standard DCM code 113607 per spec, but kept here for mapping */
+    /** Root Node (TID 2010) document title: "Manifest with Description" (CID 7010, DCM 131560) */
+    public static final String CODE_MANIFEST_WITH_DESCRIPTION = "131560";
+    /** Series Description content item (TID 1602, VT=TEXT, DCM 131563) */
+    public static final String CODE_SERIES_DESCRIPTION = "131563";
+    /** Series Date content item (TID 1602, VT=DATE, DCM 131561) */
+    public static final String CODE_SERIES_DATE = "131561";
+    /** Series Time content item (TID 1602, VT=TIME, DCM 131562) */
+    public static final String CODE_SERIES_TIME = "131562";
+    /** Series Number content item (TID 1602, VT=TEXT, DCM 113607) */
     public static final String CODE_SERIES_NUMBER = "113607";
-    /** Series Instance UID content item – note: uses standard DCM code 112002 per spec */
+    /** Series Instance UID content item (TID 1602, VT=UIDREF, DCM 112002) */
     public static final String CODE_SERIES_INSTANCE_UID = "112002";
-    /** Number of Series Related Instances (TID 1602, VT=NUM, units={instances}) */
-    public static final String CODE_NUM_SERIES_RELATED_INSTANCES = "MADOTEMP007";
-    /** Instance Number content item (TID 1601/1602, VT=TEXT) – note: uses standard DCM code 113609 per spec */
+    /** Number of Series Related Instances (TID 1602, VT=NUM, units={instances}, DCM 131564) */
+    public static final String CODE_NUM_SERIES_RELATED_INSTANCES = "131564";
+    /** Instance Number content item (TID 1601/1602, VT=TEXT, DCM 113609) */
     public static final String CODE_INSTANCE_NUMBER = "113609";
-    /** Number of Study Related Series (TID 1600 study-level, VT=NUM, units={series}) */
-    public static final String CODE_NUM_STUDY_RELATED_SERIES = "MADOTEMP009";
+    /** Number of Study Related Series (TID 1600 study-level, VT=NUM, units={series}, DCM 131565) */
+    public static final String CODE_NUM_STUDY_RELATED_SERIES = "131565";
 
     // ============================================================================
     // TID 16XX KOS Descriptor Codes (standard DCM codes for KOS references)
@@ -93,7 +87,7 @@ public final class CodeConstants {
     public static final String CODE_KOS_TITLE = CODE_KOS_DOCUMENT_TITLE;
 
     /**
-     * Study Instance UID content item – no longer a MADOTEMP code (not in CP-2595 study-level items).
+     * Study Instance UID content item (not in CP-2595 study-level items).
      * The Study Instance UID is conveyed via the top-level DICOM tag (0020,000D), not as a TID 1600 content item.
      * Kept for backward compatibility with creator code.
      * @deprecated Study Instance UID is not a TID 1600 content item in CP-2595
@@ -102,7 +96,7 @@ public final class CodeConstants {
     public static final String CODE_STUDY_INSTANCE_UID = "110180";
 
     /**
-     * SOP Instance UID content item code – no longer used as a MADOTEMP code.
+     * SOP Instance UID content item code.
      * In CP-2595, SOP Instance UIDs are conveyed via ReferencedSOPSequence, not content items.
      * Kept for backward compatibility with creator code.
      * @deprecated SOP Instance UIDs are conveyed via ReferencedSOPSequence in CP-2595
@@ -169,15 +163,12 @@ public final class CodeConstants {
     // ============================================================================
 
     public static final String SCHEME_DCM = "DCM";
-    /** IHE Trial Implementation coding scheme designator for MADO CP-2595 codes */
-    public static final String SCHEME_99IHE = "99IHE";
     public static final String SCHEME_SRT = "SRT";
     public static final String SCHEME_SCT = "SCT"; // SNOMED CT
 
     // ============================================================================
     // CODE MEANINGS (third parameter of code(...))
     // ============================================================================
-
     // Manifest-related meanings
     public static final String MEANING_MANIFEST = "Manifest";
     public static final String MEANING_MANIFEST_WITH_DESCRIPTION = "Manifest with Description";

@@ -1,5 +1,6 @@
 package be.uzleuven.ihe.dicom.convertor.dicom;
 
+import be.uzleuven.ihe.dicom.constants.CodeConstants;
 import be.uzleuven.ihe.dicom.convertor.fhir.MADOToFHIRConverter;
 import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Sequence;
@@ -427,19 +428,19 @@ public class FHIRToMADORoundTripTest {
      * Compares Series Date/Time values in Image Library Groups.
      */
     private void compareSeriesDateTimeInContent(Sequence origContent, Sequence rtContent) {
-        // Extract Series Date/Time from original (MADOTEMP003 = Series Date, MADOTEMP004 = Series Time)
-        Map<String, String> origSeriesDates = extractSeriesDateTimeFromContent(origContent, "MADOTEMP003");
-        Map<String, String> origSeriesTimes = extractSeriesDateTimeFromContent(origContent, "MADOTEMP004");
+        // Extract Series Date/Time from original (131561 = Series Date, 131562 = Series Time)
+        Map<String, String> origSeriesDates = extractSeriesDateTimeFromContent(origContent, CodeConstants.CODE_SERIES_DATE);
+        Map<String, String> origSeriesTimes = extractSeriesDateTimeFromContent(origContent, CodeConstants.CODE_SERIES_TIME);
 
         // Extract Series Date/Time from round-tripped
-        Map<String, String> rtSeriesDates = extractSeriesDateTimeFromContent(rtContent, "MADOTEMP003");
-        Map<String, String> rtSeriesTimes = extractSeriesDateTimeFromContent(rtContent, "MADOTEMP004");
+        Map<String, String> rtSeriesDates = extractSeriesDateTimeFromContent(rtContent, CodeConstants.CODE_SERIES_DATE);
+        Map<String, String> rtSeriesTimes = extractSeriesDateTimeFromContent(rtContent, CodeConstants.CODE_SERIES_TIME);
 
         // Compare Series Dates
         if (origSeriesDates.isEmpty() && rtSeriesDates.isEmpty()) {
-            warnings.add("Series Date (MADOTEMP003): none in either");
+            warnings.add("Series Date (" + CodeConstants.CODE_SERIES_DATE + "): none in either");
         } else if (origSeriesDates.equals(rtSeriesDates)) {
-            matches.add("Series Date (MADOTEMP003): " + origSeriesDates.size() + " values preserved");
+            matches.add("Series Date (" + CodeConstants.CODE_SERIES_DATE + "): " + origSeriesDates.size() + " values preserved");
         } else {
             // Check which dates match
             int matchCount = 0;
@@ -449,18 +450,18 @@ public class FHIRToMADORoundTripTest {
                 }
             }
             if (matchCount == origSeriesDates.size()) {
-                matches.add("Series Date (MADOTEMP003): all " + matchCount + " values preserved");
+                matches.add("Series Date (" + CodeConstants.CODE_SERIES_DATE + "): all " + matchCount + " values preserved");
             } else {
-                mismatches.add("Series Date (MADOTEMP003): " + matchCount + "/" + origSeriesDates.size() +
+                mismatches.add("Series Date (" + CodeConstants.CODE_SERIES_DATE + "): " + matchCount + "/" + origSeriesDates.size() +
                     " preserved. Orig=" + origSeriesDates + " RT=" + rtSeriesDates);
             }
         }
 
         // Compare Series Times
         if (origSeriesTimes.isEmpty() && rtSeriesTimes.isEmpty()) {
-            warnings.add("Series Time (MADOTEMP004): none in either");
+            warnings.add("Series Time (" + CodeConstants.CODE_SERIES_TIME + "): none in either");
         } else if (origSeriesTimes.equals(rtSeriesTimes)) {
-            matches.add("Series Time (MADOTEMP004): " + origSeriesTimes.size() + " values preserved");
+            matches.add("Series Time (" + CodeConstants.CODE_SERIES_TIME + "): " + origSeriesTimes.size() + " values preserved");
         } else {
             int matchCount = 0;
             for (Map.Entry<String, String> entry : origSeriesTimes.entrySet()) {
@@ -469,9 +470,9 @@ public class FHIRToMADORoundTripTest {
                 }
             }
             if (matchCount == origSeriesTimes.size()) {
-                matches.add("Series Time (MADOTEMP004): all " + matchCount + " values preserved");
+                matches.add("Series Time (" + CodeConstants.CODE_SERIES_TIME + "): all " + matchCount + " values preserved");
             } else {
-                mismatches.add("Series Time (MADOTEMP004): " + matchCount + "/" + origSeriesTimes.size() +
+                mismatches.add("Series Time (" + CodeConstants.CODE_SERIES_TIME + "): " + matchCount + "/" + origSeriesTimes.size() +
                     " preserved. Orig=" + origSeriesTimes + " RT=" + rtSeriesTimes);
             }
         }
@@ -479,7 +480,7 @@ public class FHIRToMADORoundTripTest {
 
     /**
      * Extracts Series Date or Time values from Content Sequence.
-     * @param codeValue "MADOTEMP003" for Series Date, "MADOTEMP004" for Series Time
+     * @param codeValue primary code value (e.g. 131561 for Series Date, 131562 for Series Time)
      * @return Map of Series UID to Date/Time value
      */
     private Map<String, String> extractSeriesDateTimeFromContent(Sequence contentSeq, String codeValue) {
@@ -676,7 +677,6 @@ public class FHIRToMADORoundTripTest {
 
         } catch (Exception e) {
             System.err.println("Error: " + e.getMessage());
-            e.printStackTrace();
             System.exit(1);
         }
     }

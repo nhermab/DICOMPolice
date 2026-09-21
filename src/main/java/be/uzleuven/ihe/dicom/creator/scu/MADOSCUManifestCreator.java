@@ -167,11 +167,10 @@ public class MADOSCUManifestCreator extends SCUManifestCreator {
         mado.setString(Tag.ValueType, VR.CS, "CONTAINER");
         mado.setString(Tag.ContinuityOfContent, VR.CS, be.uzleuven.ihe.dicom.constants.DicomConstants.CONTINUITY_SEPARATE);
 
-        // Document Title: MADO requires "Manifest with Description" (MADOTEMP001, 99IHE)
-        // Per CP-2595 TI: MADOTEMP placeholder codes MUST use the 99IHE private scheme,
-        // NOT DCM, because CP-2595 is still in draft during the MADO Trial Implementation.
+        // Document Title: MADO requires "Manifest with Description" (131560, DCM)
+        // Per DICOM standard CID 7010 / MADO spec: uses DCM scheme
         Sequence conceptNameCodeSeq = mado.newSequence(Tag.ConceptNameCodeSequence, 1);
-        conceptNameCodeSeq.add(code(CODE_MANIFEST_WITH_DESCRIPTION, SCHEME_99IHE, MEANING_MANIFEST_WITH_DESCRIPTION));
+        conceptNameCodeSeq.add(code(CODE_MANIFEST_WITH_DESCRIPTION, SCHEME_DCM, MEANING_MANIFEST_WITH_DESCRIPTION));
 
         // Explicitly identify TID 2010 (XDS-I / KOS template)
         mado.newSequence(Tag.ContentTemplateSequence, 1)

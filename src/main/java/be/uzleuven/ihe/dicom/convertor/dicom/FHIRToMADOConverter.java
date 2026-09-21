@@ -778,9 +778,9 @@ public class FHIRToMADOConverter {
         mado.setString(Tag.ContinuityOfContent, VR.CS, DicomConstants.CONTINUITY_SEPARATE);
 
         // Document Title: MADO requires Manifest or Manifest with Description
-        // CP-2595: (MADOTEMP001, 99IHE, "Manifest with Description")
+        // CID 7010: (131560, DCM, "Manifest with Description")
         Sequence conceptNameCodeSeq = mado.newSequence(Tag.ConceptNameCodeSequence, 1);
-        conceptNameCodeSeq.add(code(CODE_MANIFEST_WITH_DESCRIPTION, SCHEME_99IHE, MEANING_MANIFEST_WITH_DESCRIPTION));
+        conceptNameCodeSeq.add(code(CODE_MANIFEST_WITH_DESCRIPTION, SCHEME_DCM, MEANING_MANIFEST_WITH_DESCRIPTION));
 
         // Explicitly identify TID 2010 (XDS-I / KOS template)
         mado.newSequence(Tag.ContentTemplateSequence, 1)
@@ -1164,9 +1164,9 @@ public class FHIRToMADOConverter {
             SCHEME_DCM, MEANING_TARGET_REGION,
             code(targetRegionCode, targetRegionScheme, targetRegionMeaning)));
 
-        // Number of Study Related Series (MADOTEMP009, 99IHE) - R+ per CP-2595
+        // Number of Study Related Series (131565, DCM) - R+ per MADO spec / DICOM standard
         libContent.add(createNumericItem("HAS ACQ CONTEXT", CODE_NUM_STUDY_RELATED_SERIES,
-            SCHEME_99IHE, MEANING_NUM_STUDY_RELATED_SERIES, study.getSeries().size(),
+            SCHEME_DCM, MEANING_NUM_STUDY_RELATED_SERIES, study.getSeries().size(),
             "{series}", "UCUM", "series"));
 
         // Add series groups
@@ -1209,29 +1209,29 @@ public class FHIRToMADOConverter {
         groupSeq.add(createUIDRefItem("HAS ACQ CONTEXT", CODE_SERIES_INSTANCE_UID,
             SCHEME_DCM, MEANING_SERIES_INSTANCE_UID, seriesUid));
 
-        // Series Description (MADOTEMP002, 99IHE)
+        // Series Description (131563, DCM)
         groupSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_SERIES_DESCRIPTION,
-            SCHEME_99IHE, MEANING_SERIES_DESCRIPTION, seriesDescription));
+            SCHEME_DCM, MEANING_SERIES_DESCRIPTION, seriesDescription));
 
-        // Series Date (MADOTEMP003, 99IHE) - only if available from extension
+        // Series Date (131561, DCM) - only if available from extension
         if (seriesDate != null && !seriesDate.isEmpty()) {
             groupSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_SERIES_DATE,
-                SCHEME_99IHE, MEANING_SERIES_DATE, seriesDate));
+                SCHEME_DCM, MEANING_SERIES_DATE, seriesDate));
         }
 
-        // Series Time (MADOTEMP004, 99IHE) - only if available from extension
+        // Series Time (131562, DCM) - only if available from extension
         if (seriesTime != null && !seriesTime.isEmpty()) {
             groupSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_SERIES_TIME,
-                SCHEME_99IHE, MEANING_SERIES_TIME, seriesTime));
+                SCHEME_DCM, MEANING_SERIES_TIME, seriesTime));
         }
 
         // Series Number (113607, DCM)
         groupSeq.add(createTextItem("HAS ACQ CONTEXT", CODE_SERIES_NUMBER,
             SCHEME_DCM, MEANING_SERIES_NUMBER, Integer.toString(seriesNum)));
 
-        // Number of instances (MADOTEMP007, 99IHE)
+        // Number of instances (131564, DCM)
         groupSeq.add(createNumericItem("HAS ACQ CONTEXT", CODE_NUM_SERIES_RELATED_INSTANCES,
-            SCHEME_99IHE, MEANING_NUM_SERIES_RELATED_INSTANCES,
+            SCHEME_DCM, MEANING_NUM_SERIES_RELATED_INSTANCES,
             series.hasInstance() ? series.getInstance().size() : 0,
             "{instances}", "UCUM", "instances"));
 

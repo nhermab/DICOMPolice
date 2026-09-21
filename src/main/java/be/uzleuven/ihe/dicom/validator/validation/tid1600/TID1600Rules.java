@@ -20,46 +20,36 @@ public final class TID1600Rules {
     }
 
     /**
-     * Set of MADOTEMP code values that MUST use 99IHE as CodingSchemeDesignator.
+     * Set of standard MADO DCM code values (131560-131565).
      */
-    private static final Set<String> MADOTEMP_CODES = Set.of(
-            CodeConstants.CODE_MANIFEST_WITH_DESCRIPTION,  // MADOTEMP001
-            CodeConstants.CODE_SERIES_DESCRIPTION,          // MADOTEMP002
-            CodeConstants.CODE_SERIES_DATE,                 // MADOTEMP003
-            CodeConstants.CODE_SERIES_TIME,                 // MADOTEMP004
-            CodeConstants.CODE_NUM_SERIES_RELATED_INSTANCES, // MADOTEMP007
-            CodeConstants.CODE_NUM_STUDY_RELATED_SERIES     // MADOTEMP009
+    private static final Set<String> MADO_DCM_CODES = Set.of(
+            CodeConstants.CODE_MANIFEST_WITH_DESCRIPTION,  // 131560
+            CodeConstants.CODE_SERIES_DATE,                 // 131561
+            CodeConstants.CODE_SERIES_TIME,                 // 131562
+            CodeConstants.CODE_SERIES_DESCRIPTION,          // 131563
+            CodeConstants.CODE_NUM_SERIES_RELATED_INSTANCES, // 131564
+            CodeConstants.CODE_NUM_STUDY_RELATED_SERIES     // 131565
     );
 
     /**
-     * Validates that a MADOTEMP code uses the correct 99IHE scheme designator.
-     * Reports an error if a MADOTEMP code is paired with the wrong scheme (e.g., DCM).
+     * Validates that a MADO standard code uses the DCM scheme designator.
+     * Reports an error if paired with the wrong scheme.
      *
-     * @param concept  the ConceptNameCodeSequence item containing CodeValue and CodingSchemeDesignator
-     * @param expectedCode the expected MADOTEMP code value
-     * @param result   validation result to add errors to
-     * @param path     module path for error reporting
+     * @param concept      the ConceptNameCodeSequence item containing CodeValue and CodingSchemeDesignator
+     * @param expectedCode the expected DCM code value
+     * @param result       validation result to add errors to
+     * @param path         module path for error reporting
      */
-    public static void validateMADOTEMPScheme(Attributes concept, String expectedCode,
-                                              ValidationResult result, String path) {
+    public static void validateDCMScheme(Attributes concept, String expectedCode,
+                                         ValidationResult result, String path) {
         if (concept == null) {
             return;
         }
         String codingScheme = concept.getString(Tag.CodingSchemeDesignator);
-        if (!CodeConstants.SCHEME_99IHE.equals(codingScheme) && isMadoTempCode(expectedCode)) {
-            result.addError(String.format(ValidationMessages.MADO_WRONG_SCHEME_FOR_MADOTEMP,
+        if (!CodeConstants.SCHEME_DCM.equals(codingScheme)) {
+            result.addError(String.format(ValidationMessages.MADO_WRONG_SCHEME,
                     expectedCode, codingScheme != null ? codingScheme : "(null)"), path);
         }
-    }
-
-    /**
-     * Returns true if the given code value is a MADOTEMP trial implementation code.
-     */
-    public static boolean isMadoTempCode(String codeValue) {
-        if (codeValue == null) {
-            return false;
-        }
-        return MADOTEMP_CODES.contains(codeValue) || codeValue.startsWith("MADOTEMP");
     }
 
     /**

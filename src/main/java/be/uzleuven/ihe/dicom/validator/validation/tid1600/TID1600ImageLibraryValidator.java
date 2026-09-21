@@ -22,9 +22,7 @@ import static be.uzleuven.ihe.dicom.constants.CodeConstants.*;
  *   <li>TID 16XX: KOS Descriptors (when referenced instance is a KOS)</li>
  * </ul>
  *
- * <p>MADOTEMP codes (MADOTEMP001-009) use scheme designator '99IHE'.
- * Standard DCM codes (121139, 112002, 113607, 113609, 121140, 123014, 121144, 113012)
- * continue to use 'DCM'.</p>
+ * <p>All standard MADO concept codes use scheme designator 'DCM' per DICOM PS3.16 / MADO spec.</p>
  */
 public final class TID1600ImageLibraryValidator {
 
@@ -103,13 +101,13 @@ public final class TID1600ImageLibraryValidator {
      * <pre>
      *   Image Library Group (CONTAINER, 126200, DCM)
      *     ├── HAS ACQ CONTEXT -> Modality (121139, DCM) R+
-     *     ├── HAS ACQ CONTEXT -> Series Date (MADOTEMP003, 99IHE) RC+
-     *     ├── HAS ACQ CONTEXT -> Series Time (MADOTEMP004, 99IHE) RC+
-     *     ├── HAS ACQ CONTEXT -> Series Description (MADOTEMP002, 99IHE) RC+
+     *     ├── HAS ACQ CONTEXT -> Series Date (131561, DCM) RC+
+     *     ├── HAS ACQ CONTEXT -> Series Time (131562, DCM) RC+
+     *     ├── HAS ACQ CONTEXT -> Series Description (131563, DCM) RC+
      *     ├── HAS ACQ CONTEXT -> Series Number (113607, DCM) RC+
      *     ├── HAS ACQ CONTEXT -> Series Instance UID (112002, DCM) R+
      *     ├── HAS ACQ CONTEXT -> Target Region (123014, DCM) RC+
-     *     ├── HAS ACQ CONTEXT -> Number of Series Related Instances (MADOTEMP007, 99IHE) R+
+     *     ├── HAS ACQ CONTEXT -> Number of Series Related Instances (131564, DCM) R+
      *     └── CONTAINS -> IMAGE/COMPOSITE/WAVEFORM (instance entries)
      * </pre>
      */
@@ -152,13 +150,13 @@ public final class TID1600ImageLibraryValidator {
                     hasModality = true;
                 } else if (CODE_SERIES_DATE.equals(codeValue)) {
                     hasSeriesDate = true;
-                    TID1600Rules.validateMADOTEMPScheme(concept, CODE_SERIES_DATE, result, path);
+                    TID1600Rules.validateDCMScheme(concept, CODE_SERIES_DATE, result, path);
                 } else if (CODE_SERIES_TIME.equals(codeValue)) {
                     hasSeriesTime = true;
-                    TID1600Rules.validateMADOTEMPScheme(concept, CODE_SERIES_TIME, result, path);
+                    TID1600Rules.validateDCMScheme(concept, CODE_SERIES_TIME, result, path);
                 } else if (CODE_SERIES_DESCRIPTION.equals(codeValue)) {
                     hasSeriesDescription = true;
-                    TID1600Rules.validateMADOTEMPScheme(concept, CODE_SERIES_DESCRIPTION, result, path);
+                    TID1600Rules.validateDCMScheme(concept, CODE_SERIES_DESCRIPTION, result, path);
                 } else if (CODE_SERIES_NUMBER.equals(codeValue)) {
                     hasSeriesNumber = true;
                     TID1600Rules.validateSeriesNumberConsistency(item, result, path);
@@ -169,7 +167,7 @@ public final class TID1600ImageLibraryValidator {
                     TID1600Rules.validateAnatomicRegion(item, result, path);
                 } else if (CODE_NUM_SERIES_RELATED_INSTANCES.equals(codeValue)) {
                     hasNumberOfSeriesRelatedInstances = true;
-                    TID1600Rules.validateMADOTEMPScheme(concept, CODE_NUM_SERIES_RELATED_INSTANCES, result, path);
+                    TID1600Rules.validateDCMScheme(concept, CODE_NUM_SERIES_RELATED_INSTANCES, result, path);
                     // Validate UCUM unit is {instances}
                     TID1600Rules.validateUCUMUnit(item, "{instances}", "Number of Series Related Instances", result, path);
                 }

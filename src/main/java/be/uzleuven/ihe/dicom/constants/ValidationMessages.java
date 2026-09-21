@@ -19,7 +19,7 @@ public class ValidationMessages {
     private static final String CODE_NUM_STUDY_RELATED_SERIES = CodeConstants.CODE_NUM_STUDY_RELATED_SERIES;
     private static final String CODE_KOS_DOCUMENT_TITLE = CodeConstants.CODE_KOS_DOCUMENT_TITLE;
     private static final String CODE_KEY_OBJECT_DESCRIPTION = CodeConstants.CODE_KOS_OBJECT_DESCRIPTION;
-    private static final String SCHEME_99IHE = CodeConstants.SCHEME_99IHE;
+    private static final String SCHEME_DCM = CodeConstants.SCHEME_DCM;
 
     // ========== Specification References ==========
     // MADO TI (Rev 1.0 / CP-2595 VP4) section references
@@ -787,14 +787,14 @@ public class ValidationMessages {
     public static final String TID1600_GROUP_MISSING_MODALITY = "TID 1600 Image Library Group missing Modality (121139, DCM, \"Modality\"). [" +
             REF_MADO_TABLE_6_X_2_9_2 + ": 'The following content Items shall be present in the 'Image Library Group'... Modality (121139, DCM) R+']";
 
-    public static final String TID1600_GROUP_MISSING_SERIES_DATE = "TID 1602 Image Library Group missing Series Date (" + CODE_SERIES_DATE + ", " + SCHEME_99IHE + ", \"Series Date\"). [" +
-            REF_MADO_TABLE_6_X_2_9_2 + ": 'The following content Items shall be present... Series Date (" + CODE_SERIES_DATE + ", " + SCHEME_99IHE + ") RC+']";
+    public static final String TID1600_GROUP_MISSING_SERIES_DATE = "TID 1602 Image Library Group missing Series Date (" + CODE_SERIES_DATE + ", " + SCHEME_DCM + ", \"Series Date\"). [" +
+            REF_MADO_TABLE_6_X_2_9_2 + ": 'The following content Items shall be present... Series Date (" + CODE_SERIES_DATE + ", " + SCHEME_DCM + ") RC+']";
 
-    public static final String TID1600_GROUP_MISSING_SERIES_TIME = "TID 1602 Image Library Group missing Series Time (" + CODE_SERIES_TIME + ", " + SCHEME_99IHE + ", \"Series Time\"). [" +
-            REF_MADO_TABLE_6_X_2_9_2 + ": 'The following content Items shall be present... Series Time (" + CODE_SERIES_TIME + ", " + SCHEME_99IHE + ") RC+']";
+    public static final String TID1600_GROUP_MISSING_SERIES_TIME = "TID 1602 Image Library Group missing Series Time (" + CODE_SERIES_TIME + ", " + SCHEME_DCM + ", \"Series Time\"). [" +
+            REF_MADO_TABLE_6_X_2_9_2 + ": 'The following content Items shall be present... Series Time (" + CODE_SERIES_TIME + ", " + SCHEME_DCM + ") RC+']";
 
-    public static final String TID1600_GROUP_MISSING_SERIES_DESCRIPTION = "TID 1602 Image Library Group missing Series Description (" + CODE_SERIES_DESCRIPTION + ", " + SCHEME_99IHE + ", \"Series Description\"). [" +
-            REF_MADO_TABLE_6_X_2_9_2 + ": 'The following content Items shall be present... Series Description (" + CODE_SERIES_DESCRIPTION + ", " + SCHEME_99IHE + ") RC+']";
+    public static final String TID1600_GROUP_MISSING_SERIES_DESCRIPTION = "TID 1602 Image Library Group missing Series Description (" + CODE_SERIES_DESCRIPTION + ", " + SCHEME_DCM + ", \"Series Description\"). [" +
+            REF_MADO_TABLE_6_X_2_9_2 + ": 'The following content Items shall be present... Series Description (" + CODE_SERIES_DESCRIPTION + ", " + SCHEME_DCM + ") RC+']";
 
     public static final String TID1600_GROUP_MISSING_SERIES_NUMBER = "TID 1602 Image Library Group missing Series Number (" + CODE_SERIES_NUMBER + ", DCM, \"Series Number\"). [" +
             REF_MADO_TABLE_6_X_2_9_2 + ": 'The following content Items shall be present... Series Number (" + CODE_SERIES_NUMBER + ", DCM) RC+']";
@@ -802,8 +802,8 @@ public class ValidationMessages {
     public static final String TID1600_GROUP_MISSING_SERIES_UID = "TID 1602 Image Library Group missing Series Instance UID (" + CODE_SERIES_INSTANCE_UID + ", DCM, \"Series Instance UID\"). [" +
             REF_MADO_TABLE_6_X_2_9_2 + ": 'The following content Items shall be present... Series Instance UID (" + CODE_SERIES_INSTANCE_UID + ", DCM) R+']";
 
-    public static final String TID1600_GROUP_MISSING_SERIES_RELATED_INSTANCES = "TID 1602 Image Library Group missing Number of Series Related Instances (" + CODE_NUM_SERIES_RELATED_INSTANCES + ", " + SCHEME_99IHE + "). [" +
-            "IHE MADO Suppl. (TID 1602): 'Number of Series Related Instances (" + CODE_NUM_SERIES_RELATED_INSTANCES + ", " + SCHEME_99IHE + ")... R+ Units: {instances}']";
+    public static final String TID1600_GROUP_MISSING_SERIES_RELATED_INSTANCES = "TID 1602 Image Library Group missing Number of Series Related Instances (" + CODE_NUM_SERIES_RELATED_INSTANCES + ", " + SCHEME_DCM + "). [" +
+            "IHE MADO Suppl. (TID 1602): 'Number of Series Related Instances (" + CODE_NUM_SERIES_RELATED_INSTANCES + ", " + SCHEME_DCM + ")... R+ Units: {instances}']";
 
     public static final String TID1600_ENTRY_NO_REFERENCED_SOP = "TID 1600 Image Library Entry has no ReferencedSOPSequence. [" +
             REF_DICOM_PS3_3 + " (Ref SOP Seq): 'Referenced SOP Sequence (0008,1199)... One or more Items shall be included in this Sequence.' " +
@@ -844,8 +844,8 @@ public class ValidationMessages {
     public static final String TID1600_STUDY_MISSING_TARGET_REGION = "TID 1600 Requirement: Target Region (123014, DCM, 'Target Region') missing at study level (Type R+). [" +
             REF_MADO_TABLE_6_X_2_9_1 + ": 'In the TID 1600 'Image Library' the following content Items shall be present... Target Region (123014, DCM) R+... High-level anatomic regions']";
 
-    public static final String TID1600_STUDY_MISSING_NUM_SERIES = "TID 1600 Requirement: Number of Study Related Series (" + CODE_NUM_STUDY_RELATED_SERIES + ", " + SCHEME_99IHE + ") missing at study level (Type R+). [" +
-            REF_MADO_TABLE_6_X_2_9_1 + ": 'Number of Study Related Series (" + CODE_NUM_STUDY_RELATED_SERIES + ", " + SCHEME_99IHE + ") R+... Units: {series}']";
+    public static final String TID1600_STUDY_MISSING_NUM_SERIES = "TID 1600 Requirement: Number of Study Related Series (" + CODE_NUM_STUDY_RELATED_SERIES + ", " + SCHEME_DCM + ") missing at study level (Type R+). [" +
+            REF_MADO_TABLE_6_X_2_9_1 + ": 'Number of Study Related Series (" + CODE_NUM_STUDY_RELATED_SERIES + ", " + SCHEME_DCM + ") R+... Units: {series}']";
 
     /** @deprecated Study Instance UID is no longer a TID 1600 content item in CP-2595 */
     @Deprecated
@@ -889,13 +889,13 @@ public class ValidationMessages {
     public static final String TID1600_KEY_DESCRIPTION_MISMATCH = "TID 16XX Requirement V-DESC-02: Key Object Description present but %s. [" +
             REF_MADO_TABLE_6_X_2_9_4 + ": 'Key Object Description (" + CODE_KEY_OBJECT_DESCRIPTION + ", DCM)... RC+ Required when present in the referenced KOS instance.']";
 
-    // ========== 99IHE Scheme Validation ==========
-    public static final String MADO_WRONG_SCHEME_FOR_MADOTEMP = "CodingSchemeDesignator must be '" + SCHEME_99IHE + "' for MADO trial code %s, found: '%s'. [" +
-            "DICOM CP-2595 Trial Implementation: 'Temporary codes (MADOTEMP*) must use coding scheme designator " + SCHEME_99IHE + "']";
+    // ========== DCM Scheme Validation ==========
+    public static final String MADO_WRONG_SCHEME = "CodingSchemeDesignator must be '" + SCHEME_DCM + "' for MADO code %s, found: '%s'. [" +
+            "DICOM Standard / MADO Profile: 'Standard codes must use coding scheme designator " + SCHEME_DCM + "']";
 
     public static final String MADO_DEPRECATED_DDD_CODE = "Deprecated provisional code '%s' with scheme '%s' detected. " +
-            "MADO CP-2595 Trial Implementation now uses MADOTEMP codes with scheme '" + SCHEME_99IHE + "'. " +
-            "Please update to the new code values.";
+            "MADO uses official DICOM codes (131560-131565) with scheme '" + SCHEME_DCM + "'. " +
+            "Please update to the standard DICOM codes.";
 
     // ========== TID 1602 Series-Level Target Region ==========
     public static final String TID1602_GROUP_MISSING_TARGET_REGION = "TID 1602 Image Library Group missing Target Region (123014, DCM, \"Target Region\") at series level (Type RC+). [" +
@@ -1072,8 +1072,8 @@ public class ValidationMessages {
 
     // ========== MADO-REC-001: Profile version stamp ==========
     public static final String MADO_PROFILE_VERSION =
-        "Validating against MADO Trial Implementation profile: mado-ti-2025-12-08-cp2595-vp4-2026-03-03. " +
-        "Temporary 99IHE codes accepted per CP-2595 voting packet.";
+        "Validating against MADO Profile (Rev. 1.2, 2026-08-20). " +
+        "Standard DICOM codes (131560-131565, DCM) per DICOM standard.";
 
     // ========== MADO-REC-003: Display URI ==========
     public static final String MADO_DISPLAY_URI_PRIVATE_TAG_FOUND =

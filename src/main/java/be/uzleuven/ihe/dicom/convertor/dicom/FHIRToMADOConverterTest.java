@@ -443,11 +443,11 @@ public class FHIRToMADOConverterTest {
         mado.setString(Tag.ValueType, VR.CS, "CONTAINER");
         mado.setString(Tag.ContinuityOfContent, VR.CS, "SEPARATE");
 
-        // Concept Name (Manifest with Description - CP-2595)
+        // Concept Name (Manifest with Description - CID 7010 / DCM 131560)
         Sequence conceptNameSeq = mado.newSequence(Tag.ConceptNameCodeSequence, 1);
         Attributes conceptName = new Attributes();
-        conceptName.setString(Tag.CodeValue, VR.SH, "MADOTEMP001");
-        conceptName.setString(Tag.CodingSchemeDesignator, VR.SH, "99IHE");
+        conceptName.setString(Tag.CodeValue, VR.SH, "131560");
+        conceptName.setString(Tag.CodingSchemeDesignator, VR.SH, "DCM");
         conceptName.setString(Tag.CodeMeaning, VR.LO, "Manifest with Description");
         conceptNameSeq.add(conceptName);
 
@@ -488,14 +488,14 @@ public class FHIRToMADOConverterTest {
         modalityCodeSeq.add(modalityCode);
         contentSeq.add(modalityItem);
 
-        // Number of Study Related Series item (replaces Study Instance UID per CP-2595)
+        // Number of Study Related Series item (131565, DCM)
         Attributes numSeriesItem = new Attributes();
         numSeriesItem.setString(Tag.RelationshipType, VR.CS, "HAS ACQ CONTEXT");
         numSeriesItem.setString(Tag.ValueType, VR.CS, "NUM");
         Sequence numSeriesConceptSeq = numSeriesItem.newSequence(Tag.ConceptNameCodeSequence, 1);
         Attributes numSeriesConcept = new Attributes();
-        numSeriesConcept.setString(Tag.CodeValue, VR.SH, "MADOTEMP009");
-        numSeriesConcept.setString(Tag.CodingSchemeDesignator, VR.SH, "99IHE");
+        numSeriesConcept.setString(Tag.CodeValue, VR.SH, "131565");
+        numSeriesConcept.setString(Tag.CodingSchemeDesignator, VR.SH, "DCM");
         numSeriesConcept.setString(Tag.CodeMeaning, VR.LO, "Number of Study Related Series");
         numSeriesConceptSeq.add(numSeriesConcept);
         contentSeq.add(numSeriesItem);

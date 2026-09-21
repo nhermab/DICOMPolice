@@ -113,10 +113,10 @@ class MADOContentBuilder {
             CodeConstants.SCHEME_DCM, CodeConstants.MEANING_TARGET_REGION,
             code(CodeConstants.SNOMED_LOWER_TRUNK, "SCT", "Lower trunk")));
 
-        // Number of Study Related Series (MADOTEMP009, 99IHE) - R+ per CP-2595
+        // Number of Study Related Series (131565, DCM) - R+ per MADO spec
         // Units: {series} UCUM per DICOM NUM item requirement
         libContent.add(createNumericItem("HAS ACQ CONTEXT", CodeConstants.CODE_NUM_STUDY_RELATED_SERIES,
-            CodeConstants.SCHEME_99IHE, CodeConstants.MEANING_NUM_STUDY_RELATED_SERIES, allSeries.size(),
+            CodeConstants.SCHEME_DCM, CodeConstants.MEANING_NUM_STUDY_RELATED_SERIES, allSeries.size(),
             "{series}", "UCUM", "series"));
     }
 
@@ -167,19 +167,19 @@ class MADOContentBuilder {
             CodeConstants.SCHEME_DCM, CodeConstants.MEANING_SERIES_INSTANCE_UID, normalizedSeriesUid));
 
         groupSeq.add(createTextItem("HAS ACQ CONTEXT", CodeConstants.CODE_SERIES_DESCRIPTION,
-            CodeConstants.SCHEME_99IHE, CodeConstants.MEANING_SERIES_DESCRIPTION, seriesDescription));
+            CodeConstants.SCHEME_DCM, CodeConstants.MEANING_SERIES_DESCRIPTION, seriesDescription));
 
         groupSeq.add(createTextItem("HAS ACQ CONTEXT", CodeConstants.CODE_SERIES_DATE,
-            CodeConstants.SCHEME_99IHE, CodeConstants.MEANING_SERIES_DATE, seriesDate));
+            CodeConstants.SCHEME_DCM, CodeConstants.MEANING_SERIES_DATE, seriesDate));
 
         groupSeq.add(createTextItem("HAS ACQ CONTEXT", CodeConstants.CODE_SERIES_TIME,
-            CodeConstants.SCHEME_99IHE, CodeConstants.MEANING_SERIES_TIME, seriesTime));
+            CodeConstants.SCHEME_DCM, CodeConstants.MEANING_SERIES_TIME, seriesTime));
 
         groupSeq.add(createTextItem("HAS ACQ CONTEXT", CodeConstants.CODE_SERIES_NUMBER,
             CodeConstants.SCHEME_DCM, CodeConstants.MEANING_SERIES_NUMBER, Integer.toString(seriesNumber)));
 
         groupSeq.add(createNumericItem("HAS ACQ CONTEXT", CodeConstants.CODE_NUM_SERIES_RELATED_INSTANCES,
-            CodeConstants.SCHEME_99IHE, CodeConstants.MEANING_NUM_SERIES_RELATED_INSTANCES,
+            CodeConstants.SCHEME_DCM, CodeConstants.MEANING_NUM_SERIES_RELATED_INSTANCES,
             sd.instances != null ? sd.instances.size() : 0,
             "{instances}", "UCUM", "instances"));
     }

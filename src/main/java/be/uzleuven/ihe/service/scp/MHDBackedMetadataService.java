@@ -687,13 +687,9 @@ public class MHDBackedMetadataService {
      * and look into Image Library Entry TID 1602 (instance level) for each image in this series.
      */
     private void enrichSeriesFromTID1601(Sequence groupContentSeq, SeriesMetadata series) {
-        // Attributes added by MADO spec
+        // Attributes added by MADO spec (131563, DCM)
         series.seriesDescription = SRContentTreeUtils.findValueByConceptNameAndValueTag(
-                groupContentSeq, CodeConstants.CODE_SERIES_DESCRIPTION, CodeConstants.SCHEME_99IHE, Tag.TextValue);
-        if (series.seriesDescription == null) {
-            series.seriesDescription = SRContentTreeUtils.findValueByConceptNameAndValueTag(
-                    groupContentSeq, CodeConstants.CODE_SERIES_DESCRIPTION, CodeConstants.SCHEME_DCM, Tag.TextValue);
-        }
+                groupContentSeq, CodeConstants.CODE_SERIES_DESCRIPTION, CodeConstants.SCHEME_DCM, Tag.TextValue);
         series.seriesNumber = SRContentTreeUtils.findValueByConceptNameAndValueTag(
                 groupContentSeq, CodeConstants.CODE_SERIES_NUMBER, CodeConstants.SCHEME_DCM, Tag.TextValue);
 

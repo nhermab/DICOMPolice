@@ -20,7 +20,7 @@ import static be.uzleuven.ihe.dicom.constants.DicomConstants.CODE_MODALITY;
  * <ul>
  *   <li>Modality (121139, DCM) - R+, DCID 29 / DCID 32</li>
  *   <li>Target Region (123014, DCM) - R+, high-level anatomic regions</li>
- *   <li>Number of Study Related Series (MADOTEMP009, 99IHE) - R+, units: {series}</li>
+ *   <li>Number of Study Related Series (131565, DCM) - R+, units: {series}</li>
  * </ul>
  */
 public final class TID1600StudyValidator {
@@ -49,12 +49,8 @@ public final class TID1600StudyValidator {
                 TID1600Rules.validateAnatomicRegion(item, result, path);
             } else if (CODE_NUM_STUDY_RELATED_SERIES.equals(codeValue)) {
                 hasNumStudyRelatedSeries = true;
-                // Validate scheme designator is 99IHE for MADOTEMP codes
-                String codingScheme = concept.getString(Tag.CodingSchemeDesignator);
-                if (!CodeConstants.SCHEME_99IHE.equals(codingScheme)) {
-                    result.addError(String.format(ValidationMessages.MADO_WRONG_SCHEME_FOR_MADOTEMP,
-                            CODE_NUM_STUDY_RELATED_SERIES, codingScheme != null ? codingScheme : "(null)"), path);
-                }
+                // Validate scheme designator is DCM
+                TID1600Rules.validateDCMScheme(concept, CODE_NUM_STUDY_RELATED_SERIES, result, path);
                 // Validate UCUM unit is {series}
                 TID1600Rules.validateUCUMUnit(item, "{series}", "Number of Study Related Series", result, path);
             }

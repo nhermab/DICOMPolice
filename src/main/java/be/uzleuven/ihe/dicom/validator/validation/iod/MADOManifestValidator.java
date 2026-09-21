@@ -19,8 +19,8 @@ import static be.uzleuven.ihe.dicom.constants.CodeConstants.CODE_MANIFEST_WITH_D
  */
 public class MADOManifestValidator extends KeyObjectSelectionValidator {
 
-    // MADO CP-2595 Trial Implementation: uses 99IHE scheme for MADOTEMP codes
-    private static final String MADO_MANIFEST_CSD = CodeConstants.SCHEME_99IHE;
+    // MADO specification / DICOM CID 7010: uses DCM scheme
+    private static final String MADO_MANIFEST_CSD = CodeConstants.SCHEME_DCM;
     private static final String MADO_MANIFEST_CODE_MEANING = "Manifest with Description";
 
     private static final String PROFILE_IHE_MADO = "IHEMADO";
@@ -283,17 +283,16 @@ public class MADOManifestValidator extends KeyObjectSelectionValidator {
         String csd = item.getString(Tag.CodingSchemeDesignator);
         String meaning = item.getString(Tag.CodeMeaning);
 
-        // MADO requires either (113030, DCM, "Manifest") OR (MADOTEMP001, 99IHE, "Manifest with Description")
-        boolean isManifest = CodeConstants.CODE_KOS_MANIFEST.equals(codeValue) && "DCM".equals(csd);
+        // MADO requires either (113030, DCM, "Manifest") OR (131560, DCM, "Manifest with Description")
+        boolean isManifest = CodeConstants.CODE_KOS_MANIFEST.equals(codeValue) && CodeConstants.SCHEME_DCM.equals(csd);
         boolean isManifestWithDesc = CODE_MANIFEST_WITH_DESCRIPTION.equals(codeValue) && MADO_MANIFEST_CSD.equals(csd);
 
         if (!isManifest && !isManifestWithDesc) {
-            // Check for MADOTEMP001 with wrong scheme (common migration mistake)
-            if (CODE_MANIFEST_WITH_DESCRIPTION.equals(codeValue) && "DCM".equals(csd)) {
+            if (CODE_MANIFEST_WITH_DESCRIPTION.equals(codeValue) && !CodeConstants.SCHEME_DCM.equals(csd)) {
                 result.addError(
                     "MADO ConceptNameCodeSequence uses correct code (" + CODE_MANIFEST_WITH_DESCRIPTION
-                    + ") but wrong CodingSchemeDesignator: 'DCM'.\n"
-                    + "CP-2595 requires: (" + CODE_MANIFEST_WITH_DESCRIPTION + ", " + MADO_MANIFEST_CSD
+                    + ") but wrong CodingSchemeDesignator: '" + csd + "'.\n"
+                    + "DICOM standard requires: (" + CODE_MANIFEST_WITH_DESCRIPTION + ", " + MADO_MANIFEST_CSD
                     + ", \"" + MADO_MANIFEST_CODE_MEANING + "\")", modulePath);
             } else if ("ddd001".equals(codeValue)) {
                 // Legacy deprecated code
